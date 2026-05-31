@@ -23,6 +23,7 @@ export const updatePlaceSchema = actorUserIdSchema.extend({
   durationMin: z.number().int().positive().nullable().optional(),
   estimatedCost: z.number().nonnegative().nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
+  accommodationStatus: z.enum(['SAVED','SHORTLISTED','SELECTED','BOOKED','REJECTED']).nullable().optional(),
 });
 
 export const votePlaceSchema = actorUserIdSchema.extend({

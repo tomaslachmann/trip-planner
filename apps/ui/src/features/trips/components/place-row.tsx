@@ -1,6 +1,7 @@
-import { CalendarPlus, Clock, MessageCircle, ThumbsUp } from 'lucide-react';
+import { Bookmark, CalendarPlus, Check, Clock, Ellipsis, MessageCircle, ThumbsUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { Place } from '../types';
-import { CategoryBadge, categoryLabel, categoryMeta } from './category';
+import { CategoryBadge, categoryMeta } from './category';
 
 export function PlaceRow({
   place,
@@ -8,17 +9,26 @@ export function PlaceRow({
   dragging,
   onSelect,
   onAdd,
+  onApprove,
+  onShortlist,
+  onMore,
 }: {
   place: Place;
   selected?: boolean;
   dragging?: boolean;
   onSelect: () => void;
   onAdd?: () => void;
+  onApprove?: () => void;
+  onShortlist?: () => void;
+  onMore?: () => void;
 }) {
   const meta = categoryMeta(place.type);
   const Icon = meta.icon;
-  const votes = place.votes?.length ?? 0;
+  const mustVotes = place.votes?.filter((vote) => vote.value === 'MUST_HAVE').length ?? 0;
+  const upVotes = place.votes?.filter((vote) => vote.value === 'UP').length ?? 0;
+  const votes = mustVotes + upVotes;
   const comments = place.comments?.length ?? 0;
+  const status = mustVotes > 0 ? { label: 'Schválené', cls: 'green' } : upVotes > 0 ? { label: 'Shortlist', cls: 'amber' } : { label: 'Návrh', cls: 'muted' };
   return (
     <div className="col" style={{ padding: '13px 0' }}>
       <div className="row pressable" onClick={onSelect}>
@@ -28,7 +38,7 @@ export function PlaceRow({
         <div className="col flex1" style={{ minWidth: 0 }}>
           <div className="row between g8">
             <span className="t-h3" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.name}</span>
-            <span className={`badge ${selected ? 'solid' : 'muted'}`}>{selected ? 'Vybráno' : categoryLabel(place.type)}</span>
+            <span className={`badge ${selected ? 'solid' : status.cls}`}>{selected ? 'Vybráno' : status.label}</span>
           </div>
           <div className="row g10 mt4 muted t-xs">
             <span className="row g4"><ThumbsUp />{votes}</span>
@@ -38,11 +48,30 @@ export function PlaceRow({
           </div>
         </div>
       </div>
+      {(onApprove || onShortlist || onMore) && (
+        <div className="row g8 mt10" style={{ paddingLeft: 52 }}>
+          {onApprove && (
+            <Button variant="outline" size="sm" type="button" onClick={onApprove} disabled={dragging}>
+              <Check />Schválit
+            </Button>
+          )}
+          {onShortlist && (
+            <Button variant="ghost" size="sm" type="button" onClick={onShortlist} disabled={dragging}>
+              <Bookmark />Shortlist
+            </Button>
+          )}
+          {onMore && (
+            <Button variant="ghost" size="sm" type="button" onClick={onMore} disabled={dragging} aria-label="Další akce">
+              <Ellipsis />
+            </Button>
+          )}
+        </div>
+      )}
       {onAdd && (
         <div className="row g8 mt10" style={{ paddingLeft: 52 }}>
-          <button className="btn outline sm" type="button" onClick={onAdd} disabled={dragging}>
+          <Button variant="outline" size="sm" type="button" onClick={onAdd} disabled={dragging}>
             <CalendarPlus />Plán
-          </button>
+          </Button>
           <CategoryBadge type={place.type} />
         </div>
       )}

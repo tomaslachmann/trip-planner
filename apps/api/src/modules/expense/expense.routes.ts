@@ -5,6 +5,7 @@ import { getActorUserId, requireTripMember, requireTripRole, requireTripUsers } 
 import { httpError } from '../../utils/http.js';
 import { actorQuerySchema, emptyResponseSchema, idParamSchema, jsonResponseSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
 import { createExpenseSchema, deleteExpenseSchema, updateExpenseSchema } from './expense.schemas.js';
+import { recordActivity } from '../activity/activity.service.js';
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
@@ -81,11 +82,24 @@ export async function expenseRoutes(app: FastifyInstance) {
         title: body.title,
         amount: body.amount,
         currency: body.currency,
+        originalAmount: body.originalAmount,
+        originalCurrency: body.originalCurrency,
+        exchangeRate: body.exchangeRate,
+        exchangeDate: body.exchangeDate ? new Date(body.exchangeDate) : undefined,
         splitType: body.splitType,
         itineraryStopId: body.itineraryStopId,
         splits: { create: splits },
       },
-      include: { splits: true },
+      include: { splits: true, paidBy: true },
+    });
+    await recordActivity({
+      tripId: body.tripId,
+      actorUserId,
+      type: 'EXPENSE_CREATED',
+      entityType: 'expense',
+      entityId: expense.id,
+      label: `Přidán výdaj ${expense.title}`,
+      metadata: { amount: Number(expense.amount), currency: expense.currency },
     });
     return reply.code(201).send(expense);
   });
@@ -102,15 +116,65 @@ export async function expenseRoutes(app: FastifyInstance) {
   }, async (request) => {
     const { id } = request.params as { id: string };
     const body = updateExpenseSchema.parse(request.body);
-    const expense = await prisma.expense.findUniqueOrThrow({ where: { id } });
+    const expense = await prisma.expense.findUniqueOrThrow({ where: { id }, include: { splits: true } });
     const actorUserId = getActorUserId(request, body);
     if (expense.paidById !== actorUserId) await requireTripRole(expense.tripId, actorUserId, 'ADMIN');
+    if (body.paidById && body.paidById !== actorUserId) await requireTripRole(expense.tripId, actorUserId, 'ADMIN');
 
-    return prisma.expense.update({
-      where: { id },
-      data: { title: body.title },
-      include: { splits: true, paidBy: true },
+    const nextPaidById = body.paidById ?? expense.paidById;
+    await requireTripUsers(expense.tripId, [nextPaidById]);
+
+    if (body.itineraryStopId) {
+      const stop = await prisma.itineraryStop.findUniqueOrThrow({ where: { id: body.itineraryStopId }, include: { day: true } });
+      if (stop.day.tripId !== expense.tripId) throw httpError(400, 'Itinerary stop must belong to the expense trip');
+    }
+
+    const shouldUpdateSplits = body.amount !== undefined || body.splitType !== undefined || body.splitAllTripMembers !== undefined || body.splitUserIds !== undefined || body.customSplits !== undefined;
+    const nextAmount = body.amount ?? Number(expense.amount);
+    const nextSplitType = body.splitType ?? expense.splitType;
+    const splitUserIds = body.splitAllTripMembers
+      ? (await prisma.tripMember.findMany({ where: { tripId: expense.tripId }, select: { userId: true } })).map((member) => member.userId)
+      : body.splitUserIds ?? expense.splits.map((split) => split.userId);
+
+    const nextSplits = nextSplitType === 'CUSTOM'
+      ? body.customSplits ?? expense.splits.map((split) => ({ userId: split.userId, amount: Number(split.amount) }))
+      : equalSplits(nextAmount, splitUserIds);
+
+    if (shouldUpdateSplits) {
+      await requireTripUsers(expense.tripId, nextSplits.map((split) => split.userId));
+      const splitTotal = roundMoney(nextSplits.reduce((sum, split) => sum + split.amount, 0));
+      if (splitTotal !== roundMoney(nextAmount)) throw httpError(400, 'Expense splits must add up to amount');
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (shouldUpdateSplits) await tx.expenseSplit.deleteMany({ where: { expenseId: id } });
+      return tx.expense.update({
+        where: { id },
+        data: {
+          title: body.title,
+          paidById: nextPaidById,
+          amount: body.amount,
+          currency: body.currency,
+          originalAmount: body.originalAmount,
+          originalCurrency: body.originalCurrency,
+          exchangeRate: body.exchangeRate,
+          exchangeDate: body.exchangeDate === undefined ? undefined : body.exchangeDate === null ? null : new Date(body.exchangeDate),
+          splitType: body.splitType,
+          itineraryStopId: body.itineraryStopId,
+          splits: shouldUpdateSplits ? { create: nextSplits } : undefined,
+        },
+        include: { splits: true, paidBy: true },
+      });
     });
+    await recordActivity({
+      tripId: expense.tripId,
+      actorUserId,
+      type: 'EXPENSE_UPDATED',
+      entityType: 'expense',
+      entityId: id,
+      label: `Upraven výdaj ${body.title ?? expense.title}`,
+    });
+    return updated;
   });
 
   routes.delete('/:id', {
@@ -129,6 +193,14 @@ export async function expenseRoutes(app: FastifyInstance) {
     const actorUserId = getActorUserId(request, body);
     if (expense.paidById !== actorUserId) await requireTripRole(expense.tripId, actorUserId, 'ADMIN');
     await prisma.expense.delete({ where: { id } });
+    await recordActivity({
+      tripId: expense.tripId,
+      actorUserId,
+      type: 'EXPENSE_DELETED',
+      entityType: 'expense',
+      entityId: id,
+      label: `Smazán výdaj ${expense.title}`,
+    });
     return reply.code(204).send(null);
   });
 }

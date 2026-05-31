@@ -5,6 +5,7 @@ import { getActorUserId, requireTripMember, requireTripRole } from '../access/ac
 import { httpError } from '../../utils/http.js';
 import { actorQuerySchema, emptyResponseSchema, idParamSchema, jsonResponseSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
 import { commentPlaceSchema, createPlaceSchema, deletePlaceSchema, updatePlaceSchema, votePlaceSchema } from './place.schemas.js';
+import { recordActivity } from '../activity/activity.service.js';
 
 export async function placeRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
@@ -22,7 +23,7 @@ export async function placeRoutes(app: FastifyInstance) {
     const { tripId } = request.params as { tripId: string };
     const actorUserId = getActorUserId(request);
     await requireTripMember(tripId, actorUserId);
-    return prisma.place.findMany({ where: { tripId }, include: { votes: true, comments: true } });
+    return prisma.place.findMany({ where: { tripId }, include: { votes: true, comments: true, dayVotes: true } });
   });
 
   routes.post('', {
@@ -58,9 +59,36 @@ export async function placeRoutes(app: FastifyInstance) {
     const actorUserId = getActorUserId(request, body);
     const place = await prisma.place.findUniqueOrThrow({ where: { id } });
     if (place.createdById !== actorUserId) await requireTripRole(place.tripId, actorUserId, 'ADMIN');
+    if (body.accommodationStatus !== undefined && place.type !== 'ACCOMMODATION') throw httpError(400, 'Only accommodation places can have accommodation status');
 
     const { actorUserId: _actorUserId, ...data } = body;
-    return prisma.place.update({ where: { id }, data });
+    const updated = await prisma.place.update({ where: { id }, data });
+    if (body.accommodationStatus !== undefined) {
+      if (body.accommodationStatus === 'BOOKED') {
+        const title = `Potvrdit check-in: ${updated.name}`;
+        const existingChecklistItem = await prisma.checklistItem.findFirst({ where: { tripId: place.tripId, title } });
+        if (!existingChecklistItem) {
+          await prisma.checklistItem.create({
+            data: {
+              tripId: place.tripId,
+              createdById: actorUserId,
+              title,
+              note: 'Automaticky vytvořeno po označení ubytování jako rezervované.',
+              scope: 'SHARED',
+            },
+          });
+        }
+      }
+      await recordActivity({
+        tripId: place.tripId,
+        actorUserId,
+        type: `ACCOMMODATION_${body.accommodationStatus ?? 'SAVED'}`,
+        entityType: 'place',
+        entityId: id,
+        label: `Ubytování ${updated.name}: ${body.accommodationStatus ?? 'uloženo'}`,
+      });
+    }
+    return updated;
   });
 
   routes.delete('/:id', {

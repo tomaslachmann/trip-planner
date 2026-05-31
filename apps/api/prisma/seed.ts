@@ -19,6 +19,15 @@ async function main() {
     update: { name: 'Petr' },
   });
 
+  await prisma.paymentAccount.deleteMany({ where: { userId: { in: [owner.id, anna.id, petr.id] } } });
+  await prisma.paymentAccount.createMany({
+    data: [
+      { userId: owner.id, label: 'Hlavní účet', iban: 'CZ6508000000192000145399', bankCode: '0800', recipientName: 'Tomas' },
+      { userId: anna.id, label: 'Hlavní účet', iban: 'CZ2308000000192000145403', bankCode: '0800', recipientName: 'Anna' },
+      { userId: petr.id, label: 'Hlavní účet', iban: 'CZ5408000000192000145411', bankCode: '0800', recipientName: 'Petr' },
+    ],
+  });
+
   const existing = await prisma.trip.findUnique({ where: { inviteCode: 'demo-barcelona-2026' } });
   if (existing) await prisma.trip.delete({ where: { id: existing.id } });
 
@@ -46,7 +55,7 @@ async function main() {
       tripMemberId: member.id,
       startsAt: new Date(index === 2 ? '2026-06-14T09:00:00.000Z' : '2026-06-12T09:00:00.000Z'),
       endsAt: new Date('2026-06-18T18:00:00.000Z'),
-      note: index === 2 ? 'Joins after the weekend' : 'Full trip',
+      note: index === 2 ? 'Přijíždí po víkendu' : 'Celý trip',
     })),
   });
 
@@ -99,7 +108,7 @@ async function main() {
     data: {
       tripId: trip.id,
       date: new Date('2026-06-13T00:00:00.000Z'),
-      title: 'Day 1',
+      title: 'Den 1',
       stops: {
         create: places.slice(0, 2).map((place, order) => ({
           placeId: place.id,

@@ -1,5 +1,8 @@
 import { LogIn, Plane, UserRound } from 'lucide-react';
-import { TripButton, TripCard } from './design-system';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function AccessScreen({
   message,
@@ -10,7 +13,7 @@ export function AccessScreen({
 }) {
   return (
     <div className="access-shell">
-      <TripCard pad className="access-card">
+      <Card className="access-card p-[14px] shadow-[var(--sh-sm)]">
         <div className="row g12 mb16">
           <div className="desk-brand" style={{ padding: 0 }}>
             <div className="logo"><Plane /></div>
@@ -27,22 +30,22 @@ export function AccessScreen({
             onSignIn(new FormData(event.currentTarget));
           }}
         >
-          <label className="field-label" htmlFor="name">Jméno</label>
-          <div className="input mb10">
-            <UserRound />
-            <input id="name" name="name" placeholder="Tomas" autoComplete="name" />
+          <Label htmlFor="name">Jméno</Label>
+          <div className="relative mb-3">
+            <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" id="name" name="name" placeholder="Tomas" autoComplete="name" />
           </div>
-          <label className="field-label" htmlFor="email">E-mail člena</label>
-          <div className="input mb10">
-            <UserRound />
-            <input id="email" name="email" type="email" placeholder="tomas@example.com" autoComplete="email" />
+          <Label htmlFor="email">E-mail člena</Label>
+          <div className="relative mb-3">
+            <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" id="email" name="email" type="email" placeholder="tomas@example.com" autoComplete="email" />
           </div>
           {message && <div className="badge red mb12" style={{ justifyContent: 'center', width: '100%' }}>{message}</div>}
-          <TripButton tone="primary" block type="submit"><LogIn />Pokračovat</TripButton>
+          <Button className="w-full" type="submit"><LogIn />Pokračovat</Button>
         </form>
 
         <p className="muted t-xs mt16">Použij e-mail, pod kterým chceš spravovat svoje tripy.</p>
-      </TripCard>
+      </Card>
     </div>
   );
 }

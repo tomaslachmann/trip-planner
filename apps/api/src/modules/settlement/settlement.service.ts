@@ -6,6 +6,9 @@ export type SettlementTransfer = {
   toUserId: string;
   amount: number;
   currency: string;
+  status: 'OPEN' | 'PAID' | 'CONFIRMED' | 'CANCELLED';
+  paidAt?: Date | null;
+  confirmedAt?: Date | null;
   qrPayload?: string;
 };
 
@@ -19,6 +22,7 @@ export async function calculateTripSettlements(tripId: string): Promise<Settleme
     include: {
       expenses: { include: { splits: true } },
       members: { include: { user: { include: { accounts: true } } } },
+      settlementPayments: true,
     },
   });
 
@@ -47,6 +51,9 @@ export async function calculateTripSettlements(tripId: string): Promise<Settleme
         toUserId: creditor.userId,
         amount,
         currency: trip.currency,
+        status: trip.settlementPayments.find((payment) => payment.fromUserId === debtor.userId && payment.toUserId === creditor.userId && payment.currency === trip.currency)?.status ?? 'OPEN',
+        paidAt: trip.settlementPayments.find((payment) => payment.fromUserId === debtor.userId && payment.toUserId === creditor.userId && payment.currency === trip.currency)?.paidAt,
+        confirmedAt: trip.settlementPayments.find((payment) => payment.fromUserId === debtor.userId && payment.toUserId === creditor.userId && payment.currency === trip.currency)?.confirmedAt,
         qrPayload: account?.iban ? createSpdPaymentPayload({ iban: account.iban, amount, currency: trip.currency, message: `Trip ${trip.name}`, recipientName: account.recipientName ?? undefined }) : undefined,
       });
       debtor.amount = roundMoney(debtor.amount - amount);

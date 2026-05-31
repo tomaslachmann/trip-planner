@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { prisma } from '../../db/prisma.js';
 import { getActorUserId, requireTripMember } from '../access/access.js';
+import { recordActivity } from '../activity/activity.service.js';
 import { saveAccommodationSchema, savedAccommodationResponseSchema, searchAccommodationsResponseSchema, searchAccommodationsSchema } from './accommodation.schemas.js';
 import { searchAccommodations } from './accommodation.service.js';
 
@@ -75,6 +76,15 @@ export async function accommodationRoutes(app: FastifyInstance) {
         accommodationDeepLinkUrl: body.deepLinkUrl,
         accommodationStatus: 'SAVED',
       },
+    });
+    await recordActivity({
+      tripId: body.tripId,
+      actorUserId,
+      type: 'ACCOMMODATION_SAVED',
+      entityType: 'place',
+      entityId: place.id,
+      label: `Uloženo ubytování ${place.name}`,
+      metadata: { provider: body.provider, externalId: body.externalId },
     });
     return reply.code(201).send({
       ...place,

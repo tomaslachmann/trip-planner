@@ -1,143 +1,282 @@
-import { Banknote, Plus, Receipt, Send } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Banknote, Check, Plus, QrCode, Receipt, Send } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ChipButton } from '@/components/ui/chip-group';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { StatsCard } from '@/components/ui/stats-card';
+import { SettlementParticipants, SettlementPaymentSheet } from './settlement-payment';
 import type { Expense, Settlement, Trip } from '../types';
+
+function ExpenseFields({ idPrefix, members }: { idPrefix: string; members: Trip['members'] }) {
+  const [splitScope, setSplitScope] = useState<'all' | 'selected'>('all');
+  const [selected, setSelected] = useState<Record<string, boolean>>(() => Object.fromEntries((members ?? []).map((member) => [member.userId, true])));
+
+  return (
+    <>
+      <input type="hidden" name="splitScope" value={splitScope} />
+      <div className="row between mb12">
+        <span className="t-h3">Přidat náklad</span>
+        <span className="badge"><Receipt />Rovný split</span>
+      </div>
+      <Label htmlFor={`${idPrefix}-title`}>Název</Label>
+      <div className="relative mb10">
+        <Receipt className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input className="pl-9" id={`${idPrefix}-title`} name="expenseTitle" placeholder="Večeře, půjčení auta..." />
+      </div>
+      <div className="row g8">
+        <Input name="amount" type="number" min="0" step="0.01" placeholder="Částka" aria-label="Částka" />
+        <Select value={splitScope} onValueChange={(value) => setSplitScope(value as 'all' | 'selected')}>
+          <SelectTrigger aria-label="Rozsah splitu"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všichni</SelectItem>
+            <SelectItem value="selected">Vybraní</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="row g8 mt8">
+        <Input name="originalAmount" type="number" min="0" step="0.01" placeholder="Původní částka" aria-label="Původní částka" />
+        <Input name="originalCurrency" placeholder="Původní měna" aria-label="Původní měna" />
+        <Input name="exchangeRate" type="number" min="0" step="0.0001" placeholder="Kurz" aria-label="Kurz" />
+      </div>
+      <div className="mt10">
+        <span className="field-label">Vybraní účastníci</span>
+        <div className="chips">
+          {(members ?? []).map((member) => (
+            <ChipButton
+              key={member.userId}
+              selected={splitScope === 'all' || !!selected[member.userId]}
+              disabled={splitScope === 'all'}
+              onClick={() => setSelected((current) => ({ ...current, [member.userId]: !current[member.userId] }))}
+            >
+              {(splitScope === 'all' || !!selected[member.userId]) && <Check size={14} />}
+              {splitScope === 'selected' && selected[member.userId] && <input type="hidden" name="splitUserIds" value={member.userId} />}
+              {member.user.name}
+            </ChipButton>
+          ))}
+        </div>
+      </div>
+      <Button className="mt12 w-full" type="submit"><Plus />Přidat náklad</Button>
+    </>
+  );
+}
 
 export function CostsPanel({
   trip,
   expenses,
   settlements,
   onAddExpense,
+  onEditExpense,
+  onOpenSettlement,
+  onUpdateSettlementStatus,
   mobile = false,
+  initialMobileTab = 'expenses',
 }: {
   trip?: Trip;
   expenses: Expense[];
   settlements: Settlement[];
   onAddExpense: (data: FormData) => void;
+  onEditExpense?: (expenseId: string) => void;
+  onOpenSettlement?: (settlement: Settlement) => void;
+  onUpdateSettlementStatus?: (settlement: Settlement, status: 'OPEN' | 'PAID' | 'CONFIRMED' | 'CANCELLED') => void;
   mobile?: boolean;
+  initialMobileTab?: 'expenses' | 'settle';
 }) {
   const total = expenses.reduce((sum, expense) => sum + Number(expense.amount ?? 0), 0);
   const members = trip?.members ?? [];
   const [formOpen, setFormOpen] = useState(!mobile);
+  const [mobileTab, setMobileTab] = useState<'expenses' | 'settle'>(initialMobileTab);
+  const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null);
 
-  function ExpenseForm({ sheet = false }: { sheet?: boolean }) {
-    return (
-      <form
-        className={sheet ? 'px18' : 'card pad sh mb16'}
-        style={sheet ? { paddingBottom: 18 } : undefined}
-        onSubmit={(event) => {
-          event.preventDefault();
-          onAddExpense(new FormData(event.currentTarget));
-          event.currentTarget.reset();
-          if (mobile) setFormOpen(false);
-        }}
-      >
-        <div className="row between mb12">
-          <span className="t-h3">Přidat náklad</span>
-          <span className="badge"><Receipt />Rovný split</span>
-        </div>
-        <Label htmlFor={sheet ? 'expenseTitleSheet' : 'expenseTitle'}>Název</Label>
-        <div className="input mb10"><Receipt /><input id={sheet ? 'expenseTitleSheet' : 'expenseTitle'} name="expenseTitle" placeholder="Večeře, půjčení auta..." /></div>
-        <div className="row g8">
-          <input className="input" name="amount" type="number" min="0" step="0.01" placeholder="Částka" aria-label="Částka" />
-          <select className="input" name="splitScope" defaultValue="all" aria-label="Rozsah splitu">
-            <option value="all">Všichni</option>
-            <option value="selected">Vybraní</option>
-          </select>
-        </div>
-        <div className="mt10">
-          <span className="field-label">Vybraní účastníci</span>
-          <div className="chips">
-            {members.map((member) => (
-              <label className="chip" key={member.userId}>
-                <input name="splitUserIds" type="checkbox" value={member.userId} defaultChecked style={{ margin: 0 }} />
-                {member.user.name}
-              </label>
-            ))}
-          </div>
-        </div>
-        <button className="btn primary block mt12" type="submit"><Plus />Přidat náklad</button>
-      </form>
-    );
+  useEffect(() => {
+    setMobileTab(initialMobileTab);
+  }, [initialMobileTab]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onAddExpense(new FormData(event.currentTarget));
+    event.currentTarget.reset();
+    if (mobile) setFormOpen(false);
   }
 
   return (
     <div className="scroll px18 costs-view" style={{ flex: 1, paddingTop: 10, paddingBottom: mobile ? 92 : 18 }}>
-      {mobile ? (
-        <div className="card sh expense-summary">
-          <div className="col flex1 center"><span className="t-h2 tnum">{Math.round(total)} {trip?.currency ?? 'EUR'}</span><span className="faint t-xs mt4">celkem</span></div>
-          <div className="summary-sep" />
-          <div className="col flex1 center"><span className="t-h2 tnum">{members.length ? Math.round(total / members.length) : 0} {trip?.currency ?? 'EUR'}</span><span className="faint t-xs mt4">na osobu</span></div>
-          <div className="summary-sep" />
-          <div className="col flex1 center"><span className="t-h2 tnum" style={{ color: 'var(--amber)' }}>{Math.round(settlements.reduce((sum, settlement) => sum + settlement.amount, 0))}</span><span className="faint t-xs mt4">nevyrovnáno</span></div>
-        </div>
-      ) : (
-      <div className="grid2 mb16" style={{ gap: 10 }}>
-        <div className="card pad sh">
-          <span className="muted t-xs">Celkové náklady</span>
-          <div className="t-title mt4">{Math.round(total)} {trip?.currency ?? 'EUR'}</div>
-        </div>
-        <div className="card pad sh">
-          <span className="muted t-xs">Vyrovnání</span>
-          <div className="t-title mt4">{settlements.length}</div>
-        </div>
-      </div>
+      {mobile && (
+        <SegmentedControl
+          className="mb12"
+          value={mobileTab}
+          onValueChange={setMobileTab}
+          options={[
+            { value: 'expenses', label: 'Výdaje' },
+            { value: 'settle', label: 'Vyrovnání' },
+          ]}
+        />
       )}
 
-      {!mobile && <ExpenseForm />}
+      {mobile ? (
+        mobileTab === 'expenses' ? (
+          <StatsCard
+            className="expense-summary"
+            items={[
+              { value: `${Math.round(total)} ${trip?.currency ?? 'EUR'}`, label: 'celkem' },
+              { value: `${members.length ? Math.round(total / members.length) : 0} ${trip?.currency ?? 'EUR'}`, label: 'na osobu' },
+              { value: Math.round(settlements.reduce((sum, s) => sum + s.amount, 0)), label: 'nevyrovnáno', tone: 'amber' },
+            ]}
+          />
+        ) : (
+          <Card className="p-[14px] shadow-[var(--sh-sm)] mb12" style={{ background: 'var(--subtle)' }}>
+            <div className="row between">
+              <div className="row g10">
+                <div className="lead-ic" style={{ background: '#fffbeb', color: 'var(--amber)' }}><Send /></div>
+                <div className="col">
+                  <span className="t-h3">{settlements.length} převodů k vyrovnání</span>
+                  <span className="muted t-xs mt4">Minimalizované platby mezi členy</span>
+                </div>
+              </div>
+              <span className="badge amber tnum">{Math.round(settlements.reduce((sum, s) => sum + s.amount, 0))} {trip?.currency ?? 'EUR'}</span>
+            </div>
+          </Card>
+        )
+      ) : (
+        <div className="grid2 mb16" style={{ gap: 10 }}>
+          <Card className="p-[14px] shadow-[var(--sh-sm)]">
+            <span className="muted t-xs">Celkové náklady</span>
+            <div className="t-title mt4">{Math.round(total)} {trip?.currency ?? 'EUR'}</div>
+          </Card>
+          <Card className="p-[14px] shadow-[var(--sh-sm)]">
+            <span className="muted t-xs">Vyrovnání</span>
+            <div className="t-title mt4">{settlements.length}</div>
+          </Card>
+        </div>
+      )}
 
-      <div className="row between mb8">
-        <span className="t-h2">Náklady</span>
-        <span className="badge muted">{expenses.length}</span>
-      </div>
-      {expenses.map((expense, index) => (
-        <div key={expense.id}>
-          {index > 0 && <hr className="sep" />}
-          <div className="listrow">
+      {!mobile && (
+        <Card className="p-[14px] shadow-[var(--sh-sm)] mb16">
+          <form onSubmit={handleSubmit}>
+            <ExpenseFields idPrefix="desktop" members={members} />
+          </form>
+        </Card>
+      )}
+
+      {(!mobile || mobileTab === 'expenses') && (
+        <>
+          <div className="row between mb8">
+            <span className="t-h2">Výdaje</span>
+            <span className="badge muted">{expenses.length}</span>
+          </div>
+          {expenses.map((expense, index) => {
+        const rowContent = (
+          <>
             <div className="lead-ic cat-food"><Banknote /></div>
             <div className="col flex1">
               <span className="t-h3">{expense.title}</span>
               <span className="muted t-xs mt4">{expense.splitType === 'EQUAL' ? 'rovný' : 'vlastní'} split</span>
             </div>
             <span className="t-h3 tnum">{Number(expense.amount).toFixed(0)} {expense.currency}</span>
+          </>
+        );
+        return (
+          <div key={expense.id}>
+            {index > 0 && <hr className="sep" />}
+            {onEditExpense ? (
+              <button
+                className="listrow full pressable"
+                style={{ border: 0, background: 'transparent', color: 'inherit', textAlign: 'left' }}
+                type="button"
+                onClick={() => onEditExpense(expense.id)}
+              >
+                {rowContent}
+              </button>
+            ) : (
+              <div className="listrow">{rowContent}</div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
+        </>
+      )}
 
-      <div className="row between mt20 mb8">
-        <span className="t-h2">Vyrovnání</span>
-        <span className="badge green"><Send />Připraveno</span>
-      </div>
-      {settlements.length === 0 && <div className="card pad muted center t-sm">Zatím není potřeba žádný převod.</div>}
-      {settlements.map((settlement, index) => (
-        <div className="card pad sh mb8" key={`${settlement.fromUserId}-${settlement.toUserId}-${index}`}>
-          <div className="row between">
-            <div className="col">
-              <span className="t-h3">Převod</span>
-              <span className="muted t-xs mt4">{settlement.fromUserId.slice(0, 8)} → {settlement.toUserId.slice(0, 8)}</span>
-            </div>
-            <span className="t-h3 tnum">{settlement.amount.toFixed(2)} {settlement.currency}</span>
-          </div>
-        </div>
-      ))}
-      {mobile && (
+      {(!mobile || mobileTab === 'settle') && (
         <>
-          <button className="fab expense-add-fab" type="button" onClick={() => setFormOpen(true)} aria-label="Přidat náklad"><Plus /></button>
+          <div className={`row between ${mobile ? 'mb8' : 'mt20 mb8'}`}>
+            <span className="t-h2">Vyrovnání</span>
+            <span className="badge green"><Send />Připraveno</span>
+          </div>
+          {settlements.length === 0 && (
+            <Card>
+              <EmptyState icon={<Send />} title="Všechno je vyrovnané." text="Zatím není potřeba žádný převod." />
+            </Card>
+          )}
+          {settlements.map((settlement, index) => (
+            <Card
+              className="p-[14px] shadow-[var(--sh-sm)] mb8 pressable"
+              key={`${settlement.fromUserId}-${settlement.toUserId}-${index}`}
+              onClick={() => (onOpenSettlement ?? setSelectedSettlement)(settlement)}
+            >
+              <div className="row between">
+                <div className="col flex1" style={{ minWidth: 0 }}>
+                  <SettlementParticipants settlement={settlement} members={members} />
+                  <span className="faint t-xs mt4">{settlement.status === 'CONFIRMED' ? 'Platba potvrzená' : settlement.status === 'PAID' ? 'Čeká na potvrzení příjemcem' : settlement.qrPayload ? 'QR platba připravená' : 'Chybí platební údaje příjemce'}</span>
+                </div>
+                <div className="col" style={{ alignItems: 'flex-end' }}>
+                  <span className="t-h3 tnum">{settlement.amount.toFixed(2)} {settlement.currency}</span>
+                  {settlement.status && settlement.status !== 'OPEN' && <span className={`badge ${settlement.status === 'CONFIRMED' ? 'green' : 'amber'} mt4`}>{settlement.status === 'CONFIRMED' ? 'Potvrzeno' : 'Zaplaceno'}</span>}
+                </div>
+              </div>
+              <div className="row g8 mt12">
+                <Button
+                  className="flex1"
+                  size="sm"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    (onOpenSettlement ?? setSelectedSettlement)(settlement);
+                  }}
+                >
+                  {settlement.qrPayload ? <QrCode /> : <AlertTriangle />}Detail platby
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void navigator.clipboard.writeText(settlement.qrPayload ?? `${settlement.fromUserId} -> ${settlement.toUserId}: ${settlement.amount.toFixed(2)} ${settlement.currency}`);
+                  }}
+                >
+                  Zkopírovat
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {mobile && mobileTab === 'expenses' && (
+        <>
+          <Button className="fab expense-add-fab !h-[54px] !w-[54px]" type="button" onClick={() => setFormOpen(true)} aria-label="Přidat náklad"><Plus /></Button>
           {formOpen && (
             <Sheet open onOpenChange={(open) => !open && setFormOpen(false)}>
               <SheetContent style={{ height: 'auto' }}>
                 <div className="grabber" />
                 <div className="sheet-head">
                   <SheetTitle className="t-h3">Nový náklad</SheetTitle>
-                  <button className="btn ghost sm" type="button" onClick={() => setFormOpen(false)}>Zavřít</button>
+                  <Button variant="ghost" size="sm" type="button" onClick={() => setFormOpen(false)}>Zavřít</Button>
                 </div>
-                <ExpenseForm sheet />
+                <form className="px18" style={{ paddingBottom: 18 }} onSubmit={handleSubmit}>
+                  <ExpenseFields idPrefix="sheet" members={members} />
+                </form>
               </SheetContent>
             </Sheet>
           )}
         </>
       )}
+      {mobile && <SettlementPaymentSheet settlement={selectedSettlement} members={members} onClose={() => setSelectedSettlement(null)} onStatusChange={onUpdateSettlementStatus} />}
     </div>
   );
 }

@@ -11,6 +11,8 @@ const envSchema = z.object({
   BOOKING_RAPIDAPI_HOST: z.string().min(1).default('booking-com15.p.rapidapi.com'),
   RAPIDAPI_KEY: z.string().optional(),
   ROUTING_OSRM_BASE_URL: z.string().url().default('https://router.project-osrm.org'),
+  NOMINATIM_BASE_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
+  NOMINATIM_USER_AGENT: z.string().min(1).default('trip-planner-local/0.1'),
   JWT_SECRET: z.string().min(16).default(process.env.SESSION_SECRET ?? 'dev-trip-planner-jwt-secret'),
 });
 

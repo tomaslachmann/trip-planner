@@ -42,7 +42,7 @@ export function createTripPlannerClient(accessToken?: string) {
   });
 }
 
-async function apiFetch<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
+export async function apiFetch<T>(path: string, init: RequestInit = {}, accessToken?: string): Promise<T> {
   const token = accessToken ?? readAccessToken();
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
@@ -53,7 +53,9 @@ async function apiFetch<T>(path: string, init: RequestInit = {}, accessToken?: s
     },
   });
   if (!response.ok) throw new Error(`API request failed: ${response.status}`);
-  return response.json() as Promise<T>;
+  if (response.status === 204) return undefined as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export function signInRequest(body: { email: string; name: string }) {

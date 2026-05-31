@@ -214,6 +214,23 @@ export function MapCanvas({
     fitMap(map, leaflet, allPoints(places, accommodations, showStays));
   }
 
+  useEffect(() => {
+    if (!ready) return;
+    function handleLocate() {
+      const map = mapRef.current;
+      if (!map || !navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          map.setView([position.coords.latitude, position.coords.longitude], Math.max(map.getZoom(), 14), { animate: true });
+        },
+        () => resetView(),
+        { enableHighAccuracy: true, timeout: 8000 },
+      );
+    }
+    window.addEventListener('trip-map-locate', handleLocate);
+    return () => window.removeEventListener('trip-map-locate', handleLocate);
+  }, [ready, places, accommodations, showStays]);
+
   return (
     <div className="map real-map">
       <div ref={containerRef} className="leaflet-map" />

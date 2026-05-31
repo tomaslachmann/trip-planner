@@ -1,26 +1,54 @@
-import { BedDouble, MapPin, Receipt, X } from 'lucide-react';
+import { BedDouble, ChevronRight, MapPin, MessageSquare, Receipt, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { TripIconButton } from './design-system';
+
+const items = [
+  {
+    key: 'place' as const,
+    title: 'Přidat místo',
+    text: 'Vyhledej místo nebo přidej pin do mapy',
+    icon: MapPin,
+    color: 'see',
+  },
+  {
+    key: 'stay' as const,
+    title: 'Přidat ubytování',
+    text: 'Vlož odkaz z Booking.com nebo Airbnb',
+    icon: BedDouble,
+    color: 'stay',
+  },
+  {
+    key: 'expense' as const,
+    title: 'Přidat výdaj',
+    text: 'Zapiš sdílený náklad a rozděl ho',
+    icon: Receipt,
+    color: 'food',
+  },
+  {
+    key: 'note' as const,
+    title: 'Komentář / poznámka',
+    text: 'Nech poznámku pro skupinu',
+    icon: MessageSquare,
+    color: 'act',
+  },
+] as const;
+
+type PickTarget = 'place' | 'stay' | 'expense' | 'note';
 
 export function AddMenu({
   onClose,
   onPick,
 }: {
   onClose: () => void;
-  onPick: (target: 'place' | 'stay' | 'expense') => void;
+  onPick: (target: PickTarget) => void;
 }) {
-  const items = [
-    { key: 'place' as const, title: 'Přidat místo', text: 'Vyhledej místo nebo přidej pin do mapy', icon: MapPin, color: 'see' },
-    { key: 'stay' as const, title: 'Najít ubytování', text: 'Vyhledej kandidáty přes Booking', icon: BedDouble, color: 'stay' },
-    { key: 'expense' as const, title: 'Přidat náklad', text: 'Rozděl mezi všechny nebo vybrané lidi', icon: Receipt, color: 'food' },
-  ];
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: 'auto' }}>
         <div className="grabber" />
         <div className="sheet-head">
           <SheetTitle className="t-h3">Přidat do tripu</SheetTitle>
-          <TripIconButton plain type="button" onClick={onClose}><X /></TripIconButton>
+          <Button size="icon" variant="ghost" type="button" onClick={onClose}><X /></Button>
         </div>
         <div className="px18" style={{ paddingBottom: 22 }}>
           {items.map((item, index) => {
@@ -28,13 +56,28 @@ export function AddMenu({
             return (
               <div key={item.key}>
                 {index > 0 && <hr className="sep" />}
-                <button className="row pressable full" style={{ padding: '13px 0', border: 0, background: 'transparent', textAlign: 'left' }} type="button" onClick={() => onPick(item.key)}>
-                  <span className="lead-ic" style={{ background: `var(--c-${item.color}-bg)`, color: `var(--c-${item.color})` }}><Icon /></span>
-                  <span className="col flex1">
+                <div
+                  className="row pressable"
+                  style={{ padding: '13px 0', cursor: 'pointer' }}
+                  onClick={() => {
+                    onPick(item.key as PickTarget);
+                  }}
+                >
+                  <div
+                    className="lead-ic"
+                    style={{
+                      background: `var(--c-${item.color}-bg)`,
+                      color: `var(--c-${item.color})`,
+                    }}
+                  >
+                    <Icon size={20} />
+                  </div>
+                  <div className="col flex1">
                     <span className="t-h3">{item.title}</span>
                     <span className="muted t-xs mt4">{item.text}</span>
-                  </span>
-                </button>
+                  </div>
+                  <ChevronRight size={18} color="var(--faint-fg)" />
+                </div>
               </div>
             );
           })}

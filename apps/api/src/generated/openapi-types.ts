@@ -177,13 +177,39 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            destination: string | null;
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            currency: string;
+                            inviteCode: string;
+                            createdAt: string;
+                            members: {
+                                id: string;
+                                tripId: string;
+                                userId: string;
+                                /** @enum {string} */
+                                role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                                joinedAt: string;
+                                user: {
+                                    id: string;
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    createdAt: string;
+                                };
+                                availabilityWindows?: unknown[];
+                                trip?: unknown;
+                            }[];
+                        }[];
                     };
                 };
             };
@@ -216,13 +242,39 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            destination: string | null;
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            currency: string;
+                            inviteCode: string;
+                            createdAt: string;
+                            members: {
+                                id: string;
+                                tripId: string;
+                                userId: string;
+                                /** @enum {string} */
+                                role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                                joinedAt: string;
+                                user: {
+                                    id: string;
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    createdAt: string;
+                                };
+                                availabilityWindows?: unknown[];
+                                trip?: unknown;
+                            }[];
+                        };
                     };
                 };
             };
@@ -250,13 +302,39 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            destination: string | null;
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            currency: string;
+                            inviteCode: string;
+                            createdAt: string;
+                            members: {
+                                id: string;
+                                tripId: string;
+                                userId: string;
+                                /** @enum {string} */
+                                role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                                joinedAt: string;
+                                user: {
+                                    id: string;
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    createdAt: string;
+                                };
+                                availabilityWindows?: unknown[];
+                                trip?: unknown;
+                            }[];
+                        }[];
                     };
                 };
             };
@@ -359,13 +437,39 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            destination: string | null;
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            currency: string;
+                            inviteCode: string;
+                            createdAt: string;
+                            members: {
+                                id: string;
+                                tripId: string;
+                                userId: string;
+                                /** @enum {string} */
+                                role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                                joinedAt: string;
+                                user: {
+                                    id: string;
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    createdAt: string;
+                                };
+                                availabilityWindows?: unknown[];
+                                trip?: unknown;
+                            }[];
+                        };
                     };
                 };
             };
@@ -402,13 +506,29 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            userId: string;
+                            /** @enum {string} */
+                            role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                            joinedAt: string;
+                            user: {
+                                id: string;
+                                /** Format: email */
+                                email: string;
+                                name: string;
+                                createdAt: string;
+                            };
+                            availabilityWindows?: unknown[];
+                            trip?: unknown;
+                        };
                     };
                 };
             };
@@ -453,13 +573,29 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            userId: string;
+                            /** @enum {string} */
+                            role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                            joinedAt: string;
+                            user: {
+                                id: string;
+                                /** Format: email */
+                                email: string;
+                                name: string;
+                                createdAt: string;
+                            };
+                            availabilityWindows?: unknown[];
+                            trip?: unknown;
+                        };
                     };
                 };
             };
@@ -624,6 +760,8 @@ export interface paths {
                         estimatedCost?: number | null;
                         /** Format: uri */
                         sourceUrl?: string | null;
+                        /** @enum {string|null} */
+                        accommodationStatus?: "SAVED" | "SHORTLISTED" | "SELECTED" | "BOOKED" | "REJECTED" | null;
                     };
                 };
             };
@@ -944,6 +1082,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/itinerary/trip/{tripId}/sync-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Synchronize itinerary days from trip date range */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/itinerary/days": {
         parameters: {
             query?: never;
@@ -969,6 +1151,14 @@ export interface paths {
                         /** Format: date-time */
                         date: string;
                         title?: string;
+                        /**
+                         * @default NORMAL
+                         * @enum {string}
+                         */
+                        intensity?: "CALM" | "NORMAL" | "INTENSE";
+                        rainPlan?: string;
+                        /** @default 30 */
+                        bufferMinutes?: number;
                     };
                 };
             };
@@ -1048,6 +1238,11 @@ export interface paths {
                         /** Format: date-time */
                         date?: string;
                         title?: string | null;
+                        basePlaceId?: string | null;
+                        /** @enum {string} */
+                        intensity?: "CALM" | "NORMAL" | "INTENSE";
+                        rainPlan?: string | null;
+                        bufferMinutes?: number;
                         locked?: boolean;
                     };
                 };
@@ -1064,6 +1259,83 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/itinerary/days/{dayId}/places/{placeId}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Vote for a place on a specific itinerary day */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dayId: string;
+                    placeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        userId?: string;
+                        /** @enum {string} */
+                        value: "UP" | "DOWN" | "MAYBE" | "MUST_HAVE";
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Remove own vote for a place on a specific itinerary day */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    dayId: string;
+                    placeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description No response body */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": null;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/itinerary/days/{dayId}/lock": {
@@ -1309,13 +1581,36 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            name: string;
+                            /** @enum {string} */
+                            mode: "DRIVE" | "WALK" | "BIKE" | "TRANSIT";
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            locked: boolean;
+                            createdAt: string;
+                            legs: {
+                                id: string;
+                                routePlanId: string;
+                                fromPlaceId: string;
+                                toPlaceId: string;
+                                order: number;
+                                distanceMeters: number | null;
+                                durationSeconds: number | null;
+                                encodedPolyline: string | null;
+                                provider: string | null;
+                                fromPlace?: unknown;
+                                toPlace?: unknown;
+                            }[];
+                        }[];
                     };
                 };
             };
@@ -1365,13 +1660,36 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            name: string;
+                            /** @enum {string} */
+                            mode: "DRIVE" | "WALK" | "BIKE" | "TRANSIT";
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            locked: boolean;
+                            createdAt: string;
+                            legs: {
+                                id: string;
+                                routePlanId: string;
+                                fromPlaceId: string;
+                                toPlaceId: string;
+                                order: number;
+                                distanceMeters: number | null;
+                                durationSeconds: number | null;
+                                encodedPolyline: string | null;
+                                provider: string | null;
+                                fromPlace?: unknown;
+                                toPlace?: unknown;
+                            }[];
+                        };
                     };
                 };
             };
@@ -1421,13 +1739,36 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            name: string;
+                            /** @enum {string} */
+                            mode: "DRIVE" | "WALK" | "BIKE" | "TRANSIT";
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            locked: boolean;
+                            createdAt: string;
+                            legs: {
+                                id: string;
+                                routePlanId: string;
+                                fromPlaceId: string;
+                                toPlaceId: string;
+                                order: number;
+                                distanceMeters: number | null;
+                                durationSeconds: number | null;
+                                encodedPolyline: string | null;
+                                provider: string | null;
+                                fromPlace?: unknown;
+                                toPlace?: unknown;
+                            }[];
+                        };
                     };
                 };
             };
@@ -1499,13 +1840,36 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            name: string;
+                            /** @enum {string} */
+                            mode: "DRIVE" | "WALK" | "BIKE" | "TRANSIT";
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            locked: boolean;
+                            createdAt: string;
+                            legs: {
+                                id: string;
+                                routePlanId: string;
+                                fromPlaceId: string;
+                                toPlaceId: string;
+                                order: number;
+                                distanceMeters: number | null;
+                                durationSeconds: number | null;
+                                encodedPolyline: string | null;
+                                provider: string | null;
+                                fromPlace?: unknown;
+                                toPlace?: unknown;
+                            }[];
+                        };
                     };
                 };
             };
@@ -1561,13 +1925,36 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description JSON response */
+                /** @description Default Response */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": unknown;
+                        "application/json": {
+                            /** @enum {string} */
+                            provider: "booking";
+                            results: {
+                                /** @enum {string} */
+                                provider: "booking";
+                                externalId: string;
+                                name: string;
+                                type?: string;
+                                latitude: number;
+                                longitude: number;
+                                priceTotal?: number;
+                                priceDisplay?: string;
+                                currency?: unknown;
+                                rating?: number;
+                                reviewScore?: number;
+                                reviewCount?: number;
+                                /** Format: uri */
+                                sourceUrl?: string;
+                                /** Format: uri */
+                                deepLinkUrl?: string;
+                                raw?: unknown;
+                            }[];
+                        };
                     };
                 };
             };
@@ -1619,6 +2006,125 @@ export interface paths {
                 };
             };
             responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            createdById: string;
+                            /** @enum {string} */
+                            type: "ACCOMMODATION";
+                            name: string;
+                            description: string | null;
+                            latitude: number;
+                            longitude: number;
+                            durationMin: number | null;
+                            estimatedCost: number | null;
+                            /** Format: uri */
+                            sourceUrl: string | null;
+                            accommodationProvider: string;
+                            accommodationExternalId: string;
+                            accommodationRating: number | null;
+                            accommodationReviewScore: number | null;
+                            accommodationReviewCount: number | null;
+                            accommodationCurrency: string | null;
+                            /** Format: uri */
+                            accommodationDeepLinkUrl: string | null;
+                            accommodationStatus: string | null;
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polls/trip/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List trip polls */
+        get: {
+            parameters: {
+                query?: {
+                    actorUserId?: string;
+                };
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create poll */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        tripId: string;
+                        question: string;
+                        /** @default false */
+                        multiChoice?: boolean;
+                        /** Format: date-time */
+                        closesAt?: string;
+                        contextDayId?: string;
+                        contextPlaceId?: string;
+                        options: {
+                            title: string;
+                            placeId?: string;
+                            itineraryDayId?: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
                 /** @description JSON response */
                 201: {
                     headers: {
@@ -1630,6 +2136,496 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/polls/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete poll */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description No response body */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": null;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update poll */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        question?: string;
+                        /** @enum {string} */
+                        status?: "OPEN" | "CLOSED";
+                        multiChoice?: boolean;
+                        /** Format: date-time */
+                        closesAt?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/polls/options/{id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vote for poll option */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        userId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        /** Remove own poll option vote */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        userId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description No response body */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": null;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/checklist/trip/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List trip checklist items */
+        get: {
+            parameters: {
+                query?: {
+                    actorUserId?: string;
+                };
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create checklist item */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        tripId: string;
+                        title: string;
+                        note?: string;
+                        /**
+                         * @default SHARED
+                         * @enum {string}
+                         */
+                        scope?: "PERSONAL" | "SHARED" | "EVERYONE";
+                        /** Format: date-time */
+                        dueAt?: string;
+                        assignedUserIds?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/checklist/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete checklist item */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description No response body */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": null;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update checklist item */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        title?: string;
+                        note?: string | null;
+                        /** @enum {string} */
+                        scope?: "PERSONAL" | "SHARED" | "EVERYONE";
+                        /** Format: date-time */
+                        dueAt?: string | null;
+                        assignedUserIds?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/checklist/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Complete or uncomplete a checklist item */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        userId?: string;
+                        completed: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/locations/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search locations via OpenStreetMap Nominatim */
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                    limit?: number;
+                    latitude?: number;
+                    longitude?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reverse geocode coordinates via OpenStreetMap Nominatim */
+        get: {
+            parameters: {
+                query: {
+                    latitude: number;
+                    longitude: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activity/trip/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List trip activity events */
+        get: {
+            parameters: {
+                query?: {
+                    actorUserId?: string;
+                };
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1702,6 +2698,11 @@ export interface paths {
                         title: string;
                         amount: number;
                         currency?: string;
+                        originalAmount?: number;
+                        originalCurrency?: string;
+                        exchangeRate?: number;
+                        /** Format: date-time */
+                        exchangeDate?: string;
                         itineraryStopId?: string;
                         /**
                          * @default EQUAL
@@ -1792,6 +2793,23 @@ export interface paths {
                     "application/json": {
                         actorUserId?: string;
                         title?: string;
+                        paidById?: string;
+                        amount?: number;
+                        currency?: string;
+                        originalAmount?: number | null;
+                        originalCurrency?: string | null;
+                        exchangeRate?: number | null;
+                        /** Format: date-time */
+                        exchangeDate?: string | null;
+                        itineraryStopId?: string | null;
+                        /** @enum {string} */
+                        splitType?: "EQUAL" | "CUSTOM";
+                        splitAllTripMembers?: boolean;
+                        splitUserIds?: string[];
+                        customSplits?: {
+                            userId: string;
+                            amount: number;
+                        }[];
                     };
                 };
             };
@@ -1847,6 +2865,57 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/settlements/trip/{tripId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update settlement payment status */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        actorUserId?: string;
+                        fromUserId: string;
+                        toUserId: string;
+                        amount: number;
+                        currency: string;
+                        /** @enum {string} */
+                        status: "OPEN" | "PAID" | "CONFIRMED" | "CANCELLED";
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/payments/accounts": {

@@ -13,11 +13,12 @@ export function MobileTripApp({ planner }: { planner: TripPlannerController }) {
   const { state, actions } = planner;
   const [addOpen, setAddOpen] = useState(false);
 
-  function pickAdd(target: 'place' | 'stay' | 'expense') {
+  function pickAdd(target: 'place' | 'stay' | 'expense' | 'note') {
     setAddOpen(false);
     if (target === 'place') actions.setActiveTab('plan');
     if (target === 'stay') actions.setActiveTab('stay');
     if (target === 'expense') actions.setActiveTab('costs');
+    if (target === 'note') actions.setActiveTab('more');
   }
 
   const active = state.activeTab === 'settle' ? 'costs' : state.activeTab;

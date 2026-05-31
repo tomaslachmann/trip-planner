@@ -1,5 +1,5 @@
-import { TripPlannerPage } from '@/features/trips/trip-planner-page';
+import { TripIndexPage } from '@/features/trips/trip-index-page';
 
 export default function TripsPage() {
-  return <TripPlannerPage />;
+  return <TripIndexPage />;
 }

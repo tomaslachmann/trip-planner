@@ -1,6 +1,6 @@
-import { TripRoutePage } from '@/features/trips/trip-route-page';
+import { TripMoreRoute } from '@/features/trips/routes/trip-more-route';
 
 export default async function TripMorePage({ params }: { params: Promise<{ tripId: string }> }) {
   const { tripId } = await params;
-  return <TripRoutePage tripId={tripId} view="more" />;
+  return <TripMoreRoute tripId={tripId} />;
 }

@@ -1,6 +1,6 @@
-import { TripRoutePage } from '@/features/trips/trip-route-page';
+import { TripStayRoute } from '@/features/trips/routes/trip-stay-route';
 
 export default async function TripStayPage({ params }: { params: Promise<{ tripId: string }> }) {
   const { tripId } = await params;
-  return <TripRoutePage tripId={tripId} view="stay" />;
+  return <TripStayRoute tripId={tripId} />;
 }

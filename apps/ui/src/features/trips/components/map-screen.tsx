@@ -1,5 +1,10 @@
-import { ArrowUpDown, Banknote, BedDouble, ChevronRight, Clock, LocateFixed, MapPin, MessageCircle, Search, Star, ThumbsUp, X } from 'lucide-react';
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { ArrowUpDown, Banknote, BedDouble, ChevronRight, Clock, LocateFixed, MapPin, MessageCircle, Search, Star, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ChipGroup } from '@/components/ui/chip-group';
+import { DockedSheet, dockSnapHeights, type DockSnap } from '@/components/ui/docked-sheet';
+import { Input } from '@/components/ui/input';
 import { AvatarRow } from './avatar';
 import { CategoryBadge } from './category';
 import { MapCanvas } from './map-canvas';
@@ -16,59 +21,32 @@ const filters = [
   { key: 'TRANSPORT', label: 'Doprava' },
 ];
 
-type Snap = 'peek' | 'half' | 'full';
-const snapHeights: Record<Snap, number> = { peek: 0.18, half: 0.52, full: 0.9 };
-
 function votes(place: Place) {
   const values = place.votes ?? [];
   return {
     must: values.filter((vote) => vote.value === 'MUST_HAVE').length,
     up: values.filter((vote) => vote.value === 'UP').length,
     maybe: values.filter((vote) => vote.value === 'MAYBE').length,
+    down: values.filter((vote) => vote.value === 'DOWN').length,
   };
 }
 
 export function MapScreen({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
   const [filter, setFilter] = useState('ALL');
-  const [snap, setSnap] = useState<Snap>('half');
+  const [snap, setSnap] = useState<DockSnap>('half');
   const [detailOpen, setDetailOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const sheetRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ y: number; height: number; viewport: number } | null>(null);
+  const [mapSearch, setMapSearch] = useState('');
   const showStays = filter === 'ACCOMMODATION';
   const filteredPlaces = useMemo(() => {
-    if (filter === 'ALL') return state.data.places;
-    return state.data.places.filter((place) => place.type === filter || (filter === 'PLACE' && place.type === 'CUSTOM'));
-  }, [filter, state.data.places]);
-
-  function startSheetDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!sheetRef.current) return;
-    const viewport = sheetRef.current.parentElement?.clientHeight ?? window.innerHeight;
-    dragRef.current = { y: event.clientY, height: sheetRef.current.offsetHeight, viewport };
-    sheetRef.current.style.transition = 'none';
-    window.addEventListener('pointermove', moveSheet);
-    window.addEventListener('pointerup', stopSheetDrag);
-  }
-
-  function moveSheet(event: PointerEvent) {
-    if (!dragRef.current || !sheetRef.current) return;
-    const deltaY = dragRef.current.y - event.clientY;
-    const nextHeight = Math.max(78, Math.min(dragRef.current.viewport * 0.92, dragRef.current.height + deltaY));
-    sheetRef.current.style.height = `${nextHeight}px`;
-  }
-
-  function stopSheetDrag() {
-    if (!dragRef.current || !sheetRef.current) return;
-    const fraction = sheetRef.current.offsetHeight / dragRef.current.viewport;
-    const nearest = (Object.entries(snapHeights) as Array<[Snap, number]>).sort((a, b) => Math.abs(a[1] - fraction) - Math.abs(b[1] - fraction))[0][0];
-    sheetRef.current.style.transition = '';
-    sheetRef.current.style.height = '';
-    setSnap(nearest);
-    dragRef.current = null;
-    window.removeEventListener('pointermove', moveSheet);
-    window.removeEventListener('pointerup', stopSheetDrag);
-  }
+    const query = mapSearch.trim().toLowerCase();
+    return state.data.places.filter((place) => {
+      const matchesFilter = filter === 'ALL' || place.type === filter || (filter === 'PLACE' && place.type === 'CUSTOM');
+      const matchesQuery = !query || place.name.toLowerCase().includes(query) || (place.description ?? '').toLowerCase().includes(query);
+      return matchesFilter && matchesQuery;
+    });
+  }, [filter, mapSearch, state.data.places]);
 
   function selectPlace(placeId: string) {
     actions.setSelectedPlaceId(placeId);
@@ -92,6 +70,11 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const selectedVotes = state.selectedPlace ? votes(state.selectedPlace) : null;
   const myVote = state.selectedPlace?.votes?.find((vote) => vote.userId === state.actorUserId)?.value;
   const hasCommentDraft = commentText.trim().length > 0;
+  const selectedPlaceVoters = new Set((state.selectedPlace?.votes ?? []).map((vote) => vote.userId));
+  const selectedPlaceMissingVoters = (state.selectedTrip?.members ?? []).filter((member) => !selectedPlaceVoters.has(member.userId));
+  const selectedAccommodationPlace = state.selectedAccommodation
+    ? state.data.places.find((place) => place.type === 'ACCOMMODATION' && place.accommodationExternalId === state.selectedAccommodation?.externalId)
+    : undefined;
 
   return (
     <div className={desktop ? 'desktop-map-host' : 'screen'}>
@@ -108,27 +91,39 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
         <div className="float-top">
           <div className="searchbar">
             {showStays ? <BedDouble /> : <Search />}
-            <span className="muted flex1" style={{ fontSize: 15 }}>
-              {showStays ? 'Ubytování v aktuální oblasti' : `Hledat místa v destinaci ${state.selectedTrip?.destination ?? 'tomto tripu'}...`}
-            </span>
+            {showStays ? (
+              <span className="muted flex1" style={{ fontSize: 15 }}>Ubytování v aktuální oblasti</span>
+            ) : (
+              <input
+                aria-label="Hledat místa na mapě"
+                className="flex1"
+                style={{ border: 0, outline: 0, background: 'transparent', font: 'inherit', minWidth: 0 }}
+                value={mapSearch}
+                onChange={(event) => setMapSearch(event.target.value)}
+                placeholder={`Hledat místa v destinaci ${state.selectedTrip?.destination ?? 'tomto tripu'}...`}
+              />
+            )}
             <AvatarRow names={(state.selectedTrip?.members ?? []).map((member) => member.user.name)} />
           </div>
-          <div className="chips mt10">
-            {filters.map((item) => (
-              <button className={`chip ${filter === item.key ? 'on' : ''}`} key={item.key} type="button" onClick={() => setMapFilter(item.key)}>{item.label}</button>
-            ))}
-          </div>
+          <ChipGroup value={filter} options={filters.map((item) => ({ value: item.key, label: item.label }))} onValueChange={setMapFilter} className="mt10" />
         </div>
 
-        {showStays && <button className="search-area" type="button" onClick={() => void actions.searchStays()}><ArrowUpDown />Hledat v této oblasti</button>}
+        {showStays && <Button className="search-area" type="button" onClick={() => void actions.searchStays()}><ArrowUpDown />Hledat v této oblasti</Button>}
 
-        <button className="fab" style={{ bottom: desktop ? 24 : `calc(${snapHeights[snap] * 100}% + 16px)` }} type="button" title="Najít polohu"><LocateFixed /></button>
+        <Button
+          className="fab"
+          size="icon"
+          variant="outline"
+          style={{ bottom: desktop ? 24 : `calc(${dockSnapHeights[snap] * 100}% + 16px)` }}
+          type="button"
+          title="Najít polohu"
+          onClick={() => window.dispatchEvent(new CustomEvent('trip-map-locate'))}
+        >
+          <LocateFixed />
+        </Button>
 
         {!desktop && (
-          <div ref={sheetRef} className="docksheet" style={{ height: `${snapHeights[snap] * 100}%` }}>
-            <div onPointerDown={startSheetDrag} style={{ cursor: 'grab', flex: '0 0 auto', touchAction: 'none' }}>
-              <div className="grabber" />
-            </div>
+          <DockedSheet snap={snap} onSnapChange={setSnap}>
             {snap === 'peek' && (
               <div className={showStays ? 'p18' : 'p18 pressable'} style={{ paddingTop: 4 }} onClick={() => !showStays && state.selectedPlace && setDetailOpen(true)}>
                 {showStays && state.selectedAccommodation ? (
@@ -144,7 +139,18 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                       <span className="muted t-sm mt4">{state.selectedAccommodation.priceDisplay ?? `${state.selectedAccommodation.priceTotal ?? '-'} ${state.selectedAccommodation.currency ?? ''}`}</span>
                     </div>
                   </div>
-                  <button className="btn primary block mt14" type="button" onClick={() => void actions.saveAccommodation(state.selectedAccommodation!)}>Uložit ubytování</button>
+                  <div className="row g8 mt14">
+                    <Button className="flex1" type="button" variant={selectedAccommodationPlace ? 'secondary' : 'default'} onClick={() => {
+                      if (selectedAccommodationPlace) {
+                        void actions.voteForPlace(selectedAccommodationPlace.id, 'UP');
+                        return;
+                      }
+                      void actions.saveAccommodation(state.selectedAccommodation!);
+                    }}>{selectedAccommodationPlace ? 'Hlasovat' : 'Uložit ubytování'}</Button>
+                    {selectedAccommodationPlace && (
+                      <Button variant="outline" type="button" onClick={() => void actions.updateAccommodationStatus(selectedAccommodationPlace.id, 'SELECTED')}>Vybrat</Button>
+                    )}
+                  </div>
                 </>
               ) : state.selectedPlace ? (
                 <>
@@ -177,7 +183,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <div className="px18" style={{ flex: '0 0 auto' }}>
                   <div className="row between" style={{ padding: '2px 0 6px' }}>
                     <span className="t-h2">{state.accommodations.length} ubytování v okolí</span>
-                    <button className="btn ghost sm" type="button" onClick={() => void actions.searchStays()}><ArrowUpDown />Cena</button>
+                    <Button variant="ghost" size="sm" type="button" onClick={() => void actions.searchStays()}><ArrowUpDown />Obnovit</Button>
                   </div>
                   <span className="muted t-xs">Výsledky z napojeného vyhledávání ubytování.</span>
                 </div>
@@ -195,7 +201,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                       </button>
                     </div>
                   ))}
-                  {state.accommodations.length === 0 && <button className="btn primary block mt14" type="button" onClick={() => void actions.searchStays()}>Najít ubytování</button>}
+                  {state.accommodations.length === 0 && <Button className="mt14 w-full" type="button" onClick={() => void actions.searchStays()}>Najít ubytování</Button>}
                 </div>
               </>
             )}
@@ -204,7 +210,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <div className="px18" style={{ flex: '0 0 auto' }}>
                   <div className="row between" style={{ padding: '2px 0 12px' }}>
                     <span className="t-h2">{placeList.length} míst</span>
-                    <button className="btn ghost sm" type="button" onClick={() => void actions.optimizeRoute()}><ArrowUpDown />Trasa</button>
+                    <Button variant="ghost" size="sm" type="button" onClick={() => void actions.optimizeRoute()}><ArrowUpDown />Trasa</Button>
                   </div>
                 </div>
                 <div className="scroll px18" style={{ flex: 1, paddingBottom: 18 }}>
@@ -236,7 +242,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 </div>
               </>
             )}
-          </div>
+          </DockedSheet>
         )}
         {!desktop && detailOpen && state.selectedPlace && (
           <>
@@ -247,7 +253,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   <CategoryBadge type={state.selectedPlace.type} />
                   <span className="badge muted">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
                 </div>
-                <button className="iconbtn plain" type="button" onClick={() => setDetailOpen(false)}><X /></button>
+                <Button size="icon" variant="ghost" type="button" onClick={() => setDetailOpen(false)}><X /></Button>
               </div>
               <div className="scroll px18" style={{ flex: 1 }}>
                 <div className="receipt center" style={{ height: 150, borderRadius: 14, border: '1px solid var(--border)' }}>
@@ -263,39 +269,45 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <hr className="sep mt20" />
                 <div className="row between mt16 mb10">
                   <span className="t-h3">Hlasování skupiny</span>
-                  <span className="muted t-xs">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
+                  <span className="muted t-xs">{selectedPlaceVoters.size}/{state.selectedTrip?.members?.length ?? '?'} hlasovalo</span>
                 </div>
+                {selectedPlaceMissingVoters.length > 0 && (
+                  <div className="badge muted mb10" style={{ maxWidth: '100%', justifyContent: 'flex-start' }}>
+                    Čeká: {selectedPlaceMissingVoters.map((member) => member.user.name).join(', ')}
+                  </div>
+                )}
                 {selectedVotes && (
                   <div className="votes">
                     <button className={`votebtn ${myVote === 'MUST_HAVE' ? 'on must' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'MUST_HAVE')}><span className="vn tnum">{selectedVotes.must}</span><span className="row g4"><Star />Nutné</span></button>
                     <button className={`votebtn ${myVote === 'UP' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'UP')}><span className="vn tnum">{selectedVotes.up}</span><span className="row g4"><ThumbsUp />Pro</span></button>
                     <button className={`votebtn ${myVote === 'MAYBE' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'MAYBE')}><span className="vn tnum">{selectedVotes.maybe}</span><span>Možná</span></button>
+                    <button className={`votebtn ${myVote === 'DOWN' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'DOWN')}><span className="vn tnum">{selectedVotes.down}</span><span className="row g4"><ThumbsDown />Ne</span></button>
                   </div>
                 )}
                 <hr className="sep mt20" />
                 <div className="row between mt16 mb12"><span className="t-h3">Komentáře</span><span className="badge muted">{state.selectedPlace.comments?.length ?? 0}</span></div>
                 <div className="col g12">
                   {(state.selectedPlace.comments ?? []).map((comment) => (
-                    <div className="card p14" key={comment.id ?? `${comment.userId}-${comment.body}`}>
+                    <Card className="p-[14px]" key={comment.id ?? `${comment.userId}-${comment.body}`}>
                       <span className="t-sm">{comment.body}</span>
-                    </div>
+                    </Card>
                   ))}
                 </div>
-                <div className="input muted-bg mt8" style={{ marginBottom: 18 }}>
-                  <MessageCircle />
-                  <input placeholder="Přidat komentář..." value={commentText} onChange={(event) => setCommentText(event.target.value)} />
+                <div className="relative mt8" style={{ marginBottom: 18 }}>
+                  <MessageCircle className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input className="pl-9 bg-muted border-transparent" placeholder="Přidat komentář..." value={commentText} onChange={(event) => setCommentText(event.target.value)} />
                 </div>
               </div>
               <div className="row g8 p16" style={{ borderTop: '1px solid var(--border)', flex: '0 0 auto' }}>
-                <button className="btn primary flex1" type="button" onClick={() => {
+                <Button className="flex1" type="button" onClick={() => {
                   if (hasCommentDraft) {
                     void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''));
                     return;
                   }
                   setDetailOpen(false);
                   void actions.addPlaceToItinerary(state.selectedPlace!.id);
-                }}>{hasCommentDraft ? 'Přidat komentář' : 'Přidat do itineráře'}</button>
-                <button className="btn outline icon" type="button" onClick={() => void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''))} disabled={!hasCommentDraft}><MessageCircle /></button>
+                }}>{hasCommentDraft ? 'Přidat komentář' : 'Přidat do itineráře'}</Button>
+                <Button variant="outline" size="icon" type="button" onClick={() => void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''))} disabled={!hasCommentDraft}><MessageCircle /></Button>
               </div>
             </div>
           </>

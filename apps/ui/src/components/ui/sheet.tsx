@@ -25,6 +25,7 @@ const SheetContent = React.forwardRef<
   <SheetPortal>
     <SheetOverlay />
     <DialogPrimitive.Content ref={ref} className={cn('sheet ui-sheet', className)} {...props}>
+      <DialogPrimitive.Description className="sr-only">Dialogové okno</DialogPrimitive.Description>
       {children}
     </DialogPrimitive.Content>
   </SheetPortal>

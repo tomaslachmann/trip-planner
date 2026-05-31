@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
-import { TripPlannerPage } from '@/features/trips/trip-planner-page';
+import { TripIndexPage } from '@/features/trips/trip-index-page';
 
 export default function HomePage() {
   return (
     <Suspense fallback={null}>
-      <TripPlannerPage />
+      <TripIndexPage />
     </Suspense>
   );
 }

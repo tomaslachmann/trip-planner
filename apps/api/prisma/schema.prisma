@@ -42,6 +42,7 @@ enum SplitType {
 enum SettlementStatus {
   OPEN
   PAID
+  CONFIRMED
   CANCELLED
 }
 
@@ -50,6 +51,17 @@ enum TravelMode {
   WALK
   BIKE
   TRANSIT
+}
+
+enum PollStatus {
+  OPEN
+  CLOSED
+}
+
+enum ChecklistScope {
+  PERSONAL
+  SHARED
+  EVERYONE
 }
 
 model User {
@@ -62,8 +74,18 @@ model User {
   expenses  Expense[]
   accounts  PaymentAccount[]
   votes     PlaceVote[]
+  dayVotes  PlaceDayVote[]
   comments  PlaceComment[]
   splits    ExpenseSplit[]
+  pollVotes PollVote[]
+  checklistAssignments ChecklistAssignment[]
+  checklistCompletions ChecklistCompletion[]
+  createdPolls Poll[] @relation("PollCreator")
+  createdChecklistItems ChecklistItem[] @relation("ChecklistItemCreator")
+  settlementPaymentsFrom SettlementPayment[] @relation("SettlementFromUser")
+  settlementPaymentsTo SettlementPayment[] @relation("SettlementToUser")
+  markedSettlementPayments SettlementPayment[] @relation("SettlementMarkedBy")
+  activityEvents ActivityEvent[] @relation("ActivityActor")
 }
 
 model Trip {
@@ -80,6 +102,10 @@ model Trip {
   expenses      Expense[]
   itineraryDays ItineraryDay[]
   routePlans    RoutePlan[]
+  polls         Poll[]
+  checklistItems ChecklistItem[]
+  settlementPayments SettlementPayment[]
+  activityEvents ActivityEvent[]
 }
 
 model TripMember {
@@ -145,9 +171,11 @@ model Place {
   createdBy                User                     @relation(fields: [createdById], references: [id])
   votes                    PlaceVote[]
   comments                 PlaceComment[]
+  dayVotes                 PlaceDayVote[]
   itineraryStops           ItineraryStop[]
   routeLegsFrom            RouteLeg[]               @relation("RouteLegFrom")
   routeLegsTo              RouteLeg[]               @relation("RouteLegTo")
+  baseItineraryDays        ItineraryDay[]            @relation("ItineraryDayBasePlace")
   availabilityStartWindows TripMemberAvailability[] @relation("AvailabilityStartPlace")
   availabilityEndWindows   TripMemberAvailability[] @relation("AvailabilityEndPlace")
 
@@ -175,15 +203,35 @@ model PlaceComment {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model PlaceDayVote {
+  id             String       @id @default(cuid())
+  placeId        String
+  itineraryDayId String
+  userId         String
+  value          VoteValue
+  createdAt      DateTime     @default(now())
+  place          Place        @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  itineraryDay   ItineraryDay @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, itineraryDayId, userId])
+}
+
 model ItineraryDay {
   id        String          @id @default(cuid())
   tripId    String
   date      DateTime
   title     String?
+  basePlaceId String?
+  intensity String          @default("NORMAL")
+  rainPlan  String?
+  bufferMinutes Int         @default(30)
   locked    Boolean         @default(false)
   createdAt DateTime        @default(now())
   trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  basePlace Place?          @relation("ItineraryDayBasePlace", fields: [basePlaceId], references: [id], onDelete: SetNull)
   stops     ItineraryStop[]
+  placeVotes PlaceDayVote[]
 
   @@unique([tripId, date])
 }
@@ -251,6 +299,10 @@ model Expense {
   title           String
   amount          Decimal
   currency        String         @default("CZK")
+  originalAmount  Decimal?
+  originalCurrency String?
+  exchangeRate    Decimal?
+  exchangeDate    DateTime?
   splitType       SplitType      @default(EQUAL)
   itineraryStopId String?
   createdAt       DateTime       @default(now())
@@ -258,6 +310,45 @@ model Expense {
   paidBy          User           @relation(fields: [paidById], references: [id])
   itineraryStop   ItineraryStop? @relation(fields: [itineraryStopId], references: [id], onDelete: SetNull)
   splits          ExpenseSplit[]
+}
+
+model SettlementPayment {
+  id          String           @id @default(cuid())
+  tripId      String
+  fromUserId  String
+  toUserId    String
+  amount      Decimal
+  currency    String
+  status      SettlementStatus @default(OPEN)
+  note        String?
+  markedById  String?
+  paidAt      DateTime?
+  confirmedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  trip        Trip             @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  fromUser    User             @relation("SettlementFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      User             @relation("SettlementToUser", fields: [toUserId], references: [id], onDelete: Cascade)
+  markedBy    User?            @relation("SettlementMarkedBy", fields: [markedById], references: [id], onDelete: SetNull)
+
+  @@unique([tripId, fromUserId, toUserId, currency])
+  @@index([tripId, status])
+}
+
+model ActivityEvent {
+  id         String   @id @default(cuid())
+  tripId     String
+  actorUserId String?
+  type       String
+  entityType String?
+  entityId   String?
+  label      String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor      User?    @relation("ActivityActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
 }
 
 model ExpenseSplit {
@@ -269,4 +360,80 @@ model ExpenseSplit {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([expenseId, userId])
+}
+
+model Poll {
+  id        String       @id @default(cuid())
+  tripId    String
+  createdById String
+  question  String
+  status    PollStatus   @default(OPEN)
+  multiChoice Boolean    @default(false)
+  contextDayId String?
+  contextPlaceId String?
+  createdAt DateTime     @default(now())
+  closesAt  DateTime?
+  trip      Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("PollCreator", fields: [createdById], references: [id])
+  options   PollOption[]
+}
+
+model PollOption {
+  id      String     @id @default(cuid())
+  pollId  String
+  title   String
+  order   Int
+  placeId String?
+  itineraryDayId String?
+  poll    Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes   PollVote[]
+
+  @@unique([pollId, order])
+}
+
+model PollVote {
+  id        String     @id @default(cuid())
+  optionId  String
+  userId    String
+  createdAt DateTime   @default(now())
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, userId])
+}
+
+model ChecklistItem {
+  id          String         @id @default(cuid())
+  tripId      String
+  createdById String
+  title       String
+  note        String?
+  scope       ChecklistScope @default(SHARED)
+  dueAt       DateTime?
+  createdAt   DateTime       @default(now())
+  trip        Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("ChecklistItemCreator", fields: [createdById], references: [id])
+  assignments ChecklistAssignment[]
+  completions ChecklistCompletion[]
+}
+
+model ChecklistAssignment {
+  id       String        @id @default(cuid())
+  itemId   String
+  userId   String
+  item     ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, userId])
+}
+
+model ChecklistCompletion {
+  id          String        @id @default(cuid())
+  itemId      String
+  userId      String
+  completedAt DateTime     @default(now())
+  item        ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, userId])
 }

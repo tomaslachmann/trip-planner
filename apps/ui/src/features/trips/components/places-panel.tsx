@@ -1,10 +1,54 @@
-import { MapPin, Plus, Search } from 'lucide-react';
+import { ArrowUpDown, MapPin, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type { Place, Trip } from '../types';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import type { Place } from '../types';
 import { PlaceRow } from './place-row';
 
-function DraggablePlace({ place, onSelect, onAdd, selected }: { place: Place; onSelect: () => void; onAdd: () => void; selected?: boolean }) {
+type StatusFilter = 'all' | 'proposed' | 'shortlisted' | 'approved';
+
+const statusFilters: Array<{ key: StatusFilter; label: string }> = [
+  { key: 'all', label: 'Vše' },
+  { key: 'proposed', label: 'Návrhy' },
+  { key: 'shortlisted', label: 'Shortlist' },
+  { key: 'approved', label: 'Schválené' },
+];
+
+function placeScore(place: Place) {
+  return (place.votes ?? []).reduce((sum, vote) => {
+    if (vote.value === 'MUST_HAVE') return sum + 3;
+    if (vote.value === 'UP') return sum + 2;
+    if (vote.value === 'MAYBE') return sum + 1;
+    if (vote.value === 'DOWN') return sum - 1;
+    return sum;
+  }, 0);
+}
+
+function placeStatus(place: Place): StatusFilter {
+  const values = place.votes ?? [];
+  if (values.some((vote) => vote.value === 'MUST_HAVE')) return 'approved';
+  if (values.some((vote) => vote.value === 'UP')) return 'shortlisted';
+  return 'proposed';
+}
+
+function DraggablePlace({
+  place,
+  onSelect,
+  selected,
+  onApprove,
+  onShortlist,
+  onMore,
+}: {
+  place: Place;
+  onSelect: () => void;
+  selected?: boolean;
+  onApprove: () => void;
+  onShortlist: () => void;
+  onMore: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `place:${place.id}` });
   return (
     <div
@@ -14,78 +58,88 @@ function DraggablePlace({ place, onSelect, onAdd, selected }: { place: Place; on
       {...listeners}
       {...attributes}
     >
-      <PlaceRow place={place} selected={selected} dragging={isDragging} onSelect={onSelect} onAdd={onAdd} />
+      <PlaceRow
+        place={place}
+        selected={selected}
+        dragging={isDragging}
+        onSelect={onSelect}
+        onApprove={onApprove}
+        onShortlist={onShortlist}
+        onMore={onMore}
+      />
     </div>
   );
 }
 
 export function PlacesPanel({
-  trip,
   places,
   selectedPlaceId,
   onSelect,
-  onAddPlace,
-  onPlanPlace,
+  onVotePlace,
+  onEditPlace,
 }: {
-  trip?: Trip;
   places: Place[];
   selectedPlaceId?: string;
   onSelect: (placeId: string) => void;
-  onAddPlace: (data: FormData) => void;
-  onPlanPlace: (placeId: string) => void;
+  onVotePlace: (placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') => void;
+  onEditPlace: (placeId: string) => void;
 }) {
-  return (
-    <div className="scroll px18" style={{ flex: 1, paddingTop: 10, paddingBottom: 18 }}>
-      <form
-        className="card pad sh mb16"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onAddPlace(new FormData(event.currentTarget));
-          event.currentTarget.reset();
-        }}
-      >
-        <div className="row between mb12">
-          <span className="t-h3">Přidat místo</span>
-          <span className="badge muted">{trip?.destination ?? 'Trip'}</span>
-        </div>
-        <label className="field-label" htmlFor="placeName">Název</label>
-        <div className="input mb10"><Search /><input id="placeName" name="placeName" placeholder="Sagrada Familia, nádraží..." /></div>
-        <div className="grid2" style={{ gridTemplateColumns: '1.2fr .8fr', gap: 8 }}>
-          <select className="input" name="placeType" defaultValue="PLACE" aria-label="Typ místa">
-            <option value="PLACE">Místo</option>
-            <option value="FOOD">Jídlo</option>
-            <option value="ACTIVITY">Aktivita</option>
-            <option value="DAY_TRIP">Výlet</option>
-            <option value="TRANSPORT">Doprava</option>
-            <option value="ACCOMMODATION">Ubytování</option>
-          </select>
-          <button className="btn primary" type="submit"><Plus />Přidat</button>
-        </div>
-        <input name="latitude" type="hidden" value="41.4036" />
-        <input name="longitude" type="hidden" value="2.1744" />
-      </form>
+  const [filter, setFilter] = useState<StatusFilter>('all');
+  const [search, setSearch] = useState('');
+  const [sortVotes, setSortVotes] = useState(false);
 
-      <div className="row between mb8">
-        <span className="t-h2">{places.length} míst</span>
-        <span className="badge"><MapPin />Přetáhni do plánu</span>
+  const visiblePlaces = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const list = places.filter((place) => {
+      const matchesStatus = filter === 'all' || placeStatus(place) === filter;
+      const matchesSearch = !query || place.name.toLowerCase().includes(query) || (place.description ?? '').toLowerCase().includes(query);
+      return matchesStatus && matchesSearch;
+    });
+    if (!sortVotes) return list;
+    return [...list].sort((a, b) => placeScore(b) - placeScore(a));
+  }, [filter, places, search, sortVotes]);
+
+  return (
+    <div className="col flex1" style={{ minHeight: 0 }}>
+      <div className="px18" style={{ paddingBottom: 10, paddingTop: 12, flex: '0 0 auto' }}>
+        <div className="row g8">
+          <div className="input muted-bg flex1">
+            <Search size={18} />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Hledat místa..." />
+          </div>
+          <Button size="icon" variant={sortVotes ? 'secondary' : 'outline'} type="button" onClick={() => setSortVotes((value) => !value)} title="Seřadit podle hlasů">
+            <ArrowUpDown />
+          </Button>
+        </div>
+        <div className="chips mt12">
+          {statusFilters.map((item) => (
+            <button key={item.key} className={`chip${filter === item.key ? ' on' : ''}`} type="button" onClick={() => setFilter(item.key)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
-      {places.length === 0 && (
-        <div className="card pad center muted">
-          <div className="empty-ic jcc" style={{ margin: '0 auto 10px' }}><MapPin /></div>
-          <span className="t-sm">Zatím tu nejsou žádná místa. Přidej první nahoře.</span>
-        </div>
-      )}
-      {places.map((place, index) => (
-        <div key={place.id}>
-          {index > 0 && <hr className="sep" />}
-          <DraggablePlace
-            place={place}
-            selected={selectedPlaceId === place.id}
-            onSelect={() => onSelect(place.id)}
-            onAdd={() => onPlanPlace(place.id)}
-          />
-        </div>
-      ))}
+
+      <div className="scroll px18" style={{ flex: 1, paddingBottom: 18 }}>
+        {visiblePlaces.length === 0 && (
+          <Card>
+            <EmptyState icon={<MapPin />} title={places.length === 0 ? 'Zatím tu nejsou žádná místa.' : 'Žádná místa neodpovídají filtru.'} text={places.length === 0 ? 'Použij spodní tlačítko plus a přidej první místo.' : 'Zkus jiné hledání nebo filtr.'} />
+          </Card>
+        )}
+        {visiblePlaces.map((place, index) => (
+          <div key={place.id}>
+            {index > 0 && <hr className="sep" />}
+            <DraggablePlace
+              place={place}
+              selected={selectedPlaceId === place.id}
+              onSelect={() => onSelect(place.id)}
+              onApprove={() => onVotePlace(place.id, 'MUST_HAVE')}
+              onShortlist={() => onVotePlace(place.id, 'UP')}
+              onMore={() => onEditPlace(place.id)}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

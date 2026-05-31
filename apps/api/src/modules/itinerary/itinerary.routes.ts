@@ -3,16 +3,19 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { prisma } from '../../db/prisma.js';
 import { getActorUserId, requireTripMember, requireTripMembersByIds, requireTripRole } from '../access/access.js';
 import { httpError } from '../../utils/http.js';
-import { actorQuerySchema, dayIdParamSchema, emptyResponseSchema, jsonResponseSchema, stopIdParamSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
+import { actorQuerySchema, dayIdParamSchema, emptyResponseSchema, jsonResponseSchema, placeIdParamSchema, stopIdParamSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
 import {
   createItineraryDaySchema,
   createItineraryStopSchema,
   deleteItinerarySchema,
   lockItineraryDaySchema,
+  placeDayVoteSchema,
   reorderItineraryStopsSchema,
+  syncItineraryDaysSchema,
   updateItineraryDaySchema,
   updateItineraryStopSchema,
 } from './itinerary.schemas.js';
+import { syncItineraryDaysForTrip } from './itinerary.service.js';
 
 async function assertPlaceBelongsToTrip(tripId: string, placeId: string) {
   const place = await prisma.place.findUniqueOrThrow({ where: { id: placeId } });
@@ -71,8 +74,28 @@ export async function itineraryRoutes(app: FastifyInstance) {
           orderBy: { order: 'asc' },
           include: { place: true, participants: { include: { member: { include: { user: true } } } } },
         },
+        basePlace: true,
+        placeVotes: true,
       },
     });
+  });
+
+  routes.post('/trip/:tripId/sync-days', {
+    schema: {
+      tags: ['itinerary'],
+      summary: 'Synchronize itinerary days from trip date range',
+      security: [{ actorUserId: [] }],
+      params: tripIdParamSchema,
+      body: syncItineraryDaysSchema,
+      response: { 200: jsonResponseSchema },
+    },
+  }, async (request) => {
+    const { tripId } = request.params as { tripId: string };
+    const body = syncItineraryDaysSchema.parse(request.body ?? {});
+    const actorUserId = getActorUserId(request, body);
+    await requireTripRole(tripId, actorUserId, 'ADMIN');
+    const trip = await prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
+    return syncItineraryDaysForTrip(tripId, trip.startsAt, trip.endsAt);
   });
 
   routes.post('/days', {
@@ -92,6 +115,9 @@ export async function itineraryRoutes(app: FastifyInstance) {
         tripId: body.tripId,
         date: new Date(body.date),
         title: body.title,
+        intensity: body.intensity,
+        rainPlan: body.rainPlan,
+        bufferMinutes: body.bufferMinutes,
       },
       include: { stops: true },
     });
@@ -113,16 +139,64 @@ export async function itineraryRoutes(app: FastifyInstance) {
     const day = await prisma.itineraryDay.findUniqueOrThrow({ where: { id: dayId } });
     const actorUserId = getActorUserId(request, body);
     await requireTripRole(day.tripId, actorUserId, 'ADMIN');
+    if (body.basePlaceId) await assertPlaceBelongsToTrip(day.tripId, body.basePlaceId);
 
     return prisma.itineraryDay.update({
       where: { id: dayId },
       data: {
         date: body.date ? new Date(body.date) : undefined,
         title: body.title,
+        basePlaceId: body.basePlaceId,
+        intensity: body.intensity,
+        rainPlan: body.rainPlan,
+        bufferMinutes: body.bufferMinutes,
         locked: body.locked,
       },
-      include: { stops: { include: { place: true, participants: true } } },
+      include: { basePlace: true, stops: { include: { place: true, participants: true } }, placeVotes: true },
     });
+  });
+
+  routes.put('/days/:dayId/places/:placeId/vote', {
+    schema: {
+      tags: ['itinerary'],
+      summary: 'Vote for a place on a specific itinerary day',
+      security: [{ actorUserId: [] }],
+      params: dayIdParamSchema.merge(placeIdParamSchema),
+      body: placeDayVoteSchema,
+      response: { 200: jsonResponseSchema },
+    },
+  }, async (request) => {
+    const { dayId, placeId } = request.params as { dayId: string; placeId: string };
+    const body = placeDayVoteSchema.parse(request.body);
+    const actorUserId = getActorUserId(request, { actorUserId: body.actorUserId ?? body.userId });
+    if (body.userId && body.userId !== actorUserId) throw httpError(403, 'Vote userId must match actor user id');
+    const day = await prisma.itineraryDay.findUniqueOrThrow({ where: { id: dayId } });
+    await requireTripMember(day.tripId, actorUserId);
+    await assertPlaceBelongsToTrip(day.tripId, placeId);
+    return prisma.placeDayVote.upsert({
+      where: { placeId_itineraryDayId_userId: { placeId, itineraryDayId: dayId, userId: actorUserId } },
+      create: { placeId, itineraryDayId: dayId, userId: actorUserId, value: body.value },
+      update: { value: body.value },
+    });
+  });
+
+  routes.delete('/days/:dayId/places/:placeId/vote', {
+    schema: {
+      tags: ['itinerary'],
+      summary: 'Remove own vote for a place on a specific itinerary day',
+      security: [{ actorUserId: [] }],
+      params: dayIdParamSchema.merge(placeIdParamSchema),
+      body: syncItineraryDaysSchema,
+      response: { 204: emptyResponseSchema },
+    },
+  }, async (request, reply) => {
+    const { dayId, placeId } = request.params as { dayId: string; placeId: string };
+    const body = syncItineraryDaysSchema.parse(request.body ?? {});
+    const actorUserId = getActorUserId(request, body);
+    const day = await prisma.itineraryDay.findUniqueOrThrow({ where: { id: dayId } });
+    await requireTripMember(day.tripId, actorUserId);
+    await prisma.placeDayVote.deleteMany({ where: { placeId, itineraryDayId: dayId, userId: actorUserId } });
+    return reply.code(204).send(null);
   });
 
   routes.patch('/days/:dayId/lock', {

@@ -5,6 +5,7 @@ import { actorQuerySchema, emptyResponseSchema, idParamSchema, jsonResponseSchem
 import { httpError } from '../../utils/http.js';
 import { getActorUserId, requireTripMember, requireTripRole } from '../access/access.js';
 import { requireJwt } from '../auth/jwt.js';
+import { syncItineraryDaysForTrip } from '../itinerary/itinerary.service.js';
 import { createTripSchema, deleteTripSchema, joinTripSchema, tripMemberResponseSchema, tripSummaryListResponseSchema, tripSummaryResponseSchema, updateTripMemberRoleSchema, updateTripSchema } from './trip.schemas.js';
 
 export async function tripRoutes(app: FastifyInstance) {
@@ -59,9 +60,9 @@ export async function tripRoutes(app: FastifyInstance) {
       where: { id },
       include: {
         members: { include: { user: true, availabilityWindows: true } },
-        places: true,
+        places: { include: { votes: true, comments: true, dayVotes: true } },
         expenses: { include: { splits: true } },
-        itineraryDays: { include: { stops: { include: { place: true, participants: true } } } },
+        itineraryDays: { include: { basePlace: true, placeVotes: true, stops: { include: { place: true, participants: true } } } },
         routePlans: { include: { legs: true } },
       },
     });
@@ -95,6 +96,7 @@ export async function tripRoutes(app: FastifyInstance) {
       },
       include: { members: { include: { user: true } } },
     });
+    await syncItineraryDaysForTrip(trip.id, trip.startsAt, trip.endsAt);
 
     return reply.code(201).send(trip);
   });
@@ -114,7 +116,7 @@ export async function tripRoutes(app: FastifyInstance) {
     const actorUserId = getActorUserId(request, body);
     await requireTripRole(id, actorUserId, 'ADMIN');
 
-    return prisma.trip.update({
+    const updatedTrip = await prisma.trip.update({
       where: { id },
       data: {
         name: body.name,
@@ -125,6 +127,8 @@ export async function tripRoutes(app: FastifyInstance) {
       },
       include: { members: { include: { user: true } } },
     });
+    await syncItineraryDaysForTrip(updatedTrip.id, updatedTrip.startsAt, updatedTrip.endsAt);
+    return updatedTrip;
   });
 
   routes.delete('/:id', {

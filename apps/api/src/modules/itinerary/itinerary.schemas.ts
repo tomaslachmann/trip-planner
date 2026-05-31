@@ -5,11 +5,18 @@ export const createItineraryDaySchema = actorUserIdSchema.extend({
   tripId: z.string().min(1),
   date: z.string().datetime(),
   title: z.string().optional(),
+  intensity: z.enum(['CALM', 'NORMAL', 'INTENSE']).default('NORMAL'),
+  rainPlan: z.string().max(1000).optional(),
+  bufferMinutes: z.number().int().min(0).max(240).default(30),
 });
 
 export const updateItineraryDaySchema = actorUserIdSchema.extend({
   date: z.string().datetime().optional(),
   title: z.string().nullable().optional(),
+  basePlaceId: z.string().min(1).nullable().optional(),
+  intensity: z.enum(['CALM', 'NORMAL', 'INTENSE']).optional(),
+  rainPlan: z.string().max(1000).nullable().optional(),
+  bufferMinutes: z.number().int().min(0).max(240).optional(),
   locked: z.boolean().optional(),
 });
 
@@ -33,6 +40,13 @@ export const updateItineraryStopSchema = refineDateRange(actorUserIdSchema.exten
 
 export const lockItineraryDaySchema = actorUserIdSchema.extend({
   locked: z.boolean(),
+});
+
+export const syncItineraryDaysSchema = actorUserIdSchema;
+
+export const placeDayVoteSchema = actorUserIdSchema.extend({
+  userId: z.string().min(1).optional(),
+  value: z.enum(['UP','DOWN','MAYBE','MUST_HAVE']),
 });
 
 export const reorderItineraryStopsSchema = actorUserIdSchema.extend({

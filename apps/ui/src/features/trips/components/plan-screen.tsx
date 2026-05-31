@@ -7,8 +7,11 @@ import { CostsPanel } from './costs-panel';
 import { ItineraryPanel } from './itinerary-panel';
 import { MembersPanel } from './members-panel';
 import { PlacesPanel } from './places-panel';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { StayPanel } from './stay-panel';
 import { TripBar } from './trip-bar';
+import { ItineraryStopSheet, type EditingItineraryStop } from './itinerary-stop-sheet';
+import { useModal } from '../context/modal-context';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import type { TabKey } from '../types';
 
@@ -20,10 +23,14 @@ function stopDayId(planner: TripPlannerController, stopId: string) {
 
 export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: TripPlannerController; forcedTab?: TabKey; mobile?: boolean }) {
   const { state, actions } = planner;
+  const { openModal } = useModal();
   const [planView, setPlanView] = useState<PlanView>('places');
+  const [editingStop, setEditingStop] = useState<EditingItineraryStop | null>(null);
 
   useEffect(() => {
     if (forcedTab === 'stay') setPlanView('stay');
+    if (forcedTab === 'itinerary') setPlanView('itinerary');
+    if (forcedTab === 'plan') setPlanView('places');
   }, [forcedTab]);
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -56,7 +63,18 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
     return (
       <div className="screen">
         <TripBar trip={state.selectedTrip} refreshing={state.loading} onRefresh={() => void actions.loadTrips()} />
-        <CostsPanel trip={state.selectedTrip} expenses={state.data.expenses} settlements={state.data.settlements} onAddExpense={(data) => void actions.addExpense(data)} mobile={mobile} />
+        <CostsPanel
+          trip={state.selectedTrip}
+          expenses={state.data.expenses}
+          settlements={state.data.settlements}
+          onAddExpense={(data) => void actions.addExpense(data)}
+          onUpdateSettlementStatus={(settlement, status) => void actions.updateSettlementStatus(settlement, status)}
+          onEditExpense={(expenseId) => {
+            actions.setSelectedExpenseId(expenseId);
+            openModal('addExpense', true);
+          }}
+          mobile={mobile}
+        />
       </div>
     );
   }
@@ -65,7 +83,15 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
     return (
       <div className="screen">
         <TripBar trip={state.selectedTrip} refreshing={state.loading} onRefresh={() => void actions.loadTrips()} />
-        <MembersPanel trip={state.selectedTrip} actorUserId={state.actorUserId} actorRole={state.actorMember?.role} onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)} onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)} />
+        <MembersPanel
+          trip={state.selectedTrip}
+          actorUserId={state.actorUserId}
+          actorRole={state.actorMember?.role}
+          onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)}
+          onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)}
+          onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)}
+          onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)}
+        />
       </div>
     );
   }
@@ -74,28 +100,36 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
     <div className="screen">
       <TripBar trip={state.selectedTrip} refreshing={state.loading} onRefresh={() => void actions.loadTrips()} />
       <div className="px18" style={{ paddingTop: 10, paddingBottom: 2, flex: '0 0 auto' }}>
-        <div className="seg">
-          <button className={planView === 'places' ? 'on' : ''} type="button" onClick={() => setPlanView('places')}>Místa</button>
-          <button className={planView === 'itinerary' ? 'on' : ''} type="button" onClick={() => setPlanView('itinerary')}>Itinerář</button>
-          <button className={planView === 'stay' ? 'on' : ''} type="button" onClick={() => setPlanView('stay')}>Ubytování</button>
-        </div>
+        <SegmentedControl
+          value={planView}
+          onValueChange={setPlanView}
+          options={[
+            { value: 'places', label: 'Místa' },
+            { value: 'itinerary', label: 'Itinerář' },
+            { value: 'stay', label: 'Ubytování' },
+          ]}
+        />
       </div>
       <DndContext collisionDetection={closestCenter} onDragEnd={(event) => void handleDragEnd(event)}>
         <div className="col flex1 rel" style={{ minHeight: 0 }}>
           {planView === 'places' && (
             <PlacesPanel
-              trip={state.selectedTrip}
               places={state.data.places}
               selectedPlaceId={state.selectedPlaceId}
               onSelect={actions.setSelectedPlaceId}
-              onAddPlace={(data) => void actions.addPlace(data)}
-              onPlanPlace={(placeId) => void actions.addPlaceToItinerary(placeId)}
+              onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
+              onEditPlace={(placeId) => {
+                actions.setSelectedPlaceId(placeId);
+                openModal('addPlace', true);
+              }}
             />
           )}
           {planView === 'itinerary' && (
             <ItineraryPanel
               days={state.data.itinerary}
               onOpenPlace={actions.setSelectedPlaceId}
+              onEditStop={(day, stop) => setEditingStop({ day, stop })}
+              onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
               onOptimize={() => void actions.optimizeRoute()}
             />
           )}
@@ -103,15 +137,30 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
             <StayPanel
               trip={state.selectedTrip}
               stays={state.accommodations}
+              savedPlaces={state.data.places.filter((place) => place.type === 'ACCOMMODATION')}
+              actorUserId={state.actorUserId}
               selectedId={state.selectedAccommodationId}
               searching={state.searchingStay}
               onSearch={(data) => void actions.searchStays(data)}
               onSelect={actions.setSelectedAccommodationId}
+              onSelectSaved={actions.setSelectedPlaceId}
               onSave={(stay) => void actions.saveAccommodation(stay)}
+              onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
+              onStatusChange={(placeId, status) => void actions.updateAccommodationStatus(placeId, status)}
             />
           )}
         </div>
       </DndContext>
+      {editingStop && (
+        <ItineraryStopSheet
+          key={editingStop.stop.id}
+          editing={editingStop}
+          members={state.selectedTrip?.members ?? []}
+          onClose={() => setEditingStop(null)}
+          onUpdate={(stopId, input) => void actions.updateItineraryStop(stopId, input)}
+          onDelete={(stopId) => void actions.deleteItineraryStop(stopId)}
+        />
+      )}
     </div>
   );
 }

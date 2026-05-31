@@ -14,6 +14,7 @@ import { MembersPanel } from './members-panel';
 import { PlacesPanel } from './places-panel';
 import { StayPanel } from './stay-panel';
 import { TripBar } from './trip-bar';
+import { useModal } from '../context/modal-context';
 import { formatTripRange, routeDistanceKm } from '../lib/format';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import type { TabKey } from '../types';
@@ -33,6 +34,7 @@ function stopDayId(planner: TripPlannerController, stopId: string) {
 
 export function DesktopTripApp({ planner }: { planner: TripPlannerController }) {
   const { state, actions } = planner;
+  const { openModal } = useModal();
 
   async function handleDragEnd(event: DragEndEvent) {
     const activeId = String(event.active.id);
@@ -111,24 +113,23 @@ export function DesktopTripApp({ planner }: { planner: TripPlannerController }) 
             )}
             {state.activeTab === 'plan' && (
               <div className="desk-body">
-                <div className="desk-scroll"><PlacesPanel trip={state.selectedTrip} places={state.data.places} selectedPlaceId={state.selectedPlaceId} onSelect={actions.setSelectedPlaceId} onAddPlace={(data) => void actions.addPlace(data)} onPlanPlace={(placeId) => void actions.addPlaceToItinerary(placeId)} /></div>
-                <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} onOpenPlace={actions.setSelectedPlaceId} onOptimize={() => void actions.optimizeRoute()} /></aside>
+                <div className="desk-scroll"><PlacesPanel places={state.data.places} selectedPlaceId={state.selectedPlaceId} onSelect={actions.setSelectedPlaceId} onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)} onEditPlace={(placeId) => { actions.setSelectedPlaceId(placeId); openModal('addPlace', true); }} /></div>
+                <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} onOpenPlace={actions.setSelectedPlaceId} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
               </div>
             )}
             {state.activeTab === 'stay' && (
               <div className="desk-body">
-                <MapScreen planner={planner} desktop />
-                <aside className="desk-panel"><StayPanel trip={state.selectedTrip} stays={state.accommodations} selectedId={state.selectedAccommodationId} searching={state.searchingStay} onSearch={(data) => void actions.searchStays(data)} onSelect={actions.setSelectedAccommodationId} onSave={(stay) => void actions.saveAccommodation(stay)} /></aside>
+                <div className="desk-scroll"><StayPanel layout="desktop" trip={state.selectedTrip} stays={state.accommodations} savedPlaces={state.data.places.filter((place) => place.type === 'ACCOMMODATION')} actorUserId={state.actorUserId} selectedId={state.selectedAccommodationId} searching={state.searchingStay} onSearch={(data) => void actions.searchStays(data)} onSelect={actions.setSelectedAccommodationId} onSelectSaved={actions.setSelectedPlaceId} onSave={(stay) => void actions.saveAccommodation(stay)} onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)} onStatusChange={(placeId, status) => void actions.updateAccommodationStatus(placeId, status)} /></div>
               </div>
             )}
             {state.activeTab === 'costs' && (
-              <div className="desk-body"><div className="desk-scroll maxw"><CostsPanel trip={state.selectedTrip} expenses={state.data.expenses} settlements={state.data.settlements} onAddExpense={(data) => void actions.addExpense(data)} /></div></div>
+              <div className="desk-body"><div className="desk-scroll maxw"><CostsPanel trip={state.selectedTrip} expenses={state.data.expenses} settlements={state.data.settlements} onAddExpense={(data) => void actions.addExpense(data)} onUpdateSettlementStatus={(settlement, status) => void actions.updateSettlementStatus(settlement, status)} /></div></div>
             )}
             {state.activeTab === 'settle' && (
-              <div className="desk-body"><div className="desk-scroll maxw"><CostsPanel trip={state.selectedTrip} expenses={[]} settlements={state.data.settlements} onAddExpense={(data) => void actions.addExpense(data)} /></div></div>
+              <div className="desk-body"><div className="desk-scroll maxw"><CostsPanel trip={state.selectedTrip} expenses={[]} settlements={state.data.settlements} onAddExpense={(data) => void actions.addExpense(data)} onUpdateSettlementStatus={(settlement, status) => void actions.updateSettlementStatus(settlement, status)} /></div></div>
             )}
             {state.activeTab === 'members' && (
-              <div className="desk-body"><div className="desk-scroll maxw"><MembersPanel trip={state.selectedTrip} actorUserId={state.actorUserId} actorRole={state.actorMember?.role} onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)} onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)} /></div></div>
+              <div className="desk-body"><div className="desk-scroll maxw"><MembersPanel trip={state.selectedTrip} actorUserId={state.actorUserId} actorRole={state.actorMember?.role} onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)} onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)} onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)} onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)} /></div></div>
             )}
           </DndContext>
         </main>

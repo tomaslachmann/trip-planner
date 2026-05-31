@@ -14,7 +14,9 @@ export function TripButton({
   block,
   ...props
 }: ButtonProps & { tone?: TripButtonTone; tripSize?: TripButtonSize; block?: boolean }) {
-  return <Button className={cn('btn', tone, tripSize, block && 'block', className)} {...props} />;
+  const variant = tone === 'primary' ? 'default' : tone;
+  const size = tripSize === 'lg' ? 'lg' : tripSize === 'sm' ? 'sm' : tripSize === 'icon' ? 'icon' : undefined;
+  return <Button variant={variant} size={size} className={cn(block && 'w-full', className)} {...props} />;
 }
 
 export function TripChromeButton({ className, ...props }: ButtonProps) {
@@ -22,13 +24,25 @@ export function TripChromeButton({ className, ...props }: ButtonProps) {
 }
 
 export function TripIconButton({ className, plain, ...props }: ButtonProps & { plain?: boolean }) {
-  return <Button className={cn('iconbtn', plain && 'plain', className)} {...props} />;
+  return (
+    <Button
+      variant={plain ? 'ghost' : 'outline'}
+      size="icon"
+      className={cn('rounded-[11px] h-[38px] w-[38px] [&_svg]:size-[19px]', className)}
+      {...props}
+    />
+  );
 }
 
 export function TripCard({ className, pad, shadow = true, ...props }: ComponentProps<typeof Card> & { pad?: boolean; shadow?: boolean }) {
-  return <Card className={cn('card', pad && 'pad', shadow && 'sh', className)} {...props} />;
+  return (
+    <Card
+      className={cn(pad && 'p-[14px]', shadow && 'shadow-[var(--sh-sm)]', className)}
+      {...props}
+    />
+  );
 }
 
 export function TripBadge({ className, ...props }: ComponentProps<typeof Badge>) {
-  return <Badge className={cn('badge', className)} {...props} />;
+  return <Badge className={cn(className)} {...props} />;
 }

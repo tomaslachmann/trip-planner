@@ -44,7 +44,10 @@ async function assertParticipantsAvailable(tripId: string, participantUserIds: s
     where: {
       tripId,
       userId: { in: participantUserIds },
-      availabilityWindows: { some: { startsAt: { lte: start }, endsAt: { gte: end } } },
+      OR: [
+        { availabilityWindows: { none: {} } },
+        { availabilityWindows: { some: { startsAt: { lte: start }, endsAt: { gte: end } } } },
+      ],
     },
   });
   if (availableMembers.length !== new Set(participantUserIds).size) {

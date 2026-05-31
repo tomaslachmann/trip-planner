@@ -1,6 +1,6 @@
-import { TripRoutePage } from '@/features/trips/trip-route-page';
+import { TripPlanRoute } from '@/features/trips/routes/trip-plan-route';
 
 export default async function TripPlanPage({ params }: { params: Promise<{ tripId: string }> }) {
   const { tripId } = await params;
-  return <TripRoutePage tripId={tripId} view="plan" />;
+  return <TripPlanRoute tripId={tripId} />;
 }
