@@ -8,19 +8,30 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "openapi:generate": "DATABASE_URL=postgresql://trip_planner:trip_planner@localhost:5432/trip_planner?schema=public tsx scripts/generate-openapi.ts",
+    "client:generate": "npm run openapi:generate && openapi-typescript openapi.json -o src/generated/openapi-types.ts",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@fastify/cors": "latest",
     "@fastify/helmet": "latest",
-    "@prisma/client": "latest",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
+    "@prisma/client": "^6.19.3",
     "fastify": "latest",
+    "fastify-type-provider-zod": "^6.1.0",
+    "openapi-fetch": "^0.17.0",
     "zod": "latest"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
     "@types/node": "latest",
-    "prisma": "latest",
+    "openapi-typescript": "^7.13.0",
+    "prisma": "^6.19.3",
     "tsx": "latest",
     "typescript": "latest"
   }

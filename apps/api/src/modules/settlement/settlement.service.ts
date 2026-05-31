@@ -47,7 +47,7 @@ export async function calculateTripSettlements(tripId: string): Promise<Settleme
         toUserId: creditor.userId,
         amount,
         currency: trip.currency,
-        qrPayload: account?.iban ? createSpdPaymentPayload({ iban: account.iban, amount, currency: trip.currency, message: `Trip ${trip.name}`, recipientName: account.recipientName }) : undefined,
+        qrPayload: account?.iban ? createSpdPaymentPayload({ iban: account.iban, amount, currency: trip.currency, message: `Trip ${trip.name}`, recipientName: account.recipientName ?? undefined }) : undefined,
       });
       debtor.amount = roundMoney(debtor.amount - amount);
       creditor.amount = roundMoney(creditor.amount - amount);

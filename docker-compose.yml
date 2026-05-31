@@ -1,4 +1,44 @@
 services:
+  ui:
+    build:
+      context: ./apps/ui
+    command: npm run dev -- -H 0.0.0.0
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/ui:/app
+      - ui_node_modules:/app/node_modules
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./apps/api
+    command: sh -c "npm run prisma:generate && npm run dev"
+    environment:
+      DATABASE_URL: postgresql://trip_planner:trip_planner@postgres:5432/trip_planner?schema=public
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-dev-trip-planner-jwt-secret}
+      BOOKING_PROVIDER: ${BOOKING_PROVIDER:-rapidapi}
+      BOOKING_API_BASE_URL: ${BOOKING_API_BASE_URL:-https://demandapi-sandbox.booking.com/3.1}
+      BOOKING_AFFILIATE_ID: ${BOOKING_AFFILIATE_ID:-}
+      BOOKING_API_TOKEN: ${BOOKING_API_TOKEN:-}
+      BOOKING_RAPIDAPI_BASE_URL: ${BOOKING_RAPIDAPI_BASE_URL:-https://booking-com15.p.rapidapi.com}
+      BOOKING_RAPIDAPI_HOST: ${BOOKING_RAPIDAPI_HOST:-booking-com15.p.rapidapi.com}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+      ROUTING_OSRM_BASE_URL: ${ROUTING_OSRM_BASE_URL:-https://router.project-osrm.org}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./apps/api:/app
+      - api_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -9,5 +49,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trip_planner -d trip_planner"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 volumes:
+  ui_node_modules:
+  api_node_modules:
   postgres_data:

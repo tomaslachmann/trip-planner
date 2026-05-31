@@ -1,76 +1,157 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
 
-enum TripRole { OWNER ADMIN MEMBER GUEST }
-enum PlaceType { PLACE ACTIVITY DAY_TRIP STAY_AREA ACCOMMODATION FOOD TRANSPORT CUSTOM }
-enum VoteValue { UP DOWN MAYBE MUST_HAVE }
-enum SplitType { EQUAL CUSTOM PERCENTAGE SHARES }
-enum SettlementStatus { OPEN PAID CANCELLED }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TripRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum PlaceType {
+  PLACE
+  ACTIVITY
+  DAY_TRIP
+  STAY_AREA
+  ACCOMMODATION
+  FOOD
+  TRANSPORT
+  CUSTOM
+}
+
+enum VoteValue {
+  UP
+  DOWN
+  MAYBE
+  MUST_HAVE
+}
+
+enum SplitType {
+  EQUAL
+  CUSTOM
+  PERCENTAGE
+  SHARES
+}
+
+enum SettlementStatus {
+  OPEN
+  PAID
+  CANCELLED
+}
+
+enum TravelMode {
+  DRIVE
+  WALK
+  BIKE
+  TRANSIT
+}
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String           @id @default(cuid())
+  email     String           @unique
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime         @default(now())
   trips     TripMember[]
   places    Place[]
   expenses  Expense[]
   accounts  PaymentAccount[]
+  votes     PlaceVote[]
+  comments  PlaceComment[]
+  splits    ExpenseSplit[]
 }
 
 model Trip {
-  id          String   @id @default(cuid())
-  name        String
-  destination String?
-  startsAt    DateTime?
-  endsAt      DateTime?
-  currency    String   @default("CZK")
-  inviteCode  String   @unique @default(cuid())
-  createdAt   DateTime @default(now())
-  members     TripMember[]
-  places      Place[]
-  expenses    Expense[]
+  id            String         @id @default(cuid())
+  name          String
+  destination   String?
+  startsAt      DateTime?
+  endsAt        DateTime?
+  currency      String         @default("CZK")
+  inviteCode    String         @unique @default(cuid())
+  createdAt     DateTime       @default(now())
+  members       TripMember[]
+  places        Place[]
+  expenses      Expense[]
+  itineraryDays ItineraryDay[]
+  routePlans    RoutePlan[]
 }
 
 model TripMember {
-  id        String   @id @default(cuid())
-  tripId    String
-  userId    String
-  role      TripRole @default(MEMBER)
-  joinedAt  DateTime @default(now())
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String                     @id @default(cuid())
+  tripId              String
+  userId              String
+  role                TripRole                   @default(MEMBER)
+  joinedAt            DateTime                   @default(now())
+  trip                Trip                       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user                User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilityWindows TripMemberAvailability[]
+  itineraryStops      ItineraryStopParticipant[]
+
   @@unique([tripId, userId])
 }
 
+model TripMemberAvailability {
+  id           String     @id @default(cuid())
+  tripMemberId String
+  startsAt     DateTime
+  endsAt       DateTime
+  startPlaceId String?
+  endPlaceId   String?
+  note         String?
+  member       TripMember @relation(fields: [tripMemberId], references: [id], onDelete: Cascade)
+  startPlace   Place?     @relation("AvailabilityStartPlace", fields: [startPlaceId], references: [id])
+  endPlace     Place?     @relation("AvailabilityEndPlace", fields: [endPlaceId], references: [id])
+}
+
 model PaymentAccount {
-  id            String @id @default(cuid())
-  userId        String
-  label         String @default("Main")
-  iban          String?
+  id              String  @id @default(cuid())
+  userId          String
+  label           String  @default("Main")
+  iban            String?
   domesticAccount String?
-  bankCode      String?
-  recipientName String?
-  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankCode        String?
+  recipientName   String?
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Place {
-  id          String    @id @default(cuid())
-  tripId      String
-  createdById String
-  type        PlaceType
-  name        String
-  description String?
-  latitude    Float
-  longitude   Float
-  durationMin Int?
-  estimatedCost Decimal?
-  sourceUrl   String?
-  createdAt   DateTime @default(now())
-  trip        Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  createdBy   User      @relation(fields: [createdById], references: [id])
-  votes       PlaceVote[]
-  comments    PlaceComment[]
+  id                       String                   @id @default(cuid())
+  tripId                   String
+  createdById              String
+  type                     PlaceType
+  name                     String
+  description              String?
+  latitude                 Float
+  longitude                Float
+  durationMin              Int?
+  estimatedCost            Decimal?
+  sourceUrl                String?
+  accommodationProvider    String?
+  accommodationExternalId  String?
+  accommodationRating      Float?
+  accommodationReviewScore Float?
+  accommodationReviewCount Int?
+  accommodationCurrency    String?
+  accommodationDeepLinkUrl String?
+  accommodationStatus      String?
+  createdAt                DateTime                 @default(now())
+  trip                     Trip                     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdBy                User                     @relation(fields: [createdById], references: [id])
+  votes                    PlaceVote[]
+  comments                 PlaceComment[]
+  itineraryStops           ItineraryStop[]
+  routeLegsFrom            RouteLeg[]               @relation("RouteLegFrom")
+  routeLegsTo              RouteLeg[]               @relation("RouteLegTo")
+  availabilityStartWindows TripMemberAvailability[] @relation("AvailabilityStartPlace")
+  availabilityEndWindows   TripMemberAvailability[] @relation("AvailabilityEndPlace")
+
+  @@unique([tripId, accommodationProvider, accommodationExternalId])
 }
 
 model PlaceVote {
@@ -79,6 +160,8 @@ model PlaceVote {
   userId  String
   value   VoteValue
   place   Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([placeId, userId])
 }
 
@@ -89,20 +172,92 @@ model PlaceComment {
   body      String
   createdAt DateTime @default(now())
   place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ItineraryDay {
+  id        String          @id @default(cuid())
+  tripId    String
+  date      DateTime
+  title     String?
+  locked    Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stops     ItineraryStop[]
+
+  @@unique([tripId, date])
+}
+
+model ItineraryStop {
+  id           String                     @id @default(cuid())
+  dayId        String
+  placeId      String
+  order        Int
+  startsAt     DateTime?
+  endsAt       DateTime?
+  note         String?
+  day          ItineraryDay               @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  place        Place                      @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  participants ItineraryStopParticipant[]
+  expenses     Expense[]
+
+  @@unique([dayId, order])
+}
+
+model ItineraryStopParticipant {
+  id           String        @id @default(cuid())
+  stopId       String
+  tripMemberId String
+  stop         ItineraryStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  member       TripMember    @relation(fields: [tripMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([stopId, tripMemberId])
+}
+
+model RoutePlan {
+  id        String     @id @default(cuid())
+  tripId    String
+  name      String
+  mode      TravelMode @default(DRIVE)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  locked    Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  trip      Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  legs      RouteLeg[]
+}
+
+model RouteLeg {
+  id              String    @id @default(cuid())
+  routePlanId     String
+  fromPlaceId     String
+  toPlaceId       String
+  order           Int
+  distanceMeters  Int?
+  durationSeconds Int?
+  encodedPolyline String?
+  provider        String?
+  routePlan       RoutePlan @relation(fields: [routePlanId], references: [id], onDelete: Cascade)
+  fromPlace       Place     @relation("RouteLegFrom", fields: [fromPlaceId], references: [id], onDelete: Cascade)
+  toPlace         Place     @relation("RouteLegTo", fields: [toPlaceId], references: [id], onDelete: Cascade)
+
+  @@unique([routePlanId, order])
 }
 
 model Expense {
-  id        String    @id @default(cuid())
-  tripId    String
-  paidById  String
-  title     String
-  amount    Decimal
-  currency  String    @default("CZK")
-  splitType SplitType @default(EQUAL)
-  createdAt DateTime  @default(now())
-  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  paidBy    User      @relation(fields: [paidById], references: [id])
-  splits    ExpenseSplit[]
+  id              String         @id @default(cuid())
+  tripId          String
+  paidById        String
+  title           String
+  amount          Decimal
+  currency        String         @default("CZK")
+  splitType       SplitType      @default(EQUAL)
+  itineraryStopId String?
+  createdAt       DateTime       @default(now())
+  trip            Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  paidBy          User           @relation(fields: [paidById], references: [id])
+  itineraryStop   ItineraryStop? @relation(fields: [itineraryStopId], references: [id], onDelete: SetNull)
+  splits          ExpenseSplit[]
 }
 
 model ExpenseSplit {
@@ -111,4 +266,7 @@ model ExpenseSplit {
   userId    String
   amount    Decimal
   expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
 }

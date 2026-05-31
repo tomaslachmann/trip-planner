@@ -1,0 +1,2780 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Trip Planner API",
+    "description": "Collaborative trip planning, itineraries, routes, expenses, and settlements.",
+    "version": "0.1.0"
+  },
+  "components": {
+    "securitySchemes": {
+      "actorUserId": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "tags": [
+          "system"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sign-in": {
+      "post": {
+        "summary": "Sign in with email for development session",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get current session user",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sign-out": {
+      "post": {
+        "summary": "Clear current session",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips": {
+      "get": {
+        "summary": "List trips",
+        "tags": [
+          "trips"
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create trip",
+        "tags": [
+          "trips"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "destination": {
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "owner": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "email",
+                      "name"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "owner"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/available": {
+      "get": {
+        "summary": "List trips available to join",
+        "tags": [
+          "trips"
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{id}": {
+      "get": {
+        "summary": "Get trip detail",
+        "tags": [
+          "trips"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update trip",
+        "tags": [
+          "trips"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "destination": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete trip",
+        "tags": [
+          "trips"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/join": {
+      "post": {
+        "summary": "Join trip by invite code",
+        "tags": [
+          "trips"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "inviteCode": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "user": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "email",
+                      "name"
+                    ]
+                  }
+                },
+                "required": [
+                  "inviteCode",
+                  "user"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/members/{memberId}/role": {
+      "patch": {
+        "summary": "Update trip member role",
+        "tags": [
+          "trips"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "MEMBER",
+                      "GUEST"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "memberId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/places/trip/{tripId}": {
+      "get": {
+        "summary": "List trip places",
+        "tags": [
+          "places"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/places": {
+      "post": {
+        "summary": "Create place",
+        "tags": [
+          "places"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "createdById": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "PLACE",
+                      "ACTIVITY",
+                      "DAY_TRIP",
+                      "STAY_AREA",
+                      "ACCOMMODATION",
+                      "FOOD",
+                      "TRANSPORT",
+                      "CUSTOM"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "durationMin": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "estimatedCost": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "sourceUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "createdById",
+                  "type",
+                  "name",
+                  "latitude",
+                  "longitude"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/places/{id}": {
+      "patch": {
+        "summary": "Update place",
+        "tags": [
+          "places"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "PLACE",
+                      "ACTIVITY",
+                      "DAY_TRIP",
+                      "STAY_AREA",
+                      "ACCOMMODATION",
+                      "FOOD",
+                      "TRANSPORT",
+                      "CUSTOM"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "durationMin": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "estimatedCost": {
+                    "nullable": true,
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "sourceUrl": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete place",
+        "tags": [
+          "places"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/places/{id}/votes": {
+      "post": {
+        "summary": "Vote for place",
+        "tags": [
+          "places"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {
+                    "type": "string",
+                    "enum": [
+                      "UP",
+                      "DOWN",
+                      "MAYBE",
+                      "MUST_HAVE"
+                    ]
+                  }
+                },
+                "required": [
+                  "userId",
+                  "value"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/places/{id}/comments": {
+      "post": {
+        "summary": "Comment on place",
+        "tags": [
+          "places"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "userId",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/members/trip/{tripId}": {
+      "get": {
+        "summary": "List trip members",
+        "tags": [
+          "members"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/members/{tripMemberId}/availability": {
+      "post": {
+        "summary": "Create member availability window",
+        "tags": [
+          "members"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "startPlaceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "endPlaceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "startsAt",
+                  "endsAt"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripMemberId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/members/availability/{availabilityId}": {
+      "patch": {
+        "summary": "Update member availability window",
+        "tags": [
+          "members"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "startPlaceId": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "endPlaceId": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "note": {
+                    "nullable": true,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "availabilityId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete member availability window",
+        "tags": [
+          "members"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "availabilityId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/trip/{tripId}": {
+      "get": {
+        "summary": "List trip itinerary days",
+        "tags": [
+          "itinerary"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/days": {
+      "post": {
+        "summary": "Create itinerary day",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "date"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/days/{dayId}": {
+      "patch": {
+        "summary": "Update itinerary day",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "title": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "dayId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete itinerary day",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "dayId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/days/{dayId}/lock": {
+      "patch": {
+        "summary": "Lock or unlock itinerary day",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "locked"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "dayId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/days/{dayId}/stops": {
+      "post": {
+        "summary": "Create itinerary stop",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "placeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "order": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "tripMemberIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "placeId",
+                  "order"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "dayId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/stops/{stopId}": {
+      "patch": {
+        "summary": "Update itinerary stop",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "placeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "order": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "startsAt": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "note": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "tripMemberIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "stopId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete itinerary stop",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "stopId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/itinerary/days/{dayId}/stops/reorder": {
+      "patch": {
+        "summary": "Reorder itinerary stops for a day",
+        "tags": [
+          "itinerary"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "stopIds": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "stopIds"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "dayId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/routes/trip/{tripId}": {
+      "get": {
+        "summary": "List trip routes",
+        "tags": [
+          "routes"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/routes": {
+      "post": {
+        "summary": "Create route plan from ordered places",
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "mode": {
+                    "default": "DRIVE",
+                    "type": "string",
+                    "enum": [
+                      "DRIVE",
+                      "WALK",
+                      "BIKE",
+                      "TRANSIT"
+                    ]
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "placeIds": {
+                    "minItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "name",
+                  "placeIds"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/routes/optimize": {
+      "post": {
+        "summary": "Create optimized route plan",
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "default": "Optimized route",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "mode": {
+                    "default": "DRIVE",
+                    "type": "string",
+                    "enum": [
+                      "DRIVE",
+                      "WALK",
+                      "BIKE",
+                      "TRANSIT"
+                    ]
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "placeIds": {
+                    "minItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "participantUserIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "placeIds"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/routes/{routePlanId}": {
+      "patch": {
+        "summary": "Update route plan",
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "locked": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "routePlanId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete route plan",
+        "tags": [
+          "routes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "routePlanId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accommodations/search": {
+      "post": {
+        "summary": "Search Booking accommodations for a trip",
+        "tags": [
+          "accommodations"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "checkin": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "checkout": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "adults": {
+                    "default": 2,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "rooms": {
+                    "default": 1,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "radiusKm": {
+                    "default": 15,
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 100
+                  },
+                  "limit": {
+                    "default": 20,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 50
+                  },
+                  "bookingRequest": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "tripId"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/accommodations/save": {
+      "post": {
+        "summary": "Save an accommodation search result as a trip place",
+        "tags": [
+          "accommodations"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "externalId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "priceTotal": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "rating": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "reviewScore": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "reviewCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "sourceUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "deepLinkUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "provider": {
+                    "default": "booking",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "externalId",
+                  "name",
+                  "latitude",
+                  "longitude"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/expenses/trip/{tripId}": {
+      "get": {
+        "summary": "List trip expenses",
+        "tags": [
+          "expenses"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/expenses": {
+      "post": {
+        "summary": "Create expense",
+        "tags": [
+          "expenses"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "paidById": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "amount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "itineraryStopId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "splitType": {
+                    "default": "EQUAL",
+                    "type": "string",
+                    "enum": [
+                      "EQUAL",
+                      "CUSTOM"
+                    ]
+                  },
+                  "splitAllTripMembers": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "splitUserIds": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "customSplits": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "amount": {
+                          "type": "number",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "amount"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "paidById",
+                  "title",
+                  "amount"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/expenses/{id}": {
+      "patch": {
+        "summary": "Update expense",
+        "tags": [
+          "expenses"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete expense",
+        "tags": [
+          "expenses"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No response body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No response body"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settlements/trip/{tripId}": {
+      "get": {
+        "summary": "Calculate trip settlements",
+        "tags": [
+          "settlements"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "actorUserId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/accounts": {
+      "post": {
+        "summary": "Create payment account",
+        "tags": [
+          "payments"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "label": {
+                    "default": "Main",
+                    "type": "string"
+                  },
+                  "iban": {
+                    "type": "string"
+                  },
+                  "domesticAccount": {
+                    "type": "string"
+                  },
+                  "bankCode": {
+                    "type": "string"
+                  },
+                  "recipientName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "actorUserId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001"
+    }
+  ]
+}
