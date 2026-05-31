@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { ItineraryDay, ItineraryStop, TripWeather } from '../types';
+import type { ItineraryDay, ItineraryStop, RouteCapabilities, TripWeather } from '../types';
 import { categoryLabel } from './category';
 
 type DayIntensity = 'CALM' | 'NORMAL' | 'INTENSE';
@@ -145,6 +145,7 @@ export function ItineraryPanel({
   onAttendance,
   onUpdateDay,
   onOptimize,
+  routeCapabilities,
 }: {
   days: ItineraryDay[];
   weather?: TripWeather | null;
@@ -154,7 +155,9 @@ export function ItineraryPanel({
   onAttendance?: (stopId: string, status: 'GOING' | 'MAYBE' | 'NO') => void;
   onUpdateDay?: (dayId: string, input: { intensity?: DayIntensity; rainPlan?: string | null; bufferMinutes?: number; locked?: boolean }) => void;
   onOptimize: () => void;
+  routeCapabilities?: RouteCapabilities | null;
 }) {
+  const transitAvailable = routeCapabilities?.modes.TRANSIT === true;
   return (
     <div className="scroll px18" style={{ flex: 1, paddingTop: 10, paddingBottom: 18 }}>
       <div className="row between mb12">
@@ -162,8 +165,16 @@ export function ItineraryPanel({
           <div className="t-h2">Itinerář</div>
           <div className="muted t-xs mt4">Přetahuj místa do dnů a měň pořadí zastávek.</div>
         </div>
-        <Button variant="outline" size="sm" type="button" onClick={onOptimize}><Route />Optimalizovat</Button>
+        <div className="row g8">
+          <span className={`badge ${transitAvailable ? 'green' : 'muted'}`}>MHD {transitAvailable ? 'zapnutá' : 'není'}</span>
+          <Button variant="outline" size="sm" type="button" onClick={onOptimize}><Route />Optimalizovat</Button>
+        </div>
       </div>
+      {!transitAvailable && routeCapabilities?.transitNote && (
+        <Card className="p-[10px] mb12 shadow-[var(--sh-sm)]">
+          <span className="muted t-xs">{routeCapabilities.transitNote}</span>
+        </Card>
+      )}
 
       {days.length === 0 && (
         <Card>

@@ -57,7 +57,7 @@ export function TripIndexPage() {
     return <AccessScreen message={state.message} onSignIn={(data) => actions.signIn(data)} />;
   }
 
-  if (creatingTrip || (!state.trips.length && !state.availableTrips.length)) {
+  if (creatingTrip) {
     return <EmptyTrip onCreate={(data) => void actions.createTrip(data)} />;
   }
 
@@ -69,6 +69,7 @@ export function TripIndexPage() {
       message={state.message}
       onOpenTrip={(tripId) => void actions.openTrip(tripId)}
       onJoinTrip={(tripId) => void actions.joinTrip(tripId)}
+      onJoinInviteCode={(inviteCode) => void actions.joinTripByInviteCode(inviteCode)}
       onCreateTrip={() => setCreatingTrip(true)}
       onSignOut={actions.signOut}
     />

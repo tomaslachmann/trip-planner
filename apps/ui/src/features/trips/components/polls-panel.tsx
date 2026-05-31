@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import type { Poll, TripMember } from '../types';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
@@ -77,7 +79,8 @@ function PollCard({
   );
 }
 
-function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (input: { question: string; options: string[] }) => void }) {
+function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (input: { question: string; options: string[]; multiChoice?: boolean }) => void }) {
+  const [multiChoice, setMultiChoice] = useState(false);
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent style={{ height: 'auto' }}>
@@ -92,22 +95,27 @@ function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: 
           onSubmit={(event) => {
             event.preventDefault();
             const data = new FormData(event.currentTarget);
-            onCreate({
-              question: String(data.get('question') ?? ''),
-              options: [String(data.get('option1') ?? ''), String(data.get('option2') ?? ''), String(data.get('option3') ?? '')],
-            });
+	            onCreate({
+	              question: String(data.get('question') ?? ''),
+	              options: [String(data.get('option1') ?? ''), String(data.get('option2') ?? ''), String(data.get('option3') ?? '')],
+	              multiChoice,
+	            });
             onClose();
           }}
         >
           <label className="field-label" htmlFor="pollQuestion">Otázka</label>
           <Input id="pollQuestion" name="question" placeholder="Kam pojedeme druhý den?" />
           <label className="field-label mt14" htmlFor="pollOption1">Možnosti</label>
-          <div className="col g8">
-            <Input id="pollOption1" name="option1" placeholder="Možnost 1" />
-            <Input name="option2" placeholder="Možnost 2" />
-            <Input name="option3" placeholder="Možnost 3" />
-          </div>
-          <Button className="mt16 w-full" type="submit">Vytvořit anketu</Button>
+	          <div className="col g8">
+	            <Input id="pollOption1" name="option1" placeholder="Možnost 1" />
+	            <Input name="option2" placeholder="Možnost 2" />
+	            <Input name="option3" placeholder="Možnost 3" />
+	          </div>
+	          <label className="row g8 mt14 pressable" style={{ justifyContent: 'flex-start' }}>
+	            <Checkbox checked={multiChoice} onCheckedChange={(checked) => setMultiChoice(checked === true)} />
+	            <Label>Umožnit více odpovědí</Label>
+	          </label>
+	          <Button className="mt16 w-full" type="submit">Vytvořit anketu</Button>
         </form>
       </SheetContent>
     </Sheet>

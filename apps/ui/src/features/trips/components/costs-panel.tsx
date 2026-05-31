@@ -1,4 +1,4 @@
-import { AlertTriangle, Banknote, Check, Plus, QrCode, Receipt, Send } from 'lucide-react';
+import { AlertTriangle, Banknote, BedDouble, Bus, Check, CircleEllipsis, ForkKnife, Landmark, Plus, QrCode, Receipt, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,13 +13,32 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { SettlementParticipants, SettlementPaymentSheet } from './settlement-payment';
 import type { Expense, Settlement, Trip } from '../types';
 
+const expenseCategories = [
+  { value: 'FOOD', label: 'Jídlo' },
+  { value: 'STAY', label: 'Ubytování' },
+  { value: 'TRANSPORT', label: 'Doprava' },
+  { value: 'ACTIVITY', label: 'Aktivita' },
+  { value: 'OTHER', label: 'Ostatní' },
+];
+
+function expenseIcon(category?: string | null) {
+  if (category === 'FOOD') return ForkKnife;
+  if (category === 'STAY') return BedDouble;
+  if (category === 'TRANSPORT') return Bus;
+  if (category === 'ACTIVITY') return Landmark;
+  if (category === 'OTHER') return CircleEllipsis;
+  return Banknote;
+}
+
 function ExpenseFields({ idPrefix, members }: { idPrefix: string; members: Trip['members'] }) {
   const [splitScope, setSplitScope] = useState<'all' | 'selected'>('all');
+  const [category, setCategory] = useState('OTHER');
   const [selected, setSelected] = useState<Record<string, boolean>>(() => Object.fromEntries((members ?? []).map((member) => [member.userId, true])));
 
   return (
     <>
       <input type="hidden" name="splitScope" value={splitScope} />
+      <input type="hidden" name="category" value={category} />
       <div className="row between mb12">
         <span className="t-h3">Přidat náklad</span>
         <span className="badge"><Receipt />Rovný split</span>
@@ -39,6 +58,16 @@ function ExpenseFields({ idPrefix, members }: { idPrefix: string; members: Trip[
           </SelectContent>
         </Select>
       </div>
+      <div className="row g8 mt8">
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger aria-label="Kategorie"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {expenseCategories.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Input name="spentAtDate" type="date" aria-label="Datum výdaje" />
+      </div>
+      <Input className="mt8" name="receiptUrl" type="url" placeholder="Odkaz na účtenku" aria-label="Odkaz na účtenku" />
       <div className="row g8 mt8">
         <Input name="originalAmount" type="number" min="0" step="0.01" placeholder="Původní částka" aria-label="Původní částka" />
         <Input name="originalCurrency" placeholder="Původní měna" aria-label="Původní měna" />
@@ -170,13 +199,18 @@ export function CostsPanel({
             <span className="badge muted">{expenses.length}</span>
           </div>
           {expenses.map((expense, index) => {
-        const rowContent = (
-          <>
-            <div className="lead-ic cat-food"><Banknote /></div>
-            <div className="col flex1">
-              <span className="t-h3">{expense.title}</span>
-              <span className="muted t-xs mt4">{expense.splitType === 'EQUAL' ? 'rovný' : 'vlastní'} split</span>
-            </div>
+	        const Icon = expenseIcon(expense.category);
+	        const rowContent = (
+	          <>
+	            <div className="lead-ic cat-food"><Icon /></div>
+	            <div className="col flex1">
+	              <span className="t-h3">{expense.title}</span>
+	              <span className="muted t-xs mt4">
+	                {expense.category ?? 'OTHER'} · {expense.splitType === 'EQUAL' ? 'rovný' : 'vlastní'} split
+	                {expense.spentAt ? ` · ${new Date(expense.spentAt).toLocaleDateString('cs-CZ')}` : ''}
+	                {expense.receiptUrl ? ' · účtenka' : ''}
+	              </span>
+	            </div>
             <span className="t-h3 tnum">{Number(expense.amount).toFixed(0)} {expense.currency}</span>
           </>
         );

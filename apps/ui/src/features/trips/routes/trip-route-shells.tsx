@@ -3,7 +3,7 @@
 import { ArrowLeftRight, BedDouble, LayoutGrid, ListChecks, Landmark, Map, Plus, Route, Settings, UserPlus, Users, Vote, Wallet } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Avatar } from '../components/avatar';
 import { BottomNav } from '../components/bottom-nav';
 import { AddMenu } from '../components/add-menu';
@@ -222,10 +222,20 @@ export function RoutePair({
   mobile: ReactNode;
   desktop: ReactNode;
 }) {
+  const [desktopReady, setDesktopReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 980px)');
+    const update = () => setDesktopReady(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  if (desktopReady === null) return null;
   return (
-    <>
-      <MobileRouteShell planner={planner}>{mobile}</MobileRouteShell>
-      <DesktopRouteShell planner={planner}>{desktop}</DesktopRouteShell>
-    </>
+    desktopReady
+      ? <DesktopRouteShell planner={planner}>{desktop}</DesktopRouteShell>
+      : <MobileRouteShell planner={planner}>{mobile}</MobileRouteShell>
   );
 }

@@ -14,6 +14,14 @@ import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { categoryMeta } from './category';
 import { LocationCombobox } from './location-combobox';
 
+const EXPENSE_CATEGORIES = [
+  { value: 'FOOD', label: 'Jídlo' },
+  { value: 'STAY', label: 'Ubytování' },
+  { value: 'TRANSPORT', label: 'Doprava' },
+  { value: 'ACTIVITY', label: 'Aktivita' },
+  { value: 'OTHER', label: 'Ostatní' },
+];
+
 /* ── shared sheet header (Cancel · Title · Save) ── */
 function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
   return (
@@ -58,6 +66,7 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
   const initialScope = expense && expenseSplitUserIds.size > 0 && expenseSplitUserIds.size < members.length ? 'selected' : 'all';
   const [splitScope, setSplitScope] = useState<'all' | 'selected'>(initialScope);
   const [paidById, setPaidById] = useState(expense?.paidById ?? members[0]?.userId ?? state.actorUserId);
+  const [category, setCategory] = useState(expense?.category ?? 'OTHER');
   const [sel, setSel] = useState<Record<string, boolean>>(Object.fromEntries(members.map((m) => [m.userId, expense ? expenseSplitUserIds.has(m.userId) : true])));
   const currency = state.selectedTrip?.currency ?? 'EUR';
 
@@ -75,14 +84,32 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
         <form id="expense-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <input type="hidden" name="paidById" value={paidById} />
           <input type="hidden" name="splitScope" value={splitScope} />
-          <Label htmlFor="expenseTitle">Název</Label>
-          <Input id="expenseTitle" name="expenseTitle" defaultValue={expense?.title ?? ''} placeholder="Večeře, pronájem auta..." autoFocus />
+	          <Label htmlFor="expenseTitle">Název</Label>
+	          <Input id="expenseTitle" name="expenseTitle" defaultValue={expense?.title ?? ''} placeholder="Večeře, pronájem auta..." autoFocus />
+	          <input type="hidden" name="category" value={category} />
 
-          <div className="row g12 mt16">
+	          <div className="row g12 mt16">
             <div className="flex1" style={{ flex: 2 }}>
               <Label htmlFor="expenseAmount">Částka v měně tripu</Label>
               <Input id="expenseAmount" name="amount" type="number" min="0" step="0.01" className="tnum" defaultValue={expense ? Number(expense.amount) : ''} placeholder="0.00" />
-            </div>
+	          </div>
+	          <div className="row g12 mt12">
+	            <div className="flex1">
+	              <Label>Kategorie</Label>
+	              <Select value={category} onValueChange={setCategory}>
+	                <SelectTrigger><SelectValue /></SelectTrigger>
+	                <SelectContent>
+	                  {EXPENSE_CATEGORIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+	                </SelectContent>
+	              </Select>
+	            </div>
+	            <div className="flex1">
+	              <Label htmlFor="expenseSpentAt">Datum</Label>
+	              <Input id="expenseSpentAt" name="spentAtDate" type="date" defaultValue={expense?.spentAt?.slice(0, 10) ?? ''} />
+	            </div>
+	          </div>
+	          <Label className="mt12" htmlFor="expenseReceiptUrl">Účtenka / odkaz</Label>
+	          <Input id="expenseReceiptUrl" name="receiptUrl" type="url" defaultValue={expense?.receiptUrl ?? ''} placeholder="https://..." />
             <div className="flex1">
               <Label htmlFor="expenseCurrency">Měna</Label>
               <Input id="expenseCurrency" value={currency} readOnly />

@@ -5,6 +5,7 @@ export const createExpenseSchema = actorUserIdSchema.extend({
   tripId: z.string().min(1),
   paidById: z.string().min(1),
   title: z.string().min(1),
+  category: z.string().trim().min(1).default('OTHER'),
   amount: z.number().positive(),
   currency: currencySchema.default('CZK'),
   originalAmount: z.number().positive().optional(),
@@ -12,6 +13,8 @@ export const createExpenseSchema = actorUserIdSchema.extend({
   exchangeRate: z.number().positive().optional(),
   exchangeDate: z.string().datetime().optional(),
   itineraryStopId: z.string().min(1).optional(),
+  spentAt: z.string().datetime().optional(),
+  receiptUrl: z.string().url().optional(),
   splitType: z.enum(['EQUAL', 'CUSTOM']).default('EQUAL'),
   splitAllTripMembers: z.boolean().default(false),
   splitUserIds: z.array(z.string().min(1)).min(1).optional(),
@@ -38,6 +41,7 @@ export const createExpenseSchema = actorUserIdSchema.extend({
 
 export const updateExpenseSchema = actorUserIdSchema.extend({
   title: z.string().min(1).optional(),
+  category: z.string().trim().min(1).optional(),
   paidById: z.string().min(1).optional(),
   amount: z.number().positive().optional(),
   currency: currencySchema.optional(),
@@ -46,6 +50,8 @@ export const updateExpenseSchema = actorUserIdSchema.extend({
   exchangeRate: z.number().positive().nullable().optional(),
   exchangeDate: z.string().datetime().nullable().optional(),
   itineraryStopId: z.string().min(1).nullable().optional(),
+  spentAt: z.string().datetime().nullable().optional(),
+  receiptUrl: z.string().url().nullable().optional(),
   splitType: z.enum(['EQUAL', 'CUSTOM']).optional(),
   splitAllTripMembers: z.boolean().optional(),
   splitUserIds: z.array(z.string().min(1)).min(1).optional(),

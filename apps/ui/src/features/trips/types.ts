@@ -84,12 +84,15 @@ export type Expense = {
   id: string;
   paidById?: string;
   title: string;
+  category?: string | null;
   amount: string | number;
   currency: string;
   originalAmount?: string | number | null;
   originalCurrency?: string | null;
   exchangeRate?: string | number | null;
   exchangeDate?: string | null;
+  spentAt?: string | null;
+  receiptUrl?: string | null;
   splitType: string;
   splits?: Array<{ userId: string; amount?: string | number }>;
   paidBy?: { id: string; name: string; email: string };
@@ -106,6 +109,13 @@ export type RoutePlan = {
     encodedPolyline?: string | null;
     provider?: string | null;
   }>;
+};
+
+export type RouteCapabilities = {
+  provider: string;
+  transitProvider?: 'none' | 'otp' | string;
+  modes: Record<'DRIVE' | 'WALK' | 'BIKE' | 'TRANSIT', boolean>;
+  transitNote?: string;
 };
 
 export type Settlement = {
@@ -259,6 +269,7 @@ export type TripData = {
   itinerary: ItineraryDay[];
   expenses: Expense[];
   routes: RoutePlan[];
+  routeCapabilities?: RouteCapabilities | null;
   settlements: Settlement[];
   polls: Poll[];
   checklist: ChecklistItem[];

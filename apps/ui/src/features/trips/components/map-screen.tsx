@@ -59,6 +59,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const [commentText, setCommentText] = useState('');
   const [mapSearch, setMapSearch] = useState('');
   const [discoveryCategory, setDiscoveryCategory] = useState<DiscoveryPlace['category']>('SIGHTS');
+  const [selectedDiscovery, setSelectedDiscovery] = useState<DiscoveryPlace | null>(null);
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const showStays = filter === 'ACCOMMODATION';
   const filteredPlaces = useMemo(() => {
@@ -72,6 +73,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
 
   function selectPlace(placeId: string) {
     actions.setSelectedPlaceId(placeId);
+    setSelectedDiscovery(null);
     setSnap('peek');
     setDetailOpen(false);
     setCommentText('');
@@ -124,7 +126,11 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
         selectedAccommodationId={state.selectedAccommodationId}
         onPlaceSelect={selectPlace}
         onAccommodationSelect={selectStay}
-        onDiscoverySelect={(discovery) => void actions.saveDiscoveryPlace(discovery)}
+        onDiscoverySelect={(discovery) => {
+          setSelectedDiscovery(discovery);
+          actions.setSelectedPlaceId('');
+          setSnap('peek');
+        }}
         onViewportChange={setMapCenter}
         showStays={showStays}
       >
@@ -210,6 +216,20 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                     {selectedAccommodationPlace && (
                       <Button variant="outline" type="button" onClick={() => void actions.updateAccommodationStatus(selectedAccommodationPlace.id, 'SELECTED')}>Vybrat</Button>
                     )}
+                  </div>
+                </>
+              ) : selectedDiscovery ? (
+                <>
+                  <div className="row between mb8">
+                    <span className="badge muted">{selectedDiscovery.category}</span>
+                    <span className="badge muted">{selectedDiscovery.provider}</span>
+                  </div>
+                  <div className="row between">
+                    <div className="col">
+                      <span className="t-h2">{selectedDiscovery.name}</span>
+                      <span className="muted t-sm mt4">{selectedDiscovery.type ?? 'Objevené místo'}</span>
+                    </div>
+                    <Button size="sm" type="button" onClick={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}>Uložit</Button>
                   </div>
                 </>
               ) : state.selectedPlace ? (
@@ -326,13 +346,17 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                               className="row pressable w-full text-left"
                               type="button"
                               style={{ padding: '10px 0' }}
-                              onClick={() => void actions.saveDiscoveryPlace(discovery)}
+	                              onClick={() => {
+	                                setSelectedDiscovery(discovery);
+	                                actions.setSelectedPlaceId('');
+	                                setSnap('peek');
+	                              }}
                             >
                               <div className="col flex1" style={{ minWidth: 0 }}>
                                 <span className="t-sm semib ellipsis">{discovery.name}</span>
                                 <span className="muted t-xs mt2">{discovery.type ?? discovery.category}</span>
                               </div>
-                              <span className="badge muted">Uložit</span>
+	                              <span className="badge muted">Detail</span>
                             </button>
                           </div>
                         ))}

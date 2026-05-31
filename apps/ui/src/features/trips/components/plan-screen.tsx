@@ -135,6 +135,7 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
               onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
               onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
               onOptimize={() => void actions.optimizeRoute()}
+              routeCapabilities={state.data.routeCapabilities}
             />
           )}
           {planView === 'stay' && (

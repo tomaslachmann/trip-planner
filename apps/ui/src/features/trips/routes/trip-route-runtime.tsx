@@ -64,7 +64,7 @@ export function TripRouteRuntime({
     return <AccessScreen message={state.message} onSignIn={(data) => actions.signIn(data)} />;
   }
 
-  if (creatingTrip || (!state.trips.length && !state.availableTrips.length && !state.loading)) {
+  if (creatingTrip) {
     return <EmptyTrip onCreate={(data) => void actions.createTrip(data)} />;
   }
 
@@ -77,6 +77,7 @@ export function TripRouteRuntime({
         message={state.message}
         onOpenTrip={(nextTripId) => void actions.openTrip(nextTripId)}
         onJoinTrip={(nextTripId) => void actions.joinTrip(nextTripId)}
+        onJoinInviteCode={(inviteCode) => void actions.joinTripByInviteCode(inviteCode)}
         onCreateTrip={() => setCreatingTrip(true)}
         onSignOut={actions.signOut}
       />

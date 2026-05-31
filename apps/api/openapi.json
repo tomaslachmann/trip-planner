@@ -5717,6 +5717,11 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "category": {
+                    "default": "OTHER",
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "amount": {
                     "type": "number",
                     "minimum": 0,
@@ -5750,6 +5755,15 @@
                   "itineraryStopId": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "spentAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "receiptUrl": {
+                    "type": "string",
+                    "format": "uri"
                   },
                   "splitType": {
                     "default": "EQUAL",
@@ -5840,6 +5854,10 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "category": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "paidById": {
                     "type": "string",
                     "minLength": 1
@@ -5882,6 +5900,17 @@
                     "nullable": true,
                     "type": "string",
                     "minLength": 1
+                  },
+                  "spentAt": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "receiptUrl": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uri"
                   },
                   "splitType": {
                     "type": "string",

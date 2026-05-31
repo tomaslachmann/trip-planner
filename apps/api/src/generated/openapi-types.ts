@@ -3106,6 +3106,8 @@ export interface paths {
                         tripId: string;
                         paidById: string;
                         title: string;
+                        /** @default OTHER */
+                        category?: string;
                         amount: number;
                         currency?: string;
                         originalAmount?: number;
@@ -3114,6 +3116,10 @@ export interface paths {
                         /** Format: date-time */
                         exchangeDate?: string;
                         itineraryStopId?: string;
+                        /** Format: date-time */
+                        spentAt?: string;
+                        /** Format: uri */
+                        receiptUrl?: string;
                         /**
                          * @default EQUAL
                          * @enum {string}
@@ -3200,6 +3206,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         title?: string;
+                        category?: string;
                         paidById?: string;
                         amount?: number;
                         currency?: string;
@@ -3209,6 +3216,10 @@ export interface paths {
                         /** Format: date-time */
                         exchangeDate?: string | null;
                         itineraryStopId?: string | null;
+                        /** Format: date-time */
+                        spentAt?: string | null;
+                        /** Format: uri */
+                        receiptUrl?: string | null;
                         /** @enum {string} */
                         splitType?: "EQUAL" | "CUSTOM";
                         splitAllTripMembers?: boolean;

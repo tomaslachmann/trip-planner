@@ -114,7 +114,7 @@ export function DesktopTripApp({ planner }: { planner: TripPlannerController }) 
             {state.activeTab === 'plan' && (
               <div className="desk-body">
                 <div className="desk-scroll"><PlacesPanel places={state.data.places} selectedPlaceId={state.selectedPlaceId} onSelect={actions.setSelectedPlaceId} onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)} onEditPlace={(placeId) => { actions.setSelectedPlaceId(placeId); openModal('addPlace', true); }} /></div>
-                <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} weather={state.data.weather} onOpenPlace={actions.setSelectedPlaceId} actorTripMemberId={state.actorMember?.id} onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
+                <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} weather={state.data.weather} routeCapabilities={state.data.routeCapabilities} onOpenPlace={actions.setSelectedPlaceId} actorTripMemberId={state.actorMember?.id} onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
               </div>
             )}
             {state.activeTab === 'stay' && (

@@ -1,4 +1,6 @@
 import { CalendarDays, LogOut, Plane, Plus, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AvatarRow } from './avatar';
 import { TripButton, TripCard } from './design-system';
 import { formatTripRange } from '../lib/format';
@@ -47,6 +49,7 @@ export function TripPickerScreen({
   message,
   onOpenTrip,
   onJoinTrip,
+  onJoinInviteCode,
   onCreateTrip,
   onSignOut,
 }: {
@@ -56,6 +59,7 @@ export function TripPickerScreen({
   message?: string | null;
   onOpenTrip: (tripId: string) => void;
   onJoinTrip: (tripId: string) => void;
+  onJoinInviteCode: (inviteCode: string) => void;
   onCreateTrip: () => void;
   onSignOut: () => void;
 }) {
@@ -93,10 +97,22 @@ export function TripPickerScreen({
 
         <section className="col g12">
           <div>
-            <div className="t-h2">Dostupné k připojení</div>
-            <div className="muted t-sm mt4">K dalším tripům se připojíš přes odkaz nebo kód pozvánky.</div>
+            <div className="t-h2">Připojit přes pozvánku</div>
+            <div className="muted t-sm mt4">Vlož kód z invite odkazu. Veřejný seznam tripů je vypnutý.</div>
           </div>
-          {availableTrips.length === 0 && <TripCard pad className="muted t-sm center">Veřejný seznam tripů je vypnutý. Použij invite link.</TripCard>}
+          <TripCard pad>
+            <form
+              className="row g8"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const inviteCode = String(new FormData(event.currentTarget).get('inviteCode') ?? '').trim();
+                if (inviteCode) onJoinInviteCode(inviteCode);
+              }}
+            >
+              <Input className="flex1" name="inviteCode" placeholder="Kód pozvánky" />
+              <Button type="submit"><UserPlus />Připojit</Button>
+            </form>
+          </TripCard>
           {availableTrips.map((trip) => (
             <TripCardRow key={trip.id} trip={trip} joined={false} onOpen={() => onOpenTrip(trip.id)} onJoin={() => onJoinTrip(trip.id)} />
           ))}

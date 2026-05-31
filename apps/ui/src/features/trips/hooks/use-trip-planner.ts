@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, clearAccessToken, createTripPlannerClient, getSessionUser, readAccessToken, signInRequest, signOutRequest, writeAccessToken } from '@/lib/api';
-import type { Accommodation, ActivityEvent, ChecklistItem, DiscoveryPlace, Expense, ItineraryDay, LiveLocation, LocationResult, Place, PlaceType, Poll, TabKey, Trip, TripAiInsights, TripData, TripWeather } from '../types';
+import type { Accommodation, ActivityEvent, ChecklistItem, DiscoveryPlace, Expense, ItineraryDay, LiveLocation, LocationResult, Place, PlaceType, Poll, RouteCapabilities, TabKey, Trip, TripAiInsights, TripData, TripWeather } from '../types';
 
-const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], settlements: [], polls: [], checklist: [], activity: [], liveLocations: [], weather: null, aiInsights: null };
+const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], routeCapabilities: null, settlements: [], polls: [], checklist: [], activity: [], liveLocations: [], weather: null, aiInsights: null };
 const routeTabs: TabKey[] = ['map', 'plan', 'stay', 'costs', 'settle', 'members', 'more', 'checklist', 'polls', 'itinerary'];
 
 function uniqueById<T extends { id: string }>(items: T[]) {
@@ -28,6 +28,15 @@ type PlannerRoute = {
   routeView?: TabKey;
   redirectAfterSignIn?: boolean;
 };
+
+async function optionalFetch<T>(label: string, request: Promise<T>, errors: string[]) {
+  try {
+    return await request;
+  } catch {
+    errors.push(label);
+    return null;
+  }
+}
 
 export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = true }: PlannerRoute = {}) {
   const router = useRouter();
@@ -119,19 +128,25 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     loadingDetailKeyRef.current = requestKey;
     const client = createTripPlannerClient(token);
     try {
-      const [tripDetail, places, itinerary, expenses, routes, settlements, polls, checklist, activity, liveLocations, weather] = await Promise.all([
+      const optionalErrors: string[] = [];
+      const [tripDetail, places, itinerary, expenses, routes, settlements, routeCapabilities, polls, checklist, activity, liveLocations, weather] = await Promise.all([
         client.GET('/trips/{id}', { params: { path: { id: trip.id } } }),
         client.GET('/places/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
         client.GET('/itinerary/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
         client.GET('/expenses/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
         client.GET('/routes/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
         client.GET('/settlements/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
-        apiFetch<Poll[]>(`/polls/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as Poll[] })),
-        apiFetch<ChecklistItem[]>(`/checklist/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as ChecklistItem[] })),
-        apiFetch<ActivityEvent[]>(`/activity/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as ActivityEvent[] })),
-        apiFetch<LiveLocation[]>(`/locations/live/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as LiveLocation[] })),
-        apiFetch<TripWeather>(`/weather/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: null as TripWeather | null })),
+        optionalFetch('možnosti tras', apiFetch<RouteCapabilities>('/routes/capabilities', {}, token), optionalErrors),
+        optionalFetch('hlasování', apiFetch<Poll[]>(`/polls/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
+        optionalFetch('checklist', apiFetch<ChecklistItem[]>(`/checklist/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
+        optionalFetch('aktivita', apiFetch<ActivityEvent[]>(`/activity/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
+        optionalFetch('live poloha', apiFetch<LiveLocation[]>(`/locations/live/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
+        optionalFetch('počasí', apiFetch<TripWeather>(`/weather/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
       ]);
+      if (tripDetail.error || places.error || itinerary.error || expenses.error || routes.error || settlements.error) {
+        setMessage('Nepodařilo se načíst hlavní data tripu.');
+        return;
+      }
       if (tripDetail.data) {
         const detailedTrip = tripDetail.data as Trip;
         setTrips((current) => uniqueById(current.map((item) => item.id === detailedTrip.id ? detailedTrip : item)));
@@ -142,14 +157,17 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         itinerary: uniqueById((itinerary.data as ItineraryDay[] | undefined) ?? []),
         expenses: uniqueById((expenses.data as TripData['expenses'] | undefined) ?? []),
         routes: uniqueById((routes.data as TripData['routes'] | undefined) ?? []),
+        routeCapabilities,
         settlements: (settlements.data as TripData['settlements'] | undefined) ?? [],
-        polls: uniqueById(polls.data),
-        checklist: uniqueById(checklist.data),
-        activity: uniqueById(activity.data),
-        liveLocations: uniqueById(liveLocations.data),
-        weather: weather.data,
+        polls: polls ? uniqueById(polls) : current.polls,
+        checklist: checklist ? uniqueById(checklist) : current.checklist,
+        activity: activity ? uniqueById(activity) : current.activity,
+        liveLocations: liveLocations ? uniqueById(liveLocations) : current.liveLocations,
+        weather: weather ?? current.weather,
         aiInsights: current.aiInsights ?? null,
       }));
+      if (optionalErrors.length > 0) setMessage(`Část dat se nepodařilo načíst: ${optionalErrors.join(', ')}.`);
+      else setMessage(null);
       setSelectedPlaceId((current) => nextPlaces.some((place) => place.id === current) ? current : '');
       loadedDetailKeyRef.current = requestKey;
     } finally {
@@ -570,12 +588,15 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 
   async function addExpense(formData: FormData) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
-    const title = String(formData.get('expenseTitle') ?? '').trim();
-    const amount = Number(formData.get('amount') || 0);
-    const originalAmount = Number(formData.get('originalAmount') || 0);
-    const originalCurrency = String(formData.get('originalCurrency') ?? '').trim();
-    const exchangeRate = Number(formData.get('exchangeRate') || 0);
-    const paidById = String(formData.get('paidById') ?? actorUserId).trim() || actorUserId;
+	    const title = String(formData.get('expenseTitle') ?? '').trim();
+	    const category = String(formData.get('category') ?? 'OTHER').trim() || 'OTHER';
+	    const amount = Number(formData.get('amount') || 0);
+	    const originalAmount = Number(formData.get('originalAmount') || 0);
+	    const originalCurrency = String(formData.get('originalCurrency') ?? '').trim();
+	    const exchangeRate = Number(formData.get('exchangeRate') || 0);
+	    const spentAtDate = String(formData.get('spentAtDate') ?? '').trim();
+	    const receiptUrl = String(formData.get('receiptUrl') ?? '').trim();
+	    const paidById = String(formData.get('paidById') ?? actorUserId).trim() || actorUserId;
     const splitScope = String(formData.get('splitScope') ?? 'all');
     const splitUserIds = formData.getAll('splitUserIds').map(String).filter(Boolean);
     if (!title || amount <= 0) return setMessage('Název nákladu a částka jsou povinné.');
@@ -583,14 +604,17 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const { error } = await api.POST('/expenses', {
       body: {
         tripId: selectedTrip.id,
-        paidById,
-        title,
-        amount,
+	        paidById,
+	        title,
+	        category,
+	        amount,
         currency: selectedTrip.currency,
         originalAmount: originalAmount > 0 ? originalAmount : undefined,
         originalCurrency: originalCurrency || undefined,
-        exchangeRate: exchangeRate > 0 ? exchangeRate : undefined,
-        splitType: 'EQUAL',
+	        exchangeRate: exchangeRate > 0 ? exchangeRate : undefined,
+	        spentAt: spentAtDate ? toApiDateTime(spentAtDate) : undefined,
+	        receiptUrl: receiptUrl || undefined,
+	        splitType: 'EQUAL',
         splitAllTripMembers: splitScope === 'all',
         splitUserIds: splitScope === 'selected' ? splitUserIds : undefined,
       } as never,
@@ -600,15 +624,18 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   function expensePayloadFromForm(formData: FormData) {
-    const title = String(formData.get('expenseTitle') ?? '').trim();
-    const amount = Number(formData.get('amount') || 0);
+	    const title = String(formData.get('expenseTitle') ?? '').trim();
+	    const category = String(formData.get('category') ?? 'OTHER').trim() || 'OTHER';
+	    const amount = Number(formData.get('amount') || 0);
     const originalAmount = Number(formData.get('originalAmount') || 0);
     const originalCurrency = String(formData.get('originalCurrency') ?? '').trim();
-    const exchangeRate = Number(formData.get('exchangeRate') || 0);
-    const paidById = String(formData.get('paidById') ?? actorUserId).trim() || actorUserId;
+	    const exchangeRate = Number(formData.get('exchangeRate') || 0);
+	    const spentAtDate = String(formData.get('spentAtDate') ?? '').trim();
+	    const receiptUrl = String(formData.get('receiptUrl') ?? '').trim();
+	    const paidById = String(formData.get('paidById') ?? actorUserId).trim() || actorUserId;
     const splitScope = String(formData.get('splitScope') ?? 'all');
     const splitUserIds = formData.getAll('splitUserIds').map(String).filter(Boolean);
-    return { title, amount, originalAmount, originalCurrency, exchangeRate, paidById, splitScope, splitUserIds };
+	    return { title, category, amount, originalAmount, originalCurrency, exchangeRate, spentAtDate, receiptUrl, paidById, splitScope, splitUserIds };
   }
 
   async function updateExpense(expenseId: string, formData: FormData) {
@@ -620,14 +647,17 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
       await apiFetch<Expense>(`/expenses/${encodeURIComponent(expenseId)}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          paidById: payload.paidById,
-          title: payload.title,
-          amount: payload.amount,
+	          paidById: payload.paidById,
+	          title: payload.title,
+	          category: payload.category,
+	          amount: payload.amount,
           currency: selectedTrip.currency,
           originalAmount: payload.originalAmount > 0 ? payload.originalAmount : null,
           originalCurrency: payload.originalCurrency || null,
-          exchangeRate: payload.exchangeRate > 0 ? payload.exchangeRate : null,
-          splitType: 'EQUAL',
+	          exchangeRate: payload.exchangeRate > 0 ? payload.exchangeRate : null,
+	          spentAt: payload.spentAtDate ? toApiDateTime(payload.spentAtDate) : null,
+	          receiptUrl: payload.receiptUrl || null,
+	          splitType: 'EQUAL',
           splitAllTripMembers: payload.splitScope === 'all',
           splitUserIds: payload.splitScope === 'selected' ? payload.splitUserIds : undefined,
         }),

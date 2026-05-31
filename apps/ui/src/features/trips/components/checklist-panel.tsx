@@ -159,6 +159,9 @@ export function ChecklistPanel({
     if (filter === 'open') return !doneByMe;
     return true;
   }), [actorUserId, filter, items]);
+  const totalAssignedToMe = items.filter((item) => item.assignments?.length ? item.assignments.some((a) => a.userId === actorUserId) : true).length;
+  const doneByMe = items.filter((item) => item.completions?.some((completion) => completion.userId === actorUserId)).length;
+  const progress = totalAssignedToMe ? Math.round((doneByMe / totalAssignedToMe) * 100) : 0;
 
   const filterControl = (
     <SegmentedControl
@@ -175,6 +178,19 @@ export function ChecklistPanel({
 
   const itemsList = (
     <>
+      <Card className="p-[14px] mb12 shadow-[var(--sh-sm)]">
+        <div className="row between mb8">
+          <span className="t-h3">Můj postup</span>
+          <span className="badge green">{doneByMe}/{totalAssignedToMe}</span>
+        </div>
+        <div className="poll-option" aria-hidden="true">
+          <span className="poll-fill" style={{ width: `${progress}%` }} />
+          <span className="row between rel">
+            <span className="t-sm medi">{progress}% hotovo</span>
+            <span className="muted t-xs">{items.length} úkolů celkem</span>
+          </span>
+        </div>
+      </Card>
       {filtered.length === 0 && (
         <Card>
           <EmptyState icon={<CheckSquare2 />} title="Checklist je prázdný." text="Přidej věci k vyřízení před cestou nebo během tripu." />
