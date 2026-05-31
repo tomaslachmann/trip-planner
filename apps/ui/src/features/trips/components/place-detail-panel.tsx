@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
+import { normalizePlaceStatus, placeRecommendationScore, placeStatusMeta, type PlaceStatus } from '../lib/decision';
 import type { Place } from '../types';
 import { CategoryBadge } from './category';
 
@@ -38,6 +39,15 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
   const members = state.selectedTrip?.members ?? [];
   const votedUserIds = new Set((place.votes ?? []).map((vote) => vote.userId));
   const missingVoters = members.filter((member) => !votedUserIds.has(member.userId));
+  const status = normalizePlaceStatus(place.status);
+  const statusMeta = placeStatusMeta[status];
+  const score = placeRecommendationScore(place, members);
+  const canChangeStatus = place.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN';
+  const statusActions: Array<{ status: PlaceStatus; label: string }> = [
+    { status: 'SHORTLISTED', label: 'Shortlist' },
+    { status: 'APPROVED', label: 'Schválit' },
+    { status: 'REJECTED', label: 'Zamítnout' },
+  ];
 
   return (
     <div className="col" style={{ height: '100%', minHeight: 0 }}>
@@ -47,7 +57,11 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
         </div>
         <div className="row between g8 mt16">
           <CategoryBadge type={place.type} />
-          <span className="badge muted">{place.votes?.length ?? 0} hlasů</span>
+          <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
+            <span className={`badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+            <span className="badge solid">Score {score}</span>
+            <span className="badge muted">{place.votes?.length ?? 0} hlasů</span>
+          </div>
         </div>
         <h2 className={compact ? 't-h2 mt12' : 't-title mt12'}>{place.name}</h2>
         <div className="row g10 mt8 muted t-sm wrap">
@@ -74,6 +88,15 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
           <button className={`votebtn ${myVote === 'MAYBE' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(place.id, 'MAYBE')}><span className="vn tnum">{counts.maybe}</span><span>Možná</span></button>
           <button className={`votebtn ${myVote === 'DOWN' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(place.id, 'DOWN')}><span className="vn tnum">{counts.down}</span><span className="row g4"><ThumbsDown />Ne</span></button>
         </div>
+        {canChangeStatus && (
+          <div className="row g8 mt12 wrap">
+            {statusActions.map((item) => (
+              <Button key={item.status} size="sm" variant={status === item.status ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(place.id, item.status)}>
+                {item.label}
+              </Button>
+            ))}
+          </div>
+        )}
 
         <hr className="sep mt20" />
         <div className="row between mt16 mb12"><span className="t-h3">Komentáře</span><span className="badge muted">{place.comments?.length ?? 0}</span></div>

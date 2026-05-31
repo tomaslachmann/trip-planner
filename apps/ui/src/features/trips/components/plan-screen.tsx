@@ -30,7 +30,7 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
   useEffect(() => {
     if (forcedTab === 'stay') setPlanView('stay');
     if (forcedTab === 'itinerary') setPlanView('itinerary');
-    if (forcedTab === 'plan') setPlanView('places');
+    if (forcedTab === 'plan' || forcedTab === 'places') setPlanView('places');
   }, [forcedTab]);
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -116,9 +116,13 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
           {planView === 'places' && (
             <PlacesPanel
               places={state.data.places}
+              members={state.selectedTrip?.members ?? []}
+              actorUserId={state.actorUserId}
+              actorRole={state.actorMember?.role}
               selectedPlaceId={state.selectedPlaceId}
               onSelect={actions.setSelectedPlaceId}
               onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
+              onStatusChange={(placeId, status) => void actions.updatePlaceStatus(placeId, status)}
               onEditPlace={(placeId) => {
                 actions.setSelectedPlaceId(placeId);
                 openModal('addPlace', true);
@@ -143,6 +147,7 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
               trip={state.selectedTrip}
               stays={state.accommodations}
               savedPlaces={state.data.places.filter((place) => place.type === 'ACCOMMODATION')}
+              allPlaces={state.data.places}
               actorUserId={state.actorUserId}
               selectedId={state.selectedAccommodationId}
               searching={state.searchingStay}
@@ -160,9 +165,11 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
         <ItineraryStopSheet
           key={editingStop.stop.id}
           editing={editingStop}
+          actorTripMemberId={state.actorMember?.id}
           members={state.selectedTrip?.members ?? []}
           onClose={() => setEditingStop(null)}
           onUpdate={(stopId, input) => void actions.updateItineraryStop(stopId, input)}
+          onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
           onDelete={(stopId) => void actions.deleteItineraryStop(stopId)}
         />
       )}

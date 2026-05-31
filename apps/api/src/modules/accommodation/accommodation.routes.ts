@@ -75,7 +75,6 @@ export async function accommodationRoutes(app: FastifyInstance) {
         accommodationReviewCount: body.reviewCount,
         accommodationCurrency: body.currency,
         accommodationDeepLinkUrl: body.deepLinkUrl,
-        accommodationStatus: 'SAVED',
       },
     });
     await recordActivity({

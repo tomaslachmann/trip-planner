@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarPlus, CloudRain, Edit3, Gauge, GripVertical, Plus, Route, TimerReset } from 'lucide-react';
+import { CalendarPlus, CloudRain, Edit3, Gauge, GripVertical, Plus, Route, TimerReset, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useModal } from '../context/modal-context';
 import { closestCenter, DndContext, type DragEndEvent } from '@dnd-kit/core';
@@ -18,10 +18,17 @@ import { TripRouteRuntime } from './trip-route-runtime';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import type { ItineraryDay, ItineraryStop } from '../types';
 
-function StopCard({ stop, onEdit }: { stop: ItineraryStop; onEdit: () => void }) {
+type AttendanceStatus = 'GOING' | 'MAYBE' | 'NO';
+
+function StopCard({ stop, actorTripMemberId, onAttendance, onEdit }: { stop: ItineraryStop; actorTripMemberId?: string; onAttendance: (stopId: string, status: AttendanceStatus) => void; onEdit: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `stop:${stop.id}` });
   const meta = categoryMeta(stop.place?.type);
   const Icon = meta.icon;
+  const participants = stop.participants ?? [];
+  const going = participants.filter((participant) => !participant.status || participant.status === 'GOING').length;
+  const maybe = participants.filter((participant) => participant.status === 'MAYBE').length;
+  const no = participants.filter((participant) => participant.status === 'NO').length;
+  const myStatus = participants.find((participant) => participant.tripMemberId === actorTripMemberId)?.status ?? 'GOING';
   return (
     <div
       ref={setNodeRef}
@@ -49,6 +56,20 @@ function StopCard({ stop, onEdit }: { stop: ItineraryStop; onEdit: () => void })
         </Button>
       </div>
       {stop.note && <div className="muted t-xs mt8" style={{ paddingLeft: 50 }}>{stop.note}</div>}
+      <div className="row g6 mt8 wrap" style={{ paddingLeft: 50 }}>
+        <span className="badge muted"><Users size={12} />{going} jde</span>
+        {maybe > 0 && <span className="badge amber">{maybe} možná</span>}
+        {no > 0 && <span className="badge red">{no} nejde</span>}
+      </div>
+      {actorTripMemberId && (
+        <div className="row g6 mt8 wrap" style={{ paddingLeft: 50 }}>
+          {(['GOING', 'MAYBE', 'NO'] as AttendanceStatus[]).map((status) => (
+            <Button key={status} size="sm" variant={myStatus === status ? 'secondary' : 'outline'} type="button" onClick={() => onAttendance(stop.id, status)}>
+              {status === 'GOING' ? 'Jdu' : status === 'MAYBE' ? 'Možná' : 'Nejdu'}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -70,7 +91,7 @@ function compactHours(minutes: number) {
   return hours ? `${hours}h${rest ? ` ${rest}m` : ''}` : `${rest}m`;
 }
 
-function DayColumn({ day, onAdd, onEditStop, onUpdateDay }: { day: ItineraryDay; onAdd: () => void; onEditStop: (stop: ItineraryStop) => void; onUpdateDay: (input: { intensity?: DayIntensity; bufferMinutes?: number; rainPlan?: string | null }) => void }) {
+function DayColumn({ day, actorTripMemberId, onAdd, onAttendance, onEditStop, onUpdateDay }: { day: ItineraryDay; actorTripMemberId?: string; onAdd: () => void; onAttendance: (stopId: string, status: AttendanceStatus) => void; onEditStop: (stop: ItineraryStop) => void; onUpdateDay: (input: { intensity?: DayIntensity; bufferMinutes?: number; rainPlan?: string | null }) => void }) {
   const stops = day.stops ?? [];
   const date = new Date(day.date);
   const dateStr = date.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -97,7 +118,7 @@ function DayColumn({ day, onAdd, onEditStop, onUpdateDay }: { day: ItineraryDay;
       </div>
       <SortableContext items={stops.map((s) => `stop:${s.id}`)} strategy={verticalListSortingStrategy}>
         <div className="col g8">
-          {stops.map((stop) => <StopCard key={stop.id} stop={stop} onEdit={() => onEditStop(stop)} />)}
+          {stops.map((stop) => <StopCard key={stop.id} stop={stop} actorTripMemberId={actorTripMemberId} onAttendance={onAttendance} onEdit={() => onEditStop(stop)} />)}
         </div>
       </SortableContext>
       {stops.length === 0 && (
@@ -166,7 +187,9 @@ function DesktopItinerary({ planner }: { planner: TripPlannerController }) {
                 <DayColumn
                   key={day.id}
                   day={day}
+                  actorTripMemberId={state.actorMember?.id}
                   onAdd={() => openModal('addItinerary', false, { dayId: day.id })}
+                  onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
                   onEditStop={(stop) => setEditing({ day, stop })}
                   onUpdateDay={(input) => void actions.updateItineraryDay(day.id, input)}
                 />
@@ -178,9 +201,11 @@ function DesktopItinerary({ planner }: { planner: TripPlannerController }) {
           <ItineraryStopSheet
             key={editing.stop.id}
             editing={editing}
+            actorTripMemberId={state.actorMember?.id}
             members={state.selectedTrip?.members ?? []}
             onClose={() => setEditing(null)}
             onUpdate={(stopId, input) => void actions.updateItineraryStop(stopId, input)}
+            onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
             onDelete={(stopId) => void actions.deleteItineraryStop(stopId)}
           />
         )}

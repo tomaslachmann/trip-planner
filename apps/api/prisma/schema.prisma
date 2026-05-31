@@ -25,6 +25,13 @@ enum PlaceType {
   CUSTOM
 }
 
+enum PlaceStatus {
+  PROPOSED
+  SHORTLISTED
+  APPROVED
+  REJECTED
+}
+
 enum VoteValue {
   UP
   DOWN
@@ -173,6 +180,7 @@ model Place {
   tripId                   String
   createdById              String
   type                     PlaceType
+  status                   PlaceStatus              @default(PROPOSED)
   name                     String
   description              String?
   latitude                 Float
@@ -203,6 +211,7 @@ model Place {
   availabilityEndWindows   TripMemberAvailability[] @relation("AvailabilityEndPlace")
 
   @@unique([tripId, accommodationProvider, accommodationExternalId])
+  @@index([tripId, status])
 }
 
 model PlaceVote {

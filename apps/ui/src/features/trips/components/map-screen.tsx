@@ -10,6 +10,7 @@ import { CategoryBadge } from './category';
 import { AiInsightsPanel } from './ai-insights-panel';
 import { MapCanvas } from './map-canvas';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
+import { normalizePlaceStatus, placeRecommendationScore, placeStatusMeta } from '../lib/decision';
 import type { DiscoveryPlace, Place } from '../types';
 
 const filters = [
@@ -113,6 +114,12 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
     ? state.data.places.find((place) => place.type === 'ACCOMMODATION' && place.accommodationExternalId === state.selectedAccommodation?.externalId)
     : undefined;
   const selectedWeather = placeWeatherLabel(planner);
+  const selectedStatus = normalizePlaceStatus(state.selectedPlace?.status);
+  const selectedStatusMeta = placeStatusMeta[selectedStatus];
+  const selectedScore = state.selectedPlace ? placeRecommendationScore(state.selectedPlace, state.selectedTrip?.members ?? []) : null;
+  const canChangeSelectedStatus = state.selectedPlace
+    ? state.selectedPlace.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN'
+    : false;
 
   return (
     <div className={desktop ? 'desktop-map-host' : 'screen'}>
@@ -236,7 +243,11 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <>
                   <div className="row between mb8">
                     <CategoryBadge type={state.selectedPlace.type} />
-                    <span className="badge muted">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
+                    <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
+                      <span className={`badge ${selectedStatusMeta.cls}`}>{selectedStatusMeta.label}</span>
+                      {selectedScore !== null && <span className="badge solid">Score {selectedScore}</span>}
+                      <span className="badge muted">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
+                    </div>
                   </div>
                   <div className="row between">
                     <div className="col">
@@ -400,6 +411,8 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
               <div className="sheet-head" style={{ paddingBottom: 6 }}>
                 <div className="row g8">
                   <CategoryBadge type={state.selectedPlace.type} />
+                  <span className={`badge ${selectedStatusMeta.cls}`}>{selectedStatusMeta.label}</span>
+                  {selectedScore !== null && <span className="badge solid">Score {selectedScore}</span>}
                   <span className="badge muted">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
                 </div>
                 <Button size="icon" variant="ghost" type="button" onClick={() => setDetailOpen(false)}><X /></Button>
@@ -432,6 +445,13 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                     <button className={`votebtn ${myVote === 'UP' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'UP')}><span className="vn tnum">{selectedVotes.up}</span><span className="row g4"><ThumbsUp />Pro</span></button>
                     <button className={`votebtn ${myVote === 'MAYBE' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'MAYBE')}><span className="vn tnum">{selectedVotes.maybe}</span><span>Možná</span></button>
                     <button className={`votebtn ${myVote === 'DOWN' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(state.selectedPlace!.id, 'DOWN')}><span className="vn tnum">{selectedVotes.down}</span><span className="row g4"><ThumbsDown />Ne</span></button>
+                  </div>
+                )}
+                {canChangeSelectedStatus && (
+                  <div className="row g8 mt12 wrap">
+                    <Button size="sm" variant={selectedStatus === 'SHORTLISTED' ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'SHORTLISTED')}>Shortlist</Button>
+                    <Button size="sm" variant={selectedStatus === 'APPROVED' ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'APPROVED')}>Schválit</Button>
+                    <Button size="sm" variant={selectedStatus === 'REJECTED' ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'REJECTED')}>Zamítnout</Button>
                   </div>
                 )}
                 <hr className="sep mt20" />

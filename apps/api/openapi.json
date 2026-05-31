@@ -1652,6 +1652,16 @@
                       "CUSTOM"
                     ]
                   },
+                  "status": {
+                    "default": "PROPOSED",
+                    "type": "string",
+                    "enum": [
+                      "PROPOSED",
+                      "SHORTLISTED",
+                      "APPROVED",
+                      "REJECTED"
+                    ]
+                  },
                   "name": {
                     "type": "string",
                     "minLength": 1
@@ -1747,6 +1757,15 @@
                       "FOOD",
                       "TRANSPORT",
                       "CUSTOM"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "PROPOSED",
+                      "SHORTLISTED",
+                      "APPROVED",
+                      "REJECTED"
                     ]
                   },
                   "name": {

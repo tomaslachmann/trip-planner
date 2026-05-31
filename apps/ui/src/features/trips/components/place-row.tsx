@@ -2,6 +2,7 @@ import { Bookmark, CalendarPlus, Check, Clock, Ellipsis, MessageCircle, ThumbsUp
 import { Button } from '@/components/ui/button';
 import type { Place } from '../types';
 import { CategoryBadge, categoryMeta } from './category';
+import { normalizePlaceStatus, placeStatusMeta, placeRecommendationScore } from '../lib/decision';
 
 function weatherLabel(value?: string) {
   if (value === 'INDOOR') return 'Indoor';
@@ -34,7 +35,8 @@ export function PlaceRow({
   const upVotes = place.votes?.filter((vote) => vote.value === 'UP').length ?? 0;
   const votes = mustVotes + upVotes;
   const comments = place.comments?.length ?? 0;
-  const status = mustVotes > 0 ? { label: 'Schválené', cls: 'green' } : upVotes > 0 ? { label: 'Shortlist', cls: 'amber' } : { label: 'Návrh', cls: 'muted' };
+  const status = placeStatusMeta[normalizePlaceStatus(place.status)];
+  const score = placeRecommendationScore(place);
   return (
     <div className="col" style={{ padding: '13px 0' }}>
       <div className="row pressable" onClick={onSelect}>
@@ -50,6 +52,7 @@ export function PlaceRow({
             <span className="row g4"><ThumbsUp />{votes}</span>
             <span className="row g4"><MessageCircle />{comments}</span>
             <span className="row g4"><Clock />{place.durationMin ?? 90}m</span>
+            <span className="badge muted">Score {score}</span>
             <span className="medi" style={{ color: 'var(--fg)' }}>{place.estimatedCost ? `${place.estimatedCost}` : 'Zdarma'}</span>
           </div>
           <div className="row g6 mt8">

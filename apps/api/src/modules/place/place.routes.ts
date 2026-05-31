@@ -61,6 +61,16 @@ export async function placeRoutes(app: FastifyInstance) {
     if (body.accommodationStatus !== undefined && place.type !== 'ACCOMMODATION') throw httpError(400, 'Only accommodation places can have accommodation status');
 
     const updated = await prisma.place.update({ where: { id }, data: body });
+    if (body.status !== undefined) {
+      await recordActivity({
+        tripId: place.tripId,
+        actorUserId,
+        type: `PLACE_${body.status}`,
+        entityType: 'place',
+        entityId: id,
+        label: `Místo ${updated.name}: ${body.status}`,
+      });
+    }
     if (body.accommodationStatus !== undefined) {
       if (body.accommodationStatus === 'BOOKED') {
         const title = `Potvrdit check-in: ${updated.name}`;

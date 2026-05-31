@@ -194,9 +194,10 @@ const PLACE_CATS = [
 ] as const;
 
 const PLACE_STATUS = [
-  { key: 'proposed', label: 'Návrh' },
-  { key: 'shortlisted', label: 'Shortlist' },
-  { key: 'approved', label: 'Schválené' },
+  { key: 'PROPOSED', label: 'Návrh' },
+  { key: 'SHORTLISTED', label: 'Shortlist' },
+  { key: 'APPROVED', label: 'Schválené' },
+  { key: 'REJECTED', label: 'Zamítnuté' },
 ] as const;
 
 const WEATHER_OPTIONS = [
@@ -209,7 +210,7 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
   const { state, actions } = planner;
   const place = edit ? state.selectedPlace : undefined;
   const [cat, setCat] = useState<string>(place?.type ?? 'PLACE');
-  const [status, setStatus] = useState<(typeof PLACE_STATUS)[number]['key']>('proposed');
+  const [status, setStatus] = useState<(typeof PLACE_STATUS)[number]['key']>((place?.status as (typeof PLACE_STATUS)[number]['key'] | undefined) ?? 'PROPOSED');
   const [dayId, setDayId] = useState<string>('none');
   const [weather, setWeather] = useState<string>(place?.weatherSuitability ?? 'MIXED');
 
@@ -218,12 +219,11 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
     const data = new FormData(e.currentTarget);
     data.set('placeType', cat);
     data.set('weatherSuitability', weather);
-    const saved = edit && place?.id ? await actions.updatePlace(place.id, data) : await actions.addPlace(data);
-    if (!saved) return;
-    const savedPlaceId = saved?.id ?? place?.id;
-    if (savedPlaceId && status === 'approved') await actions.voteForPlace(savedPlaceId, 'MUST_HAVE');
-    if (savedPlaceId && status === 'shortlisted') await actions.voteForPlace(savedPlaceId, 'UP');
-    if (dayId !== 'none') {
+	    const saved = edit && place?.id ? await actions.updatePlace(place.id, data) : await actions.addPlace(data);
+	    if (!saved) return;
+	    const savedPlaceId = saved?.id ?? place?.id;
+	    if (savedPlaceId) await actions.updatePlaceStatus(savedPlaceId, status);
+	    if (dayId !== 'none') {
       if (savedPlaceId) await actions.addPlaceToItinerary(savedPlaceId, dayId);
     }
     onClose();

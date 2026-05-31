@@ -11,6 +11,7 @@ import { useModal } from '../context/modal-context';
 import { RoutePair } from './trip-route-shells';
 import { TripRouteRuntime } from './trip-route-runtime';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
+import { placeRecommendationScore } from '../lib/decision';
 
 const FILTERS = [
   { key: 'all',  label: 'Vše' },
@@ -40,6 +41,7 @@ function DesktopPlaces({ planner }: { planner: TripPlannerController }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [sortVotes, setSortVotes] = useState(false);
+  const canChangeStatus = (createdById?: string) => createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN';
 
   const filtered = state.data.places
     .filter((p) => {
@@ -49,14 +51,8 @@ function DesktopPlaces({ planner }: { planner: TripPlannerController }) {
     })
     .sort((a, b) => {
       if (!sortVotes) return 0;
-      const score = (place: typeof a) => (place.votes ?? []).reduce((sum, vote) => {
-        if (vote.value === 'MUST_HAVE') return sum + 3;
-        if (vote.value === 'UP') return sum + 2;
-        if (vote.value === 'MAYBE') return sum + 1;
-        return sum;
-      }, 0);
-      return score(b) - score(a);
-    });
+	      return placeRecommendationScore(b, state.selectedTrip?.members ?? []) - placeRecommendationScore(a, state.selectedTrip?.members ?? []);
+	    });
 
   return (
     <div className="desk-body">
@@ -122,6 +118,8 @@ function DesktopPlaces({ planner }: { planner: TripPlannerController }) {
                     selected={state.selectedPlaceId === place.id}
                     onSelect={() => actions.setSelectedPlaceId(place.id)}
                     onAdd={() => void actions.addPlaceToItinerary(place.id)}
+                    onApprove={canChangeStatus(place.createdById) ? () => void actions.updatePlaceStatus(place.id, 'APPROVED') : undefined}
+                    onShortlist={canChangeStatus(place.createdById) ? () => void actions.updatePlaceStatus(place.id, 'SHORTLISTED') : undefined}
                   />
                   <div className="row g8" style={{ padding: '0 0 12px 52px' }}>
                     <Button
@@ -148,7 +146,7 @@ function DesktopPlaces({ planner }: { planner: TripPlannerController }) {
 
 export function TripPlacesRoute({ tripId }: { tripId: string }) {
   return (
-    <TripRouteRuntime tripId={tripId} view="plan">
+    <TripRouteRuntime tripId={tripId} view="places">
       {(planner) => (
         <RoutePair
           planner={planner}

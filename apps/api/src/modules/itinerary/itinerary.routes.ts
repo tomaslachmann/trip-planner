@@ -252,8 +252,12 @@ export async function itineraryRoutes(app: FastifyInstance) {
     const actorUserId = getActorUserId(request, body);
     await requireTripMember(day.tripId, actorUserId);
     await assertPlaceBelongsToTrip(day.tripId, body.placeId);
-    await requireTripMembersByIds(day.tripId, body.tripMemberIds ?? []);
-    await assertParticipantsAvailableForStop(day.tripId, body.tripMemberIds, body.startsAt, body.endsAt);
+    const participantIds = body.tripMemberIds ?? (await prisma.tripMember.findMany({
+      where: { tripId: day.tripId },
+      select: { id: true },
+    })).map((member) => member.id);
+    await requireTripMembersByIds(day.tripId, participantIds);
+    await assertParticipantsAvailableForStop(day.tripId, participantIds, body.startsAt, body.endsAt);
 
     const stop = await prisma.itineraryStop.create({
       data: {
@@ -263,7 +267,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
         startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
         endsAt: body.endsAt ? new Date(body.endsAt) : undefined,
         note: body.note,
-        participants: { create: (body.tripMemberIds ?? []).map((tripMemberId) => ({ tripMemberId })) },
+        participants: { create: participantIds.map((tripMemberId) => ({ tripMemberId })) },
       },
       include: { place: true, participants: true },
     });

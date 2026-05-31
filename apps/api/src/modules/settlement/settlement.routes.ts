@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { prisma } from '../../db/prisma.js';
 import { actorQuerySchema, jsonResponseSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
+import { httpError } from '../../utils/http.js';
 import { getActorUserId, requireTripMember, requireTripUsers } from '../access/access.js';
 import { recordActivity } from '../activity/activity.service.js';
 import { updateSettlementStatusSchema } from './settlement.schemas.js';
@@ -39,8 +40,21 @@ export async function settlementRoutes(app: FastifyInstance) {
     const { tripId } = request.params as { tripId: string };
     const body = updateSettlementStatusSchema.parse(request.body);
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(tripId, actorUserId);
+    const actorMember = await requireTripMember(tripId, actorUserId);
     await requireTripUsers(tripId, [body.fromUserId, body.toUserId]);
+    const isAdmin = actorMember.role === 'OWNER' || actorMember.role === 'ADMIN';
+    const isPayer = actorUserId === body.fromUserId;
+    const isPayee = actorUserId === body.toUserId;
+
+    if (body.status === 'PAID' && !isPayer && !isAdmin) {
+      throw httpError(403, 'Only payer or admin can mark a settlement as paid');
+    }
+    if (body.status === 'CONFIRMED' && !isPayee && !isAdmin) {
+      throw httpError(403, 'Only payee or admin can confirm a settlement');
+    }
+    if ((body.status === 'OPEN' || body.status === 'CANCELLED') && !isPayer && !isPayee && !isAdmin) {
+      throw httpError(403, 'Only settlement participants or admin can change this settlement');
+    }
 
     const now = new Date();
     const payment = await prisma.settlementPayment.upsert({

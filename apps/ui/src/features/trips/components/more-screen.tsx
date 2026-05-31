@@ -7,6 +7,7 @@ import { AvatarRow } from './avatar';
 import { AiInsightsPanel } from './ai-insights-panel';
 import { useModal } from '../context/modal-context';
 import { ChecklistPanel } from './checklist-panel';
+import { DecisionCenter } from './decision-center';
 import { PollsPanel } from './polls-panel';
 import { formatTripRange } from '../lib/format';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
@@ -107,7 +108,11 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
               </div>
             </div>
 
-            <AiInsightsPanel insights={state.data.aiInsights} loading={state.generatingInsights} onGenerate={() => void actions.generateTripInsights()} onNavigate={actions.setActiveTab} />
+            <DecisionCenter planner={planner} />
+
+            <div className="mt16">
+              <AiInsightsPanel insights={state.data.aiInsights} loading={state.generatingInsights} onGenerate={() => void actions.generateTripInsights()} onNavigate={actions.setActiveTab} />
+            </div>
 
             <div className="card sh mt16" style={{ padding: '4px 16px' }}>
               {desktopSettings.map((item, i) => (
@@ -176,6 +181,10 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
             <span className="badge amber tnum">€{Math.round(totalSettlements)} nevyrovnáno</span>
             <span className="badge muted">{state.selectedTrip?.members?.length ?? 0} lidí</span>
           </div>
+        </div>
+
+        <div className="mt16">
+          <DecisionCenter planner={planner} compact />
         </div>
 
         <div className="mt16">

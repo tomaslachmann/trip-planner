@@ -34,7 +34,7 @@ function MobileMembers({ planner }: { planner: TripPlannerController }) {
       <div className="appbar">
         <Button size="icon" variant="ghost" type="button" onClick={() => actions.setActiveTab('more')}><ArrowLeft /></Button>
         <span className="t-h3 flex1">Členové</span>
-        <Button size="icon" variant="outline" type="button" aria-label="Kód pozvánky"><Link /></Button>
+        <Button size="icon" variant="outline" type="button" aria-label="Kód pozvánky" onClick={() => state.selectedTrip?.inviteCode && navigator.clipboard.writeText(state.selectedTrip.inviteCode)}><Link /></Button>
       </div>
       <div className="px18" style={{ flex: '0 0 auto' }}>
         <Button className="w-full" type="button" onClick={() => state.selectedTrip?.inviteCode && navigator.clipboard.writeText(state.selectedTrip.inviteCode)}>

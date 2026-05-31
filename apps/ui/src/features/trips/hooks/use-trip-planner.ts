@@ -6,7 +6,7 @@ import { apiFetch, clearAccessToken, createTripPlannerClient, getSessionUser, re
 import type { Accommodation, ActivityEvent, ChecklistItem, DiscoveryPlace, Expense, ItineraryDay, LiveLocation, LocationResult, Place, PlaceType, Poll, RouteCapabilities, TabKey, Trip, TripAiInsights, TripData, TripWeather } from '../types';
 
 const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], routeCapabilities: null, settlements: [], polls: [], checklist: [], activity: [], liveLocations: [], weather: null, aiInsights: null };
-const routeTabs: TabKey[] = ['map', 'plan', 'stay', 'costs', 'settle', 'members', 'more', 'checklist', 'polls', 'itinerary'];
+const routeTabs: TabKey[] = ['map', 'plan', 'places', 'stay', 'costs', 'settle', 'members', 'more', 'checklist', 'polls', 'itinerary'];
 
 function uniqueById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
@@ -512,6 +512,19 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     }
   }
 
+  async function updatePlaceStatus(placeId: string, status: 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED') {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    try {
+      await apiFetch<Place>(`/places/${encodeURIComponent(placeId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }, accessToken);
+      await loadTripDetail(undefined, undefined, undefined, { force: true });
+    } catch {
+      setMessage('Stav místa se nepodařilo uložit.');
+    }
+  }
+
   async function voteForPlaceOnDay(dayId: string, placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') {
     if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
     try {
@@ -617,7 +630,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 	        splitType: 'EQUAL',
         splitAllTripMembers: splitScope === 'all',
         splitUserIds: splitScope === 'selected' ? splitUserIds : undefined,
-      } as never,
+      },
     });
     if (error) return setMessage('Náklad se nepodařilo přidat.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -1127,7 +1140,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 
   return {
     state: { trips, joinedTrips, availableTrips, selectedTrip, selectedTripId, viewerEmail, viewerName, actorUserId, actorMember, activeTab, data, selectedPlace, selectedPlaceId, selectedExpense, selectedExpenseId, accommodations, selectedAccommodation, selectedAccommodationId, discoveries, discovering, loading, searchingStay, sharingLiveLocation, generatingInsights, message },
-    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, updateStopAttendance, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, updateMemberPlanning, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, discoverPlaces, discoverNearbyCurrentLocation, shareLiveLocation, stopSharingLiveLocation, generateTripInsights, saveDiscoveryPlace, optimizeRoute },
+    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updatePlaceStatus, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, updateStopAttendance, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, updateMemberPlanning, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, discoverPlaces, discoverNearbyCurrentLocation, shareLiveLocation, stopSharingLiveLocation, generateTripInsights, saveDiscoveryPlace, optimizeRoute },
   };
 }
 

@@ -757,6 +757,11 @@ export interface paths {
                         tripId: string;
                         /** @enum {string} */
                         type: "PLACE" | "ACTIVITY" | "DAY_TRIP" | "STAY_AREA" | "ACCOMMODATION" | "FOOD" | "TRANSPORT" | "CUSTOM";
+                        /**
+                         * @default PROPOSED
+                         * @enum {string}
+                         */
+                        status?: "PROPOSED" | "SHORTLISTED" | "APPROVED" | "REJECTED";
                         name: string;
                         description?: string;
                         latitude: number;
@@ -845,6 +850,8 @@ export interface paths {
                     "application/json": {
                         /** @enum {string} */
                         type?: "PLACE" | "ACTIVITY" | "DAY_TRIP" | "STAY_AREA" | "ACCOMMODATION" | "FOOD" | "TRANSPORT" | "CUSTOM";
+                        /** @enum {string} */
+                        status?: "PROPOSED" | "SHORTLISTED" | "APPROVED" | "REJECTED";
                         name?: string;
                         description?: string | null;
                         latitude?: number;

@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { accommodationStatusMeta, getAccommodationSummary, type AccommodationStatus, type AccommodationVoteValue } from '../lib/accommodation-scoring';
+import { accommodationRecommendationScore, distanceMeters, topPlaces } from '../lib/decision';
 import type { Accommodation, Place, Trip } from '../types';
 
 function currencyFor(trip?: Trip, place?: Place, stay?: Accommodation) {
@@ -39,6 +40,7 @@ export function StayPanel({
   trip,
   stays,
   savedPlaces = [],
+  allPlaces = savedPlaces,
   actorUserId,
   selectedId,
   searching,
@@ -53,6 +55,7 @@ export function StayPanel({
   trip?: Trip;
   stays: Accommodation[];
   savedPlaces?: Place[];
+  allPlaces?: Place[];
   actorUserId?: string;
   selectedId?: string;
   searching: boolean;
@@ -67,6 +70,10 @@ export function StayPanel({
   const tripMembers = trip?.members ?? [];
   const members = Math.max(1, tripMembers.length || 1);
   const summaries = new Map(savedPlaces.map((place) => [place.id, getAccommodationSummary(place, tripMembers, actorUserId)]));
+  const rankedSavedPlaces = savedPlaces
+    .map((place) => ({ place, score: accommodationRecommendationScore(place, allPlaces, tripMembers) }))
+    .sort((a, b) => b.score - a.score);
+  const referencePlaces = topPlaces(allPlaces.filter((place) => place.type !== 'ACCOMMODATION'), tripMembers, 5).map(({ place }) => place);
   const selectedCount = savedPlaces.filter((place) => ['SELECTED', 'BOOKED'].includes(summaries.get(place.id)?.status ?? 'SAVED')).length;
   const shortlistCount = savedPlaces.filter((place) => summaries.get(place.id)?.status === 'SHORTLISTED').length;
   const rejectedCount = savedPlaces.filter((place) => summaries.get(place.id)?.status === 'REJECTED').length;
@@ -90,13 +97,16 @@ export function StayPanel({
 
       {savedPlaces.length > 0 && (
         <div className={layout === 'desktop' ? 'grid3 mb16' : 'col g12 mb16'}>
-          {savedPlaces.map((place) => {
+          {rankedSavedPlaces.map(({ place, score }, index) => {
             const summary = summaries.get(place.id) ?? getAccommodationSummary(place, tripMembers, actorUserId);
             const { stats, status, statusMeta: meta, statusFlow } = summary;
             const total = typeof place.estimatedCost === 'string' ? Number(place.estimatedCost) : place.estimatedCost;
             const perPerson = total && Number.isFinite(total) ? total / members : undefined;
             const currency = currencyFor(trip, place);
             const missingNames = stats.missingVoters.map((member) => member.user.name);
+            const averageDistance = referencePlaces.length
+              ? Math.round(referencePlaces.reduce((sum, item) => sum + distanceMeters(place, item), 0) / referencePlaces.length)
+              : null;
             return (
               <Card className="shadow-[var(--sh-sm)] overflow-hidden" key={place.id}>
                 <div className="receipt center" style={{ height: layout === 'desktop' ? 108 : 120, borderRadius: 0, borderLeft: 0, borderRight: 0, borderTop: 0 }}>
@@ -108,7 +118,11 @@ export function StayPanel({
                       <button className="t-h2 ellipsis text-left" type="button" onClick={() => onSelectSaved?.(place.id)}>{place.name}</button>
                       <span className="row g4 muted t-xs mt4" style={{ color: 'var(--c-see)' }}><Link2 size={12} />{sourceLabel(place)}</span>
                     </div>
-                    <span className={`badge ${meta.cls}`}>{meta.label}</span>
+                    <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
+                      {index === 0 && <span className="badge green">Doporučeno</span>}
+                      <span className="badge solid">Score {score}</span>
+                      <span className={`badge ${meta.cls}`}>{meta.label}</span>
+                    </div>
                   </div>
 
                   <div className="grid3 mt12">
@@ -121,6 +135,7 @@ export function StayPanel({
                     <div className="col flex1 g6">
                       <span className="row g6 t-xs"><Check size={13} color="var(--green)" />{place.accommodationReviewScore ?? place.accommodationRating ?? '-'} hodnocení</span>
                       <span className="row g6 t-xs"><Check size={13} color="var(--green)" />{place.accommodationReviewCount ?? 0} recenzí</span>
+                      <span className="row g6 t-xs"><Check size={13} color="var(--green)" />{averageDistance === null ? 'není top cíl' : `${(averageDistance / 1000).toFixed(1)} km od top míst`}</span>
                     </div>
                     <div className="col flex1 g6">
                       {place.description ? <span className="row g6 t-xs muted"><Minus size={13} />{place.description}</span> : <span className="row g6 t-xs muted"><Minus size={13} />bez poznámky</span>}

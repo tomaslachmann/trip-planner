@@ -177,7 +177,7 @@ export async function runTripPlanningAgent(tripId: string) {
 
   const trip = await getTripContext(tripId);
   const weatherPoints = buildWeatherPoints(trip);
-  const weather = weatherPoints.length > 0 ? await getWeatherForPoints(weatherPoints) : null;
+  const weather = weatherPoints.length > 0 ? await getWeatherForPoints(weatherPoints).catch(() => null) : null;
   const agent = new Agent({
     name: 'Trip planning agent',
     model: env.OPENAI_MODEL,

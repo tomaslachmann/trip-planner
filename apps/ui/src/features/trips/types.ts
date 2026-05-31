@@ -1,4 +1,4 @@
-export type TabKey = 'map' | 'plan' | 'stay' | 'costs' | 'settle' | 'members' | 'more' | 'checklist' | 'polls' | 'itinerary';
+export type TabKey = 'map' | 'plan' | 'places' | 'stay' | 'costs' | 'settle' | 'members' | 'more' | 'checklist' | 'polls' | 'itinerary';
 
 export type TripMember = {
   id: string;
@@ -33,7 +33,9 @@ export type PlaceType = 'PLACE' | 'ACTIVITY' | 'DAY_TRIP' | 'STAY_AREA' | 'ACCOM
 export type Place = {
   id: string;
   tripId: string;
+  createdById?: string;
   type: PlaceType | string;
+  status?: 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED' | string;
   name: string;
   description?: string | null;
   latitude: number;

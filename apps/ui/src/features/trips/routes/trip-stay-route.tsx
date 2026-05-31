@@ -16,6 +16,7 @@ function DesktopStay({ planner }: { planner: TripPlannerController }) {
           trip={state.selectedTrip}
           stays={state.accommodations}
           savedPlaces={state.data.places.filter((place) => place.type === 'ACCOMMODATION')}
+          allPlaces={state.data.places}
           actorUserId={state.actorUserId}
           selectedId={state.selectedAccommodationId}
           searching={state.searchingStay}

@@ -2,10 +2,12 @@ import { z } from 'zod';
 import { actorUserIdSchema, latitudeSchema, longitudeSchema } from '../../utils/schemas.js';
 
 const weatherSuitabilitySchema = z.enum(['INDOOR', 'OUTDOOR', 'MIXED']);
+const placeStatusSchema = z.enum(['PROPOSED', 'SHORTLISTED', 'APPROVED', 'REJECTED']);
 
 export const createPlaceSchema = z.object({
   tripId: z.string().min(1),
   type: z.enum(['PLACE','ACTIVITY','DAY_TRIP','STAY_AREA','ACCOMMODATION','FOOD','TRANSPORT','CUSTOM']),
+  status: placeStatusSchema.default('PROPOSED'),
   name: z.string().min(1),
   description: z.string().optional(),
   latitude: latitudeSchema,
@@ -18,6 +20,7 @@ export const createPlaceSchema = z.object({
 
 export const updatePlaceSchema = actorUserIdSchema.extend({
   type: z.enum(['PLACE','ACTIVITY','DAY_TRIP','STAY_AREA','ACCOMMODATION','FOOD','TRANSPORT','CUSTOM']).optional(),
+  status: placeStatusSchema.optional(),
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   latitude: latitudeSchema.optional(),

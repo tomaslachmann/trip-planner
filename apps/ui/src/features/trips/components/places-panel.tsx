@@ -5,34 +5,19 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import type { Place } from '../types';
+import type { Place, TripMember } from '../types';
 import { PlaceRow } from './place-row';
+import { normalizePlaceStatus, placeRecommendationScore, topPlaces } from '../lib/decision';
 
-type StatusFilter = 'all' | 'proposed' | 'shortlisted' | 'approved';
+type StatusFilter = 'all' | 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED';
 
 const statusFilters: Array<{ key: StatusFilter; label: string }> = [
   { key: 'all', label: 'Vše' },
-  { key: 'proposed', label: 'Návrhy' },
-  { key: 'shortlisted', label: 'Shortlist' },
-  { key: 'approved', label: 'Schválené' },
+  { key: 'PROPOSED', label: 'Návrhy' },
+  { key: 'SHORTLISTED', label: 'Shortlist' },
+  { key: 'APPROVED', label: 'Schválené' },
+  { key: 'REJECTED', label: 'Zamítnuté' },
 ];
-
-function placeScore(place: Place) {
-  return (place.votes ?? []).reduce((sum, vote) => {
-    if (vote.value === 'MUST_HAVE') return sum + 3;
-    if (vote.value === 'UP') return sum + 2;
-    if (vote.value === 'MAYBE') return sum + 1;
-    if (vote.value === 'DOWN') return sum - 1;
-    return sum;
-  }, 0);
-}
-
-function placeStatus(place: Place): StatusFilter {
-  const values = place.votes ?? [];
-  if (values.some((vote) => vote.value === 'MUST_HAVE')) return 'approved';
-  if (values.some((vote) => vote.value === 'UP')) return 'shortlisted';
-  return 'proposed';
-}
 
 function DraggablePlace({
   place,
@@ -45,8 +30,8 @@ function DraggablePlace({
   place: Place;
   onSelect: () => void;
   selected?: boolean;
-  onApprove: () => void;
-  onShortlist: () => void;
+  onApprove?: () => void;
+  onShortlist?: () => void;
   onMore: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `place:${place.id}` });
@@ -73,15 +58,23 @@ function DraggablePlace({
 
 export function PlacesPanel({
   places,
+  members = [],
+  actorUserId,
+  actorRole,
   selectedPlaceId,
   onSelect,
   onVotePlace,
+  onStatusChange,
   onEditPlace,
 }: {
   places: Place[];
+  members?: TripMember[];
+  actorUserId?: string;
+  actorRole?: string;
   selectedPlaceId?: string;
   onSelect: (placeId: string) => void;
   onVotePlace: (placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') => void;
+  onStatusChange?: (placeId: string, status: 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED') => void;
   onEditPlace: (placeId: string) => void;
 }) {
   const [filter, setFilter] = useState<StatusFilter>('all');
@@ -91,13 +84,15 @@ export function PlacesPanel({
   const visiblePlaces = useMemo(() => {
     const query = search.trim().toLowerCase();
     const list = places.filter((place) => {
-      const matchesStatus = filter === 'all' || placeStatus(place) === filter;
+      const matchesStatus = filter === 'all' || normalizePlaceStatus(place.status) === filter;
       const matchesSearch = !query || place.name.toLowerCase().includes(query) || (place.description ?? '').toLowerCase().includes(query);
       return matchesStatus && matchesSearch;
     });
     if (!sortVotes) return list;
-    return [...list].sort((a, b) => placeScore(b) - placeScore(a));
-  }, [filter, places, search, sortVotes]);
+    return [...list].sort((a, b) => placeRecommendationScore(b, members) - placeRecommendationScore(a, members));
+  }, [filter, members, places, search, sortVotes]);
+  const recommended = topPlaces(places, members, 3);
+  const canChangeStatus = (place: Place) => !!onStatusChange && (place.createdById === actorUserId || actorRole === 'OWNER' || actorRole === 'ADMIN');
 
   return (
     <div className="col flex1" style={{ minHeight: 0 }}>
@@ -121,6 +116,21 @@ export function PlacesPanel({
       </div>
 
       <div className="scroll px18" style={{ flex: 1, paddingBottom: 18 }}>
+        {recommended.length > 0 && (
+          <Card className="p-[12px] shadow-[var(--sh-sm)] mb12">
+            <div className="row between mb8">
+              <span className="t-h3">Top místa</span>
+              <span className="badge green">Doporučeno</span>
+            </div>
+            <div className="row g8 wrap">
+              {recommended.map(({ place, score }) => (
+                <button className="badge muted" type="button" key={place.id} onClick={() => onSelect(place.id)}>
+                  {place.name} · {score}
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
         {visiblePlaces.length === 0 && (
           <Card>
             <EmptyState icon={<MapPin />} title={places.length === 0 ? 'Zatím tu nejsou žádná místa.' : 'Žádná místa neodpovídají filtru.'} text={places.length === 0 ? 'Použij spodní tlačítko plus a přidej první místo.' : 'Zkus jiné hledání nebo filtr.'} />
@@ -133,8 +143,14 @@ export function PlacesPanel({
               place={place}
               selected={selectedPlaceId === place.id}
               onSelect={() => onSelect(place.id)}
-              onApprove={() => onVotePlace(place.id, 'MUST_HAVE')}
-              onShortlist={() => onVotePlace(place.id, 'UP')}
+              onApprove={canChangeStatus(place) ? () => {
+                onStatusChange?.(place.id, 'APPROVED');
+                onVotePlace(place.id, 'MUST_HAVE');
+              } : undefined}
+              onShortlist={canChangeStatus(place) ? () => {
+                onStatusChange?.(place.id, 'SHORTLISTED');
+                onVotePlace(place.id, 'UP');
+              } : undefined}
               onMore={() => onEditPlace(place.id)}
             />
           </div>

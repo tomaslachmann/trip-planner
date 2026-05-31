@@ -44,9 +44,13 @@ function DesktopPlan({ planner }: { planner: TripPlannerController }) {
         <div className="desk-scroll">
           <PlacesPanel
             places={state.data.places}
+            members={state.selectedTrip?.members ?? []}
+            actorUserId={state.actorUserId}
+            actorRole={state.actorMember?.role}
             selectedPlaceId={state.selectedPlaceId}
             onSelect={actions.setSelectedPlaceId}
             onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
+            onStatusChange={(placeId, status) => void actions.updatePlaceStatus(placeId, status)}
             onEditPlace={(placeId) => {
               actions.setSelectedPlaceId(placeId);
               openModal('addPlace', true);

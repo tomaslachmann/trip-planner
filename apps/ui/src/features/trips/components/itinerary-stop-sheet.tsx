@@ -12,6 +12,7 @@ import type { ItineraryDay, ItineraryStop } from '../types';
 import type { TripMember } from '../types';
 
 export type EditingItineraryStop = { day: ItineraryDay; stop: ItineraryStop };
+type AttendanceChoice = 'GOING' | 'MAYBE' | 'NO' | 'OUT';
 
 function toTimeInput(value?: string | null) {
   if (!value) return '';
@@ -25,25 +26,30 @@ function dayTimeToIso(day: ItineraryDay, value: string) {
 
 export function ItineraryStopSheet({
   editing,
+  actorTripMemberId,
   onClose,
   onUpdate,
+  onAttendance,
   onDelete,
   members,
 }: {
   editing: EditingItineraryStop;
+  actorTripMemberId?: string;
   onClose: () => void;
-  onUpdate: (stopId: string, input: { startsAt?: string | null; endsAt?: string | null; note?: string | null; tripMemberIds?: string[] }) => void;
+  onUpdate: (stopId: string, input: { startsAt?: string | null; endsAt?: string | null; note?: string | null; tripMemberIds?: string[] }) => void | Promise<void>;
+  onAttendance?: (stopId: string, status: 'GOING' | 'MAYBE' | 'NO') => void | Promise<void>;
   onDelete: (stopId: string) => void;
   members: TripMember[];
 }) {
-  const initialParticipants = useMemo(() => {
-    const selectedIds = new Set(editing.stop.participants?.map((participant) => participant.tripMemberId) ?? []);
-    return Object.fromEntries(members.map((member) => [member.id, selectedIds.size === 0 || selectedIds.has(member.id)]));
+  const initialAttendance = useMemo(() => {
+    const participantById = new Map((editing.stop.participants ?? []).map((participant) => [participant.tripMemberId, participant.status ?? 'GOING']));
+    const hasParticipants = participantById.size > 0;
+    return Object.fromEntries(members.map((member) => [member.id, hasParticipants ? (participantById.get(member.id) ?? 'OUT') : 'GOING'])) as Record<string, AttendanceChoice>;
   }, [editing.stop.participants, members]);
-  const [participants, setParticipants] = useState<Record<string, boolean>>(initialParticipants);
+  const [attendance, setAttendance] = useState<Record<string, AttendanceChoice>>(initialAttendance);
   const [startsAtTime, setStartsAtTime] = useState(toTimeInput(editing.stop.startsAt));
   const [endsAtTime, setEndsAtTime] = useState(toTimeInput(editing.stop.endsAt));
-  const selectedParticipantIds = members.filter((member) => participants[member.id]).map((member) => member.id);
+  const selectedParticipantIds = members.filter((member) => attendance[member.id] !== 'OUT').map((member) => member.id);
   const hasParticipants = members.length === 0 || selectedParticipantIds.length > 0;
   const durationMinutes = startsAtTime && endsAtTime
     ? Math.max(0, Math.round((new Date(`${editing.day.date.slice(0, 10)}T${endsAtTime}:00`).getTime() - new Date(`${editing.day.date.slice(0, 10)}T${startsAtTime}:00`).getTime()) / 60000))
@@ -71,13 +77,16 @@ export function ItineraryStopSheet({
           onSubmit={(event) => {
             event.preventDefault();
             const data = new FormData(event.currentTarget);
-            onUpdate(editing.stop.id, {
+            void Promise.resolve(onUpdate(editing.stop.id, {
               startsAt: dayTimeToIso(editing.day, startsAtTime),
               endsAt: dayTimeToIso(editing.day, endsAtTime),
               note: String(data.get('note') ?? '').trim() || null,
               tripMemberIds: selectedParticipantIds,
+            })).then(async () => {
+              const actorStatus = actorTripMemberId ? attendance[actorTripMemberId] : undefined;
+              if (onAttendance && actorStatus && actorStatus !== 'OUT') await Promise.resolve(onAttendance(editing.stop.id, actorStatus));
+              onClose();
             });
-            onClose();
           }}
         >
           <div className="row g12">
@@ -100,26 +109,34 @@ export function ItineraryStopSheet({
             <>
               <Label className="mt14">Kdo se účastní</Label>
               <div className="col mt8" style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-                {members.map((member, index) => (
-                  <div key={member.id}>
-                    {index > 0 && <hr className="sep" />}
-                    <button
-                      className="row g10 between"
-                      type="button"
-                      aria-pressed={!!participants[member.id]}
-                      style={{ width: '100%', padding: '10px 12px', textAlign: 'left', cursor: 'pointer', border: 0, background: 'transparent', color: 'inherit' }}
-                      onClick={() => setParticipants((current) => ({ ...current, [member.id]: !current[member.id] }))}
-                    >
-                      <span className="row g10">
-                        <span className={`badge ${participants[member.id] ? 'solid' : 'muted'}`} style={{ width: 22, height: 22, padding: 0, justifyContent: 'center' }}>
-                          {participants[member.id] && <Check size={13} />}
+                {members.map((member, index) => {
+                  const choices: AttendanceChoice[] = member.id === actorTripMemberId ? ['GOING', 'MAYBE', 'NO', 'OUT'] : ['GOING', 'OUT'];
+                  return (
+                    <div key={member.id}>
+                      {index > 0 && <hr className="sep" />}
+                      <div className="row g10 between" style={{ width: '100%', padding: '10px 12px' }}>
+                        <span className="row g10">
+                          <span className={`badge ${attendance[member.id] !== 'OUT' ? 'solid' : 'muted'}`} style={{ width: 22, height: 22, padding: 0, justifyContent: 'center' }}>
+                            {attendance[member.id] !== 'OUT' && <Check size={13} />}
+                          </span>
+                          <span className="t-sm medi">{member.user.name}</span>
                         </span>
-                        <span className="t-sm medi">{member.user.name}</span>
-                      </span>
-                      <span className="muted t-xs">{member.role}</span>
-                    </button>
-                  </div>
-                ))}
+                        <div className="row g4 wrap" style={{ justifyContent: 'flex-end' }}>
+                          {choices.map((status) => (
+                            <button
+                              className={`chip${attendance[member.id] === status ? ' on' : ''}`}
+                              key={status}
+                              type="button"
+                              onClick={() => setAttendance((current) => ({ ...current, [member.id]: status }))}
+                            >
+                              {status === 'GOING' ? 'Jde' : status === 'MAYBE' ? 'Možná' : status === 'NO' ? 'Nejde' : 'Mimo'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
