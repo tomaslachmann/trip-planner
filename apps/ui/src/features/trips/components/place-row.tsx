@@ -3,6 +3,12 @@ import { Button } from '@/components/ui/button';
 import type { Place } from '../types';
 import { CategoryBadge, categoryMeta } from './category';
 
+function weatherLabel(value?: string) {
+  if (value === 'INDOOR') return 'Indoor';
+  if (value === 'OUTDOOR') return 'Outdoor';
+  return 'Mixed';
+}
+
 export function PlaceRow({
   place,
   selected,
@@ -45,6 +51,9 @@ export function PlaceRow({
             <span className="row g4"><MessageCircle />{comments}</span>
             <span className="row g4"><Clock />{place.durationMin ?? 90}m</span>
             <span className="medi" style={{ color: 'var(--fg)' }}>{place.estimatedCost ? `${place.estimatedCost}` : 'Zdarma'}</span>
+          </div>
+          <div className="row g6 mt8">
+            <span className="badge muted">{weatherLabel(place.weatherSuitability)}</span>
           </div>
         </div>
       </div>

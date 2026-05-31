@@ -172,17 +172,25 @@ const PLACE_STATUS = [
   { key: 'approved', label: 'Schválené' },
 ] as const;
 
+const WEATHER_OPTIONS = [
+  { key: 'MIXED', label: 'Mixed' },
+  { key: 'INDOOR', label: 'Indoor' },
+  { key: 'OUTDOOR', label: 'Outdoor' },
+] as const;
+
 export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlannerController; edit?: boolean; onClose: () => void }) {
   const { state, actions } = planner;
   const place = edit ? state.selectedPlace : undefined;
   const [cat, setCat] = useState<string>(place?.type ?? 'PLACE');
   const [status, setStatus] = useState<(typeof PLACE_STATUS)[number]['key']>('proposed');
   const [dayId, setDayId] = useState<string>('none');
+  const [weather, setWeather] = useState<string>(place?.weatherSuitability ?? 'MIXED');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     data.set('placeType', cat);
+    data.set('weatherSuitability', weather);
     const saved = edit && place?.id ? await actions.updatePlace(place.id, data) : await actions.addPlace(data);
     if (!saved) return;
     const savedPlaceId = saved?.id ?? place?.id;
@@ -211,6 +219,13 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
               const Icon = item.icon;
               return { value: key, label: <><Icon size={14} />{label}</> };
             })}
+          />
+
+          <Label className="mt16">Počasí</Label>
+          <ChipGroup
+            value={weather}
+            onValueChange={setWeather}
+            options={WEATHER_OPTIONS.map((item) => ({ value: item.key, label: item.label }))}
           />
 
           <Label className="mt16">Lokace</Label>
@@ -414,6 +429,7 @@ export function AddAccommodationSheet({ planner, edit, onClose }: { planner: Tri
         <SheetHead title={edit ? 'Upravit ubytování' : 'Přidat ubytování'} onClose={onClose} />
         <form id="accommodation-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <input type="hidden" name="placeType" value="ACCOMMODATION" />
+          <input type="hidden" name="weatherSuitability" value="INDOOR" />
 
           <Label htmlFor="stayName">Název</Label>
           <Input id="stayName" name="placeName" defaultValue={place?.name ?? ''} placeholder="Název ubytování" autoFocus />

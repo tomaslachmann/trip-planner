@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, clearAccessToken, createTripPlannerClient, getSessionUser, readAccessToken, signInRequest, signOutRequest, writeAccessToken } from '@/lib/api';
-import type { Accommodation, ActivityEvent, ChecklistItem, Expense, ItineraryDay, LocationResult, Place, PlaceType, Poll, TabKey, Trip, TripData } from '../types';
+import type { Accommodation, ActivityEvent, ChecklistItem, DiscoveryPlace, Expense, ItineraryDay, LiveLocation, LocationResult, Place, PlaceType, Poll, TabKey, Trip, TripAiInsights, TripData, TripWeather } from '../types';
 
-const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], settlements: [], polls: [], checklist: [], activity: [] };
+const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], settlements: [], polls: [], checklist: [], activity: [], liveLocations: [], weather: null, aiInsights: null };
 const routeTabs: TabKey[] = ['map', 'plan', 'stay', 'costs', 'settle', 'members', 'more', 'checklist', 'polls', 'itinerary'];
 
 function uniqueById<T extends { id: string }>(items: T[]) {
@@ -44,18 +44,23 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   const [selectedExpenseId, setSelectedExpenseId] = useState('');
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [selectedAccommodationId, setSelectedAccommodationId] = useState('');
+  const [discoveries, setDiscoveries] = useState<DiscoveryPlace[]>([]);
+  const [discovering, setDiscovering] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchingStay, setSearchingStay] = useState(false);
+  const [sharingLiveLocation, setSharingLiveLocation] = useState(false);
+  const [generatingInsights, setGeneratingInsights] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const restoreStartedRef = useRef(false);
   const loadingDetailKeyRef = useRef('');
   const loadedDetailKeyRef = useRef('');
+  const liveLocationWatchRef = useRef<number | null>(null);
 
   const selectedTrip = useMemo(() => trips.find((trip) => trip.id === selectedTripId), [selectedTripId, trips]);
   const joinedTrips = trips;
-  const selectedPlace = useMemo(() => data.places.find((place) => place.id === selectedPlaceId) ?? data.places[0], [data.places, selectedPlaceId]);
+  const selectedPlace = useMemo(() => data.places.find((place) => place.id === selectedPlaceId), [data.places, selectedPlaceId]);
   const selectedExpense = useMemo(() => data.expenses.find((expense) => expense.id === selectedExpenseId), [data.expenses, selectedExpenseId]);
-  const selectedAccommodation = useMemo(() => accommodations.find((stay) => stay.externalId === selectedAccommodationId) ?? accommodations[0], [accommodations, selectedAccommodationId]);
+  const selectedAccommodation = useMemo(() => accommodations.find((stay) => stay.externalId === selectedAccommodationId), [accommodations, selectedAccommodationId]);
   const actorMember = useMemo(() => selectedTrip?.members?.find((member) => member.userId === actorUserId), [actorUserId, selectedTrip]);
   const api = useMemo(() => createTripPlannerClient(accessToken), [accessToken]);
 
@@ -114,7 +119,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     loadingDetailKeyRef.current = requestKey;
     const client = createTripPlannerClient(token);
     try {
-      const [tripDetail, places, itinerary, expenses, routes, settlements, polls, checklist, activity] = await Promise.all([
+      const [tripDetail, places, itinerary, expenses, routes, settlements, polls, checklist, activity, liveLocations, weather] = await Promise.all([
         client.GET('/trips/{id}', { params: { path: { id: trip.id } } }),
         client.GET('/places/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
         client.GET('/itinerary/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
@@ -124,13 +129,15 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         apiFetch<Poll[]>(`/polls/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as Poll[] })),
         apiFetch<ChecklistItem[]>(`/checklist/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as ChecklistItem[] })),
         apiFetch<ActivityEvent[]>(`/activity/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as ActivityEvent[] })),
+        apiFetch<LiveLocation[]>(`/locations/live/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: [] as LiveLocation[] })),
+        apiFetch<TripWeather>(`/weather/trip/${encodeURIComponent(trip.id)}`, {}, token).then((result) => ({ data: result })).catch(() => ({ data: null as TripWeather | null })),
       ]);
       if (tripDetail.data) {
         const detailedTrip = tripDetail.data as Trip;
         setTrips((current) => uniqueById(current.map((item) => item.id === detailedTrip.id ? detailedTrip : item)));
       }
       const nextPlaces = uniqueById((places.data as Place[] | undefined) ?? []);
-      setData({
+      setData((current) => ({
         places: nextPlaces,
         itinerary: uniqueById((itinerary.data as ItineraryDay[] | undefined) ?? []),
         expenses: uniqueById((expenses.data as TripData['expenses'] | undefined) ?? []),
@@ -139,8 +146,11 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         polls: uniqueById(polls.data),
         checklist: uniqueById(checklist.data),
         activity: uniqueById(activity.data),
-      });
-      setSelectedPlaceId((current) => current || nextPlaces[0]?.id || '');
+        liveLocations: uniqueById(liveLocations.data),
+        weather: weather.data,
+        aiInsights: current.aiInsights ?? null,
+      }));
+      setSelectedPlaceId((current) => nextPlaces.some((place) => place.id === current) ? current : '');
       loadedDetailKeyRef.current = requestKey;
     } finally {
       if (loadingDetailKeyRef.current === requestKey) loadingDetailKeyRef.current = '';
@@ -245,7 +255,13 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     setSelectedPlaceId('');
     setSelectedExpenseId('');
     setAccommodations([]);
+    setDiscoveries([]);
     setSelectedAccommodationId('');
+    setSharingLiveLocation(false);
+    if (liveLocationWatchRef.current !== null) {
+      navigator.geolocation?.clearWatch(liveLocationWatchRef.current);
+      liveLocationWatchRef.current = null;
+    }
     setMessage(null);
     router.push('/', { scroll: false });
   }
@@ -347,6 +363,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const durationText = String(formData.get('durationMin') ?? formData.get('duration') ?? '').trim();
     const priceText = String(formData.get('estimatedCost') ?? formData.get('price') ?? '').trim();
     const sourceUrl = String(formData.get('sourceUrl') ?? '').trim();
+    const weatherSuitability = String(formData.get('weatherSuitability') ?? 'MIXED').trim() as 'INDOOR' | 'OUTDOOR' | 'MIXED';
     const latitude = Number(formData.get('latitude') || Number.NaN);
     const longitude = Number(formData.get('longitude') || Number.NaN);
     const durationMin = parseDurationMinutes(durationText);
@@ -364,6 +381,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         durationMin: durationMin && Number.isFinite(durationMin) ? durationMin : undefined,
         estimatedCost: estimatedCost !== undefined && Number.isFinite(estimatedCost) ? estimatedCost : undefined,
         sourceUrl: sourceUrl || undefined,
+        weatherSuitability,
       },
     });
     if (error) return setMessage('Místo se nepodařilo přidat.');
@@ -379,6 +397,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const durationText = String(formData.get('durationMin') ?? formData.get('duration') ?? '').trim();
     const priceText = String(formData.get('estimatedCost') ?? formData.get('price') ?? '').trim();
     const sourceUrl = String(formData.get('sourceUrl') ?? '').trim();
+    const weatherSuitability = String(formData.get('weatherSuitability') ?? '').trim() as 'INDOOR' | 'OUTDOOR' | 'MIXED' | '';
     const latitudeValue = String(formData.get('latitude') ?? '').trim();
     const longitudeValue = String(formData.get('longitude') ?? '').trim();
     const durationMin = parseDurationMinutes(durationText);
@@ -396,6 +415,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         durationMin: durationMin !== undefined && Number.isFinite(durationMin) ? durationMin : null,
         estimatedCost: estimatedCost !== undefined && Number.isFinite(estimatedCost) ? estimatedCost : null,
         sourceUrl: sourceUrl || null,
+        weatherSuitability: weatherSuitability || undefined,
       },
     });
     if (error) return setMessage('Místo se nepodařilo upravit.');
@@ -522,6 +542,19 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     }
   }
 
+  async function updateStopAttendance(stopId: string, status: 'GOING' | 'MAYBE' | 'NO') {
+    if (!actorUserId || !accessToken) return setMessage('Nejdřív se přihlaš.');
+    try {
+      await apiFetch(`/itinerary/stops/${encodeURIComponent(stopId)}/attendance`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }, accessToken);
+      await loadTripDetail(undefined, undefined, undefined, { force: true });
+    } catch {
+      setMessage('Účast se nepodařilo uložit.');
+    }
+  }
+
   async function deleteItineraryStop(stopId: string) {
     if (!actorUserId || !accessToken) return setMessage('Nejdřív se přihlaš.');
     try {
@@ -632,11 +665,11 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     }
   }
 
-  async function searchStays(formData?: FormData) {
+  async function searchStays(formData?: FormData, centerOverride?: { latitude: number; longitude: number }) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     setSearchingStay(true);
     const destination = String(formData?.get('stayDestination') ?? selectedTrip.destination ?? selectedTrip.name).trim();
-    const center = data.places[0];
+    const center = centerOverride ?? data.places[0];
     const { data: result, error } = await api.POST('/accommodations/search', {
       body: {
         tripId: selectedTrip.id,
@@ -657,7 +690,6 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const next = ((result as { results?: Accommodation[] } | undefined)?.results ?? []);
     setAccommodations(next);
     setSelectedAccommodationId(next[0]?.externalId ?? '');
-    setRoutedTab('map');
   }
 
   async function saveAccommodation(stay: Accommodation) {
@@ -732,6 +764,21 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
       await loadTripDetail(nextTrip, actorUserId, accessToken, { force: true });
     } catch {
       setMessage('Roli člena se nepodařilo změnit.');
+    }
+  }
+
+  async function updateMemberPlanning(memberId: string, input: { budgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM'; budgetAmount?: number | null }) {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    try {
+      await apiFetch(`/members/${encodeURIComponent(memberId)}/planning`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }, accessToken);
+      const nextTrips = await loadTrips(accessToken);
+      const nextTrip = nextTrips.find((trip) => trip.id === selectedTrip.id) ?? selectedTrip;
+      await loadTripDetail(nextTrip, actorUserId, accessToken, { force: true });
+    } catch {
+      setMessage('Budget profil se nepodařilo uložit.');
     }
   }
 
@@ -888,6 +935,136 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     return result.results;
   }
 
+  async function discoverPlaces(input: { latitude: number; longitude: number; category: DiscoveryPlace['category']; radiusMeters?: number }) {
+    if (!accessToken) return setMessage('Nejdřív se přihlaš.');
+    setDiscovering(true);
+    try {
+      const result = await apiFetch<{ results: DiscoveryPlace[] }>(
+        `/locations/discover?latitude=${encodeURIComponent(input.latitude)}&longitude=${encodeURIComponent(input.longitude)}&category=${encodeURIComponent(input.category)}&radiusMeters=${input.radiusMeters ?? 2500}&limit=25`,
+        {},
+        accessToken,
+      );
+      setDiscoveries(result.results);
+      setMessage(result.results.length ? null : 'V okolí jsem nic nenašel.');
+    } catch {
+      setMessage('Objevování okolí selhalo.');
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  async function discoverNearbyCurrentLocation(category: DiscoveryPlace['category'] = 'SIGHTS') {
+    if (!navigator.geolocation) return setMessage('Prohlížeč neumí sdílet polohu.');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void discoverPlaces({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          category,
+          radiusMeters: 1800,
+        });
+      },
+      () => setMessage('Polohu se nepodařilo zjistit.'),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
+
+  async function shareLiveLocation() {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!navigator.geolocation) return setMessage('Prohlížeč neumí sdílet polohu.');
+    if (liveLocationWatchRef.current !== null) return setMessage('Poloha už se sdílí.');
+    setSharingLiveLocation(true);
+    liveLocationWatchRef.current = navigator.geolocation.watchPosition(
+      async (position) => {
+        try {
+          await apiFetch(`/locations/live/trip/${encodeURIComponent(selectedTrip.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracyMeters: Math.round(position.coords.accuracy || 0),
+              sharedMinutes: 240,
+            }),
+          }, accessToken);
+          await loadTripDetail(undefined, undefined, undefined, { force: true });
+          setMessage(null);
+        } catch {
+          setMessage('Polohu se nepodařilo sdílet.');
+        }
+      },
+      () => {
+        setSharingLiveLocation(false);
+        if (liveLocationWatchRef.current !== null) {
+          navigator.geolocation.clearWatch(liveLocationWatchRef.current);
+          liveLocationWatchRef.current = null;
+        }
+        setMessage('Polohu se nepodařilo zjistit.');
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 },
+    );
+  }
+
+  async function stopSharingLiveLocation() {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    try {
+      await apiFetch(`/locations/live/trip/${encodeURIComponent(selectedTrip.id)}`, { method: 'DELETE' }, accessToken);
+      if (liveLocationWatchRef.current !== null) {
+        navigator.geolocation?.clearWatch(liveLocationWatchRef.current);
+        liveLocationWatchRef.current = null;
+      }
+      setSharingLiveLocation(false);
+      await loadTripDetail(undefined, undefined, undefined, { force: true });
+    } catch {
+      setMessage('Sdílení polohy se nepodařilo vypnout.');
+    }
+  }
+
+  async function generateTripInsights() {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (generatingInsights) return;
+    setGeneratingInsights(true);
+    try {
+      const result = await apiFetch<TripAiInsights>(`/ai/trip/${encodeURIComponent(selectedTrip.id)}/insights`, {
+        method: 'POST',
+      }, accessToken);
+      setData((current) => ({ ...current, aiInsights: result }));
+      setMessage(null);
+    } catch {
+      setMessage('AI plánovač se nepodařilo spustit. Zkontroluj OPENAI_API_KEY.');
+    } finally {
+      setGeneratingInsights(false);
+    }
+  }
+
+  async function saveDiscoveryPlace(discovery: DiscoveryPlace) {
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    const type: PlaceType = discovery.category === 'FOOD'
+      ? 'FOOD'
+      : discovery.category === 'ACTIVITY'
+        ? 'ACTIVITY'
+        : discovery.category === 'TRANSPORT'
+          ? 'TRANSPORT'
+          : 'PLACE';
+    const weatherSuitability = discovery.category === 'FOOD' ? 'MIXED' : 'OUTDOOR';
+    const { data: created, error } = await api.POST('/places', {
+      body: {
+        tripId: selectedTrip.id,
+        type,
+        name: discovery.name,
+        latitude: discovery.latitude,
+        longitude: discovery.longitude,
+        description: discovery.type,
+        sourceUrl: discovery.sourceUrl,
+        weatherSuitability,
+      },
+    });
+    if (error) return setMessage('Místo se nepodařilo uložit.');
+    setDiscoveries((current) => current.filter((item) => item.externalId !== discovery.externalId));
+    await loadTripDetail(undefined, undefined, undefined, { force: true });
+    setSelectedPlaceId((created as Place).id);
+    return created as Place;
+  }
+
   async function deleteAvailability(availabilityId: string) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     const { error } = await api.DELETE('/members/availability/{availabilityId}', {
@@ -919,8 +1096,8 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   return {
-    state: { trips, joinedTrips, availableTrips, selectedTrip, selectedTripId, viewerEmail, viewerName, actorUserId, actorMember, activeTab, data, selectedPlace, selectedPlaceId, selectedExpense, selectedExpenseId, accommodations, selectedAccommodation, selectedAccommodationId, loading, searchingStay, message },
-    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, optimizeRoute },
+    state: { trips, joinedTrips, availableTrips, selectedTrip, selectedTripId, viewerEmail, viewerName, actorUserId, actorMember, activeTab, data, selectedPlace, selectedPlaceId, selectedExpense, selectedExpenseId, accommodations, selectedAccommodation, selectedAccommodationId, discoveries, discovering, loading, searchingStay, sharingLiveLocation, generatingInsights, message },
+    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, updateStopAttendance, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, updateMemberPlanning, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, discoverPlaces, discoverNearbyCurrentLocation, shareLiveLocation, stopSharingLiveLocation, generateTripInsights, saveDiscoveryPlace, optimizeRoute },
   };
 }
 

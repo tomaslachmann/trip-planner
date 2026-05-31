@@ -12,3 +12,18 @@ export const reverseLocationSchema = z.object({
   latitude: latitudeSchema,
   longitude: longitudeSchema,
 });
+
+export const discoverLocationsSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  radiusMeters: z.coerce.number().int().positive().max(10000).default(2500),
+  category: z.enum(['SIGHTS', 'FOOD', 'ACTIVITY', 'TRANSPORT']).default('SIGHTS'),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+});
+
+export const shareLiveLocationSchema = z.object({
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
+  accuracyMeters: z.number().int().nonnegative().nullable().optional(),
+  sharedMinutes: z.number().int().min(5).max(1440).default(240),
+});

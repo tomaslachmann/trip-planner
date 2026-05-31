@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { ItineraryDay, ItineraryStop } from '../types';
+import type { ItineraryDay, ItineraryStop, TripWeather } from '../types';
 import { categoryLabel } from './category';
 
 type DayIntensity = 'CALM' | 'NORMAL' | 'INTENSE';
@@ -40,8 +40,50 @@ function hoursLabel(minutes: number) {
   return rest ? `${hours} h ${rest} min` : `${hours} h`;
 }
 
-function SortableStop({ stop, onOpen, onEdit }: { stop: ItineraryStop; onOpen?: (placeId: string) => void; onEdit?: () => void }) {
+function weatherForDay(weather: TripWeather | null | undefined, day: ItineraryDay) {
+  const date = day.date.slice(0, 10);
+  const stopPlaceIds = new Set((day.stops ?? []).map((stop) => stop.placeId).filter(Boolean));
+  return (weather?.days ?? []).filter((item) => item.date === date && (stopPlaceIds.size === 0 || stopPlaceIds.has(item.pointId)));
+}
+
+function weatherSummary(weather: TripWeather | null | undefined, day: ItineraryDay) {
+  const forecasts = weatherForDay(weather, day);
+  if (!forecasts.length) return null;
+  const rain = Math.max(...forecasts.map((item) => item.precipitationProbabilityMax ?? 0));
+  const max = Math.max(...forecasts.map((item) => item.temperatureMax ?? Number.NEGATIVE_INFINITY));
+  const min = Math.min(...forecasts.map((item) => item.temperatureMin ?? Number.POSITIVE_INFINITY));
+  return {
+    rain,
+    temperature: Number.isFinite(max) && Number.isFinite(min) ? `${Math.round(min)}-${Math.round(max)} °C` : undefined,
+    label: forecasts[0].pointLabel,
+  };
+}
+
+function attendanceCounts(stop: ItineraryStop) {
+  const participants = stop.participants ?? [];
+  return {
+    going: participants.filter((participant) => (participant.status ?? 'GOING') === 'GOING').length,
+    maybe: participants.filter((participant) => participant.status === 'MAYBE').length,
+    no: participants.filter((participant) => participant.status === 'NO').length,
+  };
+}
+
+function SortableStop({
+  stop,
+  actorTripMemberId,
+  onOpen,
+  onEdit,
+  onAttendance,
+}: {
+  stop: ItineraryStop;
+  actorTripMemberId?: string;
+  onOpen?: (placeId: string) => void;
+  onEdit?: () => void;
+  onAttendance?: (stopId: string, status: 'GOING' | 'MAYBE' | 'NO') => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `stop:${stop.id}` });
+  const counts = attendanceCounts(stop);
+  const myAttendance = stop.participants?.find((participant) => participant.tripMemberId === actorTripMemberId)?.status ?? 'GOING';
   return (
     <Card
       ref={setNodeRef}
@@ -60,6 +102,26 @@ function SortableStop({ stop, onOpen, onEdit }: { stop: ItineraryStop; onOpen?: 
           </Button>
         )}
       </div>
+      <div className="row g6 wrap mt10" style={{ paddingLeft: 48 }}>
+        <span className="badge green">Jde {counts.going}</span>
+        <span className="badge muted">Možná {counts.maybe}</span>
+        <span className="badge red">Ne {counts.no}</span>
+        {onAttendance && (
+          <div className="row g4">
+            {(['GOING', 'MAYBE', 'NO'] as const).map((status) => (
+              <Button
+                key={status}
+                size="sm"
+                variant={myAttendance === status ? 'default' : 'outline'}
+                type="button"
+                onClick={() => onAttendance(stop.id, status)}
+              >
+                {status === 'GOING' ? 'Jdu' : status === 'MAYBE' ? 'Možná' : 'Nejdu'}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
       {stop.note && <div className="muted t-xs mt8" style={{ paddingLeft: 48 }}>{stop.note}</div>}
     </Card>
   );
@@ -76,14 +138,20 @@ function DropDay({ day, children }: { day: ItineraryDay; children: ReactNode }) 
 
 export function ItineraryPanel({
   days,
+  weather,
   onOpenPlace,
   onEditStop,
+  actorTripMemberId,
+  onAttendance,
   onUpdateDay,
   onOptimize,
 }: {
   days: ItineraryDay[];
+  weather?: TripWeather | null;
   onOpenPlace: (placeId: string) => void;
   onEditStop?: (day: ItineraryDay, stop: ItineraryStop) => void;
+  actorTripMemberId?: string;
+  onAttendance?: (stopId: string, status: 'GOING' | 'MAYBE' | 'NO') => void;
   onUpdateDay?: (dayId: string, input: { intensity?: DayIntensity; rainPlan?: string | null; bufferMinutes?: number; locked?: boolean }) => void;
   onOptimize: () => void;
 }) {
@@ -106,6 +174,7 @@ export function ItineraryPanel({
       {days.map((day) => {
         const stops = day.stops ?? [];
         const summary = daySummary(day);
+        const forecast = weatherSummary(weather, day);
         const intensity = (day.intensity ?? 'NORMAL') as DayIntensity;
         return (
           <DropDay day={day} key={day.id}>
@@ -120,6 +189,7 @@ export function ItineraryPanel({
               <span className="badge muted"><Gauge />{intensityOptions.find((option) => option.value === intensity)?.label ?? 'Normál'}</span>
               <span className="badge muted"><TimerReset />buffer {summary.bufferMinutes} min</span>
               <span className="badge muted">{hoursLabel(summary.plannedMinutes + summary.bufferTotal)} celkem</span>
+              {forecast && <span className={`badge ${forecast.rain >= 60 ? 'amber' : 'muted'}`}>{forecast.temperature ?? 'Počasí'} · déšť {forecast.rain}%</span>}
               {summary.missingTimes > 0 && <span className="badge amber">{summary.missingTimes} bez času</span>}
               {day.rainPlan && <span className="badge blue"><CloudRain />rain plan</span>}
             </div>
@@ -158,7 +228,16 @@ export function ItineraryPanel({
             )}
             <SortableContext items={stops.map((stop) => `stop:${stop.id}`)} strategy={verticalListSortingStrategy}>
               <div className="col g8">
-                {stops.map((stop) => <SortableStop key={stop.id} stop={stop} onOpen={onOpenPlace} onEdit={onEditStop ? () => onEditStop(day, stop) : undefined} />)}
+                {stops.map((stop) => (
+                  <SortableStop
+                    key={stop.id}
+                    stop={stop}
+                    actorTripMemberId={actorTripMemberId}
+                    onOpen={onOpenPlace}
+                    onEdit={onEditStop ? () => onEditStop(day, stop) : undefined}
+                    onAttendance={onAttendance}
+                  />
+                ))}
               </div>
             </SortableContext>
             {stops.length === 0 && <div className="p14 muted t-sm center">Sem přetáhni místa</div>}

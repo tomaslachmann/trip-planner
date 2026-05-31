@@ -35,12 +35,8 @@ export async function tripRoutes(app: FastifyInstance) {
       response: { 200: tripSummaryListResponseSchema },
     },
   }, async (request) => {
-    const actorUserId = getActorUserId(request);
-    return prisma.trip.findMany({
-      where: { members: { none: { userId: actorUserId } } },
-      include: { members: { include: { user: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    getActorUserId(request);
+    return [];
   });
 
   routes.get('/invite/:inviteCode', {

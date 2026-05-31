@@ -54,6 +54,7 @@ export async function accommodationRoutes(app: FastifyInstance) {
         longitude: body.longitude,
         estimatedCost: body.priceTotal,
         sourceUrl: body.deepLinkUrl ?? body.sourceUrl,
+        weatherSuitability: 'INDOOR',
         accommodationProvider: body.provider,
         accommodationExternalId: body.externalId,
         accommodationRating: body.rating,

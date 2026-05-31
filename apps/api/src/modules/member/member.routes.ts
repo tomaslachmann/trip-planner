@@ -4,7 +4,7 @@ import { prisma } from '../../db/prisma.js';
 import { getActorUserId, requireTripMember, requireTripRole } from '../access/access.js';
 import { httpError } from '../../utils/http.js';
 import { actorQuerySchema, availabilityIdParamSchema, emptyResponseSchema, jsonResponseSchema, tripIdParamSchema, tripMemberIdParamSchema } from '../../utils/openapiSchemas.js';
-import { createAvailabilitySchema, deleteAvailabilitySchema, updateAvailabilitySchema } from './member.schemas.js';
+import { createAvailabilitySchema, deleteAvailabilitySchema, updateAvailabilitySchema, updateMemberPlanningSchema } from './member.schemas.js';
 
 async function requireMemberOwnerOrTripAdmin(tripMemberId: string, actorUserId: string) {
   const member = await prisma.tripMember.findUniqueOrThrow({
@@ -72,6 +72,30 @@ export async function memberRoutes(app: FastifyInstance) {
       include: { startPlace: true, endPlace: true },
     });
     return reply.code(201).send(window);
+  });
+
+  routes.patch('/:tripMemberId/planning', {
+    schema: {
+      tags: ['members'],
+      summary: 'Update member trip planning preferences',
+      security: [{ bearerAuth: [] }],
+      params: tripMemberIdParamSchema,
+      body: updateMemberPlanningSchema,
+      response: { 200: jsonResponseSchema },
+    },
+  }, async (request) => {
+    const { tripMemberId } = request.params as { tripMemberId: string };
+    const body = updateMemberPlanningSchema.parse(request.body);
+    const actorUserId = getActorUserId(request, body);
+    await requireMemberOwnerOrTripAdmin(tripMemberId, actorUserId);
+    return prisma.tripMember.update({
+      where: { id: tripMemberId },
+      data: {
+        budgetPreference: body.budgetPreference,
+        budgetAmount: body.budgetAmount,
+      },
+      include: { user: true, availabilityWindows: { include: { startPlace: true, endPlace: true } } },
+    });
   });
 
   routes.patch('/availability/:availabilityId', {

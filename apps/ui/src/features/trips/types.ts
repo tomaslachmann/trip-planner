@@ -4,6 +4,8 @@ export type TripMember = {
   id: string;
   userId: string;
   role: string;
+  budgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM' | string;
+  budgetAmount?: string | number | null;
   user: { id: string; name: string; email: string };
   availabilityWindows?: Array<{
     id: string;
@@ -39,6 +41,7 @@ export type Place = {
   durationMin?: number | null;
   estimatedCost?: string | number | null;
   sourceUrl?: string | null;
+  weatherSuitability?: 'INDOOR' | 'OUTDOOR' | 'MIXED' | string;
   accommodationProvider?: string | null;
   accommodationExternalId?: string | null;
   accommodationRating?: number | null;
@@ -59,8 +62,8 @@ export type ItineraryStop = {
   startsAt?: string | null;
   endsAt?: string | null;
   note?: string | null;
-  place?: { id?: string; name: string; type: string };
-  participants?: Array<{ tripMemberId: string; member?: TripMember }>;
+  place?: { id?: string; name: string; type: string; weatherSuitability?: string | null };
+  participants?: Array<{ tripMemberId: string; status?: 'GOING' | 'MAYBE' | 'NO' | string; member?: TripMember }>;
 };
 
 export type ItineraryDay = {
@@ -129,6 +132,49 @@ export type ActivityEvent = {
   actor?: { id: string; name: string; email: string } | null;
 };
 
+export type WeatherDayForecast = {
+  date: string;
+  pointId: string;
+  pointLabel: string;
+  weatherCode?: number | null;
+  temperatureMax?: number | null;
+  temperatureMin?: number | null;
+  precipitationProbabilityMax?: number | null;
+  precipitationSum?: number | null;
+  windSpeedMax?: number | null;
+  sunrise?: string | null;
+  sunset?: string | null;
+};
+
+export type TripWeather = {
+  provider: 'open-meteo';
+  generatedAt: string;
+  points: Array<{ id: string; label: string; latitude: number; longitude: number }>;
+  days: WeatherDayForecast[];
+};
+
+export type AiInsight = {
+  title: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  area: 'MAP' | 'ITINERARY' | 'STAY' | 'COSTS' | 'WEATHER' | 'TRANSPORT' | 'GROUP';
+  detail: string;
+  recommendedAction: string;
+  target: TabKey;
+  actions?: Array<{
+    type: 'OPEN_SECTION' | 'CREATE_POLL' | 'CREATE_CHECKLIST_ITEM' | 'REVIEW_ROUTE' | 'REVIEW_WEATHER' | 'REVIEW_BUDGET' | string;
+    label: string;
+    payload?: Record<string, unknown>;
+  }>;
+};
+
+export type TripAiInsights = {
+  provider: 'openai-agents';
+  generatedAt: string;
+  model: string;
+  summary: string;
+  insights: AiInsight[];
+};
+
 export type Accommodation = {
   provider: 'booking';
   externalId: string;
@@ -154,6 +200,29 @@ export type LocationResult = {
   longitude: number;
   type?: string;
   countryCode?: string;
+};
+
+export type DiscoveryPlace = {
+  provider: 'overpass';
+  externalId: string;
+  category: 'SIGHTS' | 'FOOD' | 'ACTIVITY' | 'TRANSPORT';
+  name: string;
+  latitude: number;
+  longitude: number;
+  type?: string;
+  sourceUrl?: string;
+};
+
+export type LiveLocation = {
+  id: string;
+  tripId: string;
+  userId: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number | null;
+  sharedUntil?: string | null;
+  updatedAt: string;
+  user?: { id: string; name: string; email: string };
 };
 
 export type Poll = {
@@ -194,4 +263,7 @@ export type TripData = {
   polls: Poll[];
   checklist: ChecklistItem[];
   activity: ActivityEvent[];
+  liveLocations: LiveLocation[];
+  weather?: TripWeather | null;
+  aiInsights?: TripAiInsights | null;
 };

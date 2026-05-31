@@ -238,6 +238,11 @@ textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit
 .leaflet-trip-pin .mk{ width:36px; height:36px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:block; border:2px solid #fff; box-shadow:0 4px 10px -2px rgba(9,9,11,.4); }
 .leaflet-trip-pin.sel .mk{ width:42px; height:42px; box-shadow:0 8px 18px -4px rgba(9,9,11,.5); }
 .leaflet-trip-pin.sel .pin-label{ border-color:var(--primary); background:#fff; }
+.leaflet-trip-pin.discovery .mk{ opacity:.82; border-style:dashed; }
+.leaflet-trip-pin.discovery .pin-label{ background:rgba(250,250,250,.9); color:#52525b; }
+.leaflet-live-pin{ display:flex; flex-direction:column; align-items:center; }
+.leaflet-live-pin .live-dot{ width:24px; height:24px; border-radius:999px; display:block; background:#0ea5e9; border:3px solid #fff; box-shadow:0 0 0 7px rgba(14,165,233,.18), 0 6px 14px -4px rgba(9,9,11,.45); }
+.leaflet-live-pin .pin-label{ background:#fff; border-color:#bae6fd; color:#075985; }
 .mk-see{background:var(--c-see)}.mk-food{background:var(--c-food)}.mk-act{background:var(--c-act)}
 .mk-day{background:var(--c-day)}.mk-stay{background:var(--c-stay)}.mk-trans{background:var(--c-trans)}
 

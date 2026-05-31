@@ -12,6 +12,7 @@ import {
   placeDayVoteSchema,
   reorderItineraryStopsSchema,
   syncItineraryDaysSchema,
+  updateStopAttendanceSchema,
   updateItineraryDaySchema,
   updateItineraryStopSchema,
 } from './itinerary.schemas.js';
@@ -312,6 +313,33 @@ export async function itineraryRoutes(app: FastifyInstance) {
         },
         include: { place: true, participants: true },
       });
+    });
+  });
+
+  routes.patch('/stops/:stopId/attendance', {
+    schema: {
+      tags: ['itinerary'],
+      summary: 'Update own attendance for itinerary stop',
+      security: [{ bearerAuth: [] }],
+      params: stopIdParamSchema,
+      body: updateStopAttendanceSchema,
+      response: { 200: jsonResponseSchema },
+    },
+  }, async (request) => {
+    const { stopId } = request.params as { stopId: string };
+    const body = updateStopAttendanceSchema.parse(request.body);
+    const stop = await prisma.itineraryStop.findUniqueOrThrow({
+      where: { id: stopId },
+      include: { day: true },
+    });
+    const actorUserId = getActorUserId(request, body);
+    const member = await requireTripMember(stop.day.tripId, actorUserId);
+    if (stop.day.locked) throw httpError(409, 'Itinerary day is locked');
+    return prisma.itineraryStopParticipant.upsert({
+      where: { stopId_tripMemberId: { stopId, tripMemberId: member.id } },
+      create: { stopId, tripMemberId: member.id, status: body.status },
+      update: { status: body.status },
+      include: { member: { include: { user: true } } },
     });
   });
 

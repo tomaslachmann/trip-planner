@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { fetchWithTimeout } from '../../utils/fetch.js';
 import { httpError } from '../../utils/http.js';
 
 export type AccommodationSearchInput = {
@@ -199,7 +200,7 @@ async function rapidApiGet(path: string, query: Record<string, string | number |
     if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
   }
 
-  const response = await fetch(url, { headers: rapidApiHeaders() });
+  const response = await fetchWithTimeout(url, { headers: rapidApiHeaders() });
   if (!response.ok) {
     const text = await response.text();
     throw httpError(response.status, `RapidAPI Booking search failed: ${text.slice(0, 500)}`);
@@ -286,7 +287,7 @@ export async function searchAccommodations(input: AccommodationSearchInput): Pro
     throw httpError(500, 'Booking Demand API credentials are not configured');
   }
 
-  const response = await fetch(`${env.BOOKING_API_BASE_URL.replace(/\/$/, '')}/accommodations/search`, {
+  const response = await fetchWithTimeout(`${env.BOOKING_API_BASE_URL.replace(/\/$/, '')}/accommodations/search`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.BOOKING_API_TOKEN}`,

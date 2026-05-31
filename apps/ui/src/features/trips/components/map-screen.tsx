@@ -1,4 +1,4 @@
-import { ArrowUpDown, Banknote, BedDouble, ChevronRight, Clock, LocateFixed, MapPin, MessageCircle, Search, Star, ThumbsDown, ThumbsUp, X } from 'lucide-react';
+import { ArrowUpDown, Banknote, BedDouble, ChevronRight, Clock, LocateFixed, MapPin, MessageCircle, Radio, Search, Star, ThumbsDown, ThumbsUp, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,9 +7,10 @@ import { DockedSheet, dockSnapHeights, type DockSnap } from '@/components/ui/doc
 import { Input } from '@/components/ui/input';
 import { AvatarRow } from './avatar';
 import { CategoryBadge } from './category';
+import { AiInsightsPanel } from './ai-insights-panel';
 import { MapCanvas } from './map-canvas';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
-import type { Place } from '../types';
+import type { DiscoveryPlace, Place } from '../types';
 
 const filters = [
   { key: 'ALL', label: 'Vše' },
@@ -31,6 +32,25 @@ function votes(place: Place) {
   };
 }
 
+function averageLocation(locations: Array<{ latitude: number; longitude: number }>) {
+  if (!locations.length) return null;
+  return {
+    latitude: locations.reduce((sum, item) => sum + item.latitude, 0) / locations.length,
+    longitude: locations.reduce((sum, item) => sum + item.longitude, 0) / locations.length,
+  };
+}
+
+function placeWeatherLabel(planner: TripPlannerController) {
+  const place = planner.state.selectedPlace;
+  if (!place) return null;
+  const forecast = (planner.state.data.weather?.days ?? []).find((item) => item.pointId === place.id);
+  if (!forecast) return null;
+  const temp = forecast.temperatureMax !== null && forecast.temperatureMin !== null && forecast.temperatureMax !== undefined && forecast.temperatureMin !== undefined
+    ? `${Math.round(forecast.temperatureMin)}-${Math.round(forecast.temperatureMax)} °C`
+    : 'Počasí';
+  return `${temp} · déšť ${forecast.precipitationProbabilityMax ?? 0}%`;
+}
+
 export function MapScreen({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
   const [filter, setFilter] = useState('ALL');
@@ -38,6 +58,8 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const [detailOpen, setDetailOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [mapSearch, setMapSearch] = useState('');
+  const [discoveryCategory, setDiscoveryCategory] = useState<DiscoveryPlace['category']>('SIGHTS');
+  const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const showStays = filter === 'ACCOMMODATION';
   const filteredPlaces = useMemo(() => {
     const query = mapSearch.trim().toLowerCase();
@@ -66,6 +88,19 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
     if (next === 'ACCOMMODATION' && state.accommodations.length === 0) void actions.searchStays();
   }
 
+  function discoverAroundMap() {
+    const center = mapCenter ?? state.selectedPlace ?? state.data.places[0];
+    if (!center) {
+      return;
+    }
+    void actions.discoverPlaces({
+      latitude: center.latitude,
+      longitude: center.longitude,
+      category: discoveryCategory,
+      radiusMeters: 3000,
+    });
+  }
+
   const placeList = filteredPlaces.length ? filteredPlaces : state.data.places;
   const selectedVotes = state.selectedPlace ? votes(state.selectedPlace) : null;
   const myVote = state.selectedPlace?.votes?.find((vote) => vote.userId === state.actorUserId)?.value;
@@ -75,17 +110,22 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const selectedAccommodationPlace = state.selectedAccommodation
     ? state.data.places.find((place) => place.type === 'ACCOMMODATION' && place.accommodationExternalId === state.selectedAccommodation?.externalId)
     : undefined;
+  const selectedWeather = placeWeatherLabel(planner);
 
   return (
     <div className={desktop ? 'desktop-map-host' : 'screen'}>
       <MapCanvas
         places={placeList}
         accommodations={state.accommodations}
+        discoveries={showStays ? [] : state.discoveries}
+        liveLocations={state.data.liveLocations}
         routes={state.data.routes}
         selectedPlaceId={state.selectedPlaceId}
         selectedAccommodationId={state.selectedAccommodationId}
         onPlaceSelect={selectPlace}
         onAccommodationSelect={selectStay}
+        onDiscoverySelect={(discovery) => void actions.saveDiscoveryPlace(discovery)}
+        onViewportChange={setMapCenter}
         showStays={showStays}
       >
         <div className="float-top">
@@ -106,9 +146,29 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
             <AvatarRow names={(state.selectedTrip?.members ?? []).map((member) => member.user.name)} />
           </div>
           <ChipGroup value={filter} options={filters.map((item) => ({ value: item.key, label: item.label }))} onValueChange={setMapFilter} className="mt10" />
+          {!showStays && (
+            <div className="row g8 mt10 wrap">
+              <ChipGroup
+                value={discoveryCategory}
+                options={[
+                  { value: 'SIGHTS', label: 'Památky' },
+                  { value: 'FOOD', label: 'Jídlo' },
+                  { value: 'ACTIVITY', label: 'Aktivity' },
+                  { value: 'TRANSPORT', label: 'Doprava' },
+                ]}
+                onValueChange={(value) => setDiscoveryCategory(value as DiscoveryPlace['category'])}
+              />
+              <Button size="sm" variant="outline" type="button" onClick={discoverAroundMap} disabled={state.discovering}>
+                <Search size={14} />{state.discovering ? 'Hledám' : 'Objevit okolí'}
+              </Button>
+              <Button size="sm" variant="outline" type="button" onClick={() => void actions.discoverNearbyCurrentLocation(discoveryCategory)}>
+                <LocateFixed size={14} />Kolem mě
+              </Button>
+            </div>
+          )}
         </div>
 
-        {showStays && <Button className="search-area" type="button" onClick={() => void actions.searchStays()}><ArrowUpDown />Hledat v této oblasti</Button>}
+        {showStays && <Button className="search-area" type="button" onClick={() => void actions.searchStays(undefined, mapCenter ?? undefined)}><ArrowUpDown />Hledat v této oblasti</Button>}
 
         <Button
           className="fab"
@@ -214,6 +274,71 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   </div>
                 </div>
                 <div className="scroll px18" style={{ flex: 1, paddingBottom: 18 }}>
+                  <AiInsightsPanel
+                    compact
+                    insights={state.data.aiInsights}
+                    loading={state.generatingInsights}
+                    onGenerate={() => void actions.generateTripInsights()}
+                    onNavigate={actions.setActiveTab}
+                  />
+                  <Card className="p-[12px] shadow-[var(--sh-sm)] mb12">
+                    <div className="row between mb8">
+                      <span className="t-h3">Live poloha</span>
+                      <span className="badge muted"><Users />{state.data.liveLocations.length}</span>
+                    </div>
+                    <div className="row g8 wrap">
+                      <Button size="sm" variant="outline" type="button" onClick={() => void actions.shareLiveLocation()} disabled={state.sharingLiveLocation}><Radio />{state.sharingLiveLocation ? 'Sdílí se' : 'Sdílet polohu'}</Button>
+                      <Button size="sm" variant="ghost" type="button" onClick={() => void actions.stopSharingLiveLocation()}>Vypnout</Button>
+                    </div>
+                    {state.data.liveLocations.length >= 2 && (() => {
+                      const center = averageLocation(state.data.liveLocations);
+                      return center ? (
+                        <div className="mt10">
+                          <div className="muted t-xs mb6">Meeting point podle aktuálních poloh</div>
+                          <Button size="sm" type="button" onClick={() => void actions.discoverPlaces({ ...center, category: 'FOOD', radiusMeters: 1200 })}>
+                            <MapPin />Najít místo mezi námi
+                          </Button>
+                        </div>
+                      ) : null;
+                    })()}
+                    {state.data.liveLocations.length > 0 && (
+                      <div className="col mt10">
+                        {state.data.liveLocations.slice(0, 4).map((location) => (
+                          <div className="row between" key={location.id} style={{ padding: '4px 0' }}>
+                            <span className="t-xs">{location.user?.name ?? 'Člen'}</span>
+                            <span className="muted t-xs">{new Date(location.updatedAt).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                  {state.discoveries.length > 0 && (
+                    <Card className="p-[12px] shadow-[var(--sh-sm)] mb12">
+                      <div className="row between mb8">
+                        <span className="t-h3">Objeveno v okolí</span>
+                        <span className="badge muted">{state.discoveries.length}</span>
+                      </div>
+                      <div className="col">
+                        {state.discoveries.slice(0, 8).map((discovery, index) => (
+                          <div key={discovery.externalId}>
+                            {index > 0 && <hr className="sep" />}
+                            <button
+                              className="row pressable w-full text-left"
+                              type="button"
+                              style={{ padding: '10px 0' }}
+                              onClick={() => void actions.saveDiscoveryPlace(discovery)}
+                            >
+                              <div className="col flex1" style={{ minWidth: 0 }}>
+                                <span className="t-sm semib ellipsis">{discovery.name}</span>
+                                <span className="muted t-xs mt2">{discovery.type ?? discovery.category}</span>
+                              </div>
+                              <span className="badge muted">Uložit</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
                   {placeList.map((place, index) => {
                     const itemVotes = votes(place);
                     return (
@@ -260,11 +385,12 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   <span className="row g6 t-xs mono muted"><MapPin />fotka místa</span>
                 </div>
                 <h2 className="t-title mt16">{state.selectedPlace.name}</h2>
-                <div className="row g10 mt8 muted t-sm wrap">
-                  <span className="row g4"><Clock />{state.selectedPlace.durationMin ?? 90} min</span>
-                  <span className="row g4"><Banknote />{state.selectedPlace.estimatedCost ?? 'Zdarma'}</span>
-                  <span className="row g4"><MapPin />{state.selectedTrip?.destination ?? 'Destinace'}</span>
-                </div>
+                  <div className="row g10 mt8 muted t-sm wrap">
+                    <span className="row g4"><Clock />{state.selectedPlace.durationMin ?? 90} min</span>
+                    <span className="row g4"><Banknote />{state.selectedPlace.estimatedCost ?? 'Zdarma'}</span>
+                    <span className="row g4"><MapPin />{state.selectedTrip?.destination ?? 'Destinace'}</span>
+                    {selectedWeather && <span>{selectedWeather}</span>}
+                  </div>
                 {state.selectedPlace.sourceUrl && <p className="t-body mt14" style={{ color: '#3f3f46' }}>{state.selectedPlace.sourceUrl}</p>}
                 <hr className="sep mt20" />
                 <div className="row between mt16 mb10">

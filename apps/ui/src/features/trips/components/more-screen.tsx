@@ -4,6 +4,7 @@ import { Activity, CheckCircle2, ChevronRight, Link, ListChecks, Settings, Users
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { AvatarRow } from './avatar';
+import { AiInsightsPanel } from './ai-insights-panel';
 import { useModal } from '../context/modal-context';
 import { ChecklistPanel } from './checklist-panel';
 import { PollsPanel } from './polls-panel';
@@ -106,7 +107,9 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
               </div>
             </div>
 
-            <div className="card sh" style={{ padding: '4px 16px' }}>
+            <AiInsightsPanel insights={state.data.aiInsights} loading={state.generatingInsights} onGenerate={() => void actions.generateTripInsights()} onNavigate={actions.setActiveTab} />
+
+            <div className="card sh mt16" style={{ padding: '4px 16px' }}>
               {desktopSettings.map((item, i) => (
                 <div key={item.key}>
                   {i > 0 && <hr className="sep" />}
@@ -173,6 +176,10 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
             <span className="badge amber tnum">€{Math.round(totalSettlements)} nevyrovnáno</span>
             <span className="badge muted">{state.selectedTrip?.members?.length ?? 0} lidí</span>
           </div>
+        </div>
+
+        <div className="mt16">
+          <AiInsightsPanel insights={state.data.aiInsights} loading={state.generatingInsights} onGenerate={() => void actions.generateTripInsights()} onNavigate={actions.setActiveTab} />
         </div>
 
         <div className="card mt16" style={{ overflow: 'hidden' }}>

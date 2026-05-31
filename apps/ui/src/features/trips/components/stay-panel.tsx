@@ -132,7 +132,6 @@ export function StayPanel({
                     <span className="badge solid"><Star size={12} />{stats.selected} vybráno</span>
                     <span className="badge"><ThumbsUp size={12} />{stats.shortlist} shortlist</span>
                     <span className="badge red"><ThumbsDown size={12} />{stats.against} proti</span>
-                    <span className="badge muted tnum">score {stats.score}</span>
                   </div>
                   {missingNames.length > 0 && (
                     <div className="row g6 mt10 muted t-xs wrap">

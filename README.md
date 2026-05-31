@@ -92,6 +92,22 @@ BOOKING_RAPIDAPI_HOST="booking-com15.p.rapidapi.com"
 RAPIDAPI_KEY="..."
 ```
 
+## Routing, transit, weather, and map discovery
+
+Driving/walking/bike routes use OSRM by default. Public transport is not free as
+a single global hosted API in the same way Google Maps is. The open/free path is
+to run OpenTripPlanner with OpenStreetMap plus GTFS feeds for the target region,
+then configure:
+
+```bash
+TRANSIT_PROVIDER=otp
+TRANSIT_OTP_BASE_URL="http://your-otp-host:8080"
+```
+
+Without that, `/routes/capabilities` reports `TRANSIT: false` and the API will
+reject transit route creation instead of returning fake routes. Location search
+uses Nominatim, map discovery uses Overpass, and forecast data uses Open-Meteo.
+
 ## Database
 
 ```bash

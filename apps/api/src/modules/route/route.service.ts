@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { fetchWithTimeout } from '../../utils/fetch.js';
 import { httpError } from '../../utils/http.js';
 
 type Coordinate = { latitude: number; longitude: number };
@@ -63,7 +64,94 @@ function osrmProfile(mode: TravelMode) {
   return 'driving';
 }
 
+function decodePolyline(polyline: string): Coordinate[] {
+  let index = 0;
+  let latitude = 0;
+  let longitude = 0;
+  const points: Coordinate[] = [];
+
+  while (index < polyline.length) {
+    let result = 0;
+    let shift = 0;
+    let byte = 0;
+    do {
+      byte = polyline.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < polyline.length);
+    latitude += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+    result = 0;
+    shift = 0;
+    do {
+      byte = polyline.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < polyline.length);
+    longitude += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+    points.push({ latitude: latitude / 1e5, longitude: longitude / 1e5 });
+  }
+
+  return points;
+}
+
+function routeDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function routeTime() {
+  return new Date().toISOString().slice(11, 16);
+}
+
+async function resolveOpenTripPlannerLeg(fromPlace: PlaceForRoute, toPlace: PlaceForRoute) {
+  if (!env.TRANSIT_OTP_BASE_URL) throw httpError(501, 'TRANSIT_OTP_BASE_URL is not configured for OpenTripPlanner transit routing');
+
+  const url = new URL(`${env.TRANSIT_OTP_BASE_URL.replace(/\/$/, '')}/otp/routers/default/plan`);
+  url.searchParams.set('fromPlace', `${fromPlace.latitude},${fromPlace.longitude}`);
+  url.searchParams.set('toPlace', `${toPlace.latitude},${toPlace.longitude}`);
+  url.searchParams.set('mode', 'TRANSIT,WALK');
+  url.searchParams.set('date', routeDate());
+  url.searchParams.set('time', routeTime());
+  url.searchParams.set('arriveBy', 'false');
+  url.searchParams.set('numItineraries', '1');
+
+  const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) {
+    const text = await response.text();
+    throw httpError(response.status, `OpenTripPlanner transit routing failed: ${text.slice(0, 500)}`);
+  }
+
+  const payload = await response.json() as {
+    plan?: {
+      itineraries?: Array<{
+        duration?: number;
+        legs?: Array<{ distance?: number; legGeometry?: { points?: string } }>;
+      }>;
+    };
+    error?: { msg?: string; message?: string };
+  };
+  const itinerary = payload.plan?.itineraries?.[0];
+  if (!itinerary) throw httpError(502, payload.error?.msg ?? payload.error?.message ?? 'OpenTripPlanner returned no transit itinerary');
+
+  const legs = itinerary.legs ?? [];
+  const decodedPoints = legs.flatMap((leg) => leg.legGeometry?.points ? decodePolyline(leg.legGeometry.points) : []);
+  const encodedPolyline = decodedPoints.length >= 2 ? encodePolyline(decodedPoints) : encodePolyline([fromPlace, toPlace]);
+
+  return {
+    distanceMeters: Math.round(legs.reduce((sum, leg) => sum + (leg.distance ?? 0), 0)),
+    durationSeconds: Math.round(itinerary.duration ?? estimateDurationSeconds(distanceMeters(fromPlace, toPlace), 'TRANSIT')),
+    encodedPolyline,
+    provider: 'opentripplanner',
+  };
+}
+
 export async function resolveRouteLeg(fromPlace: PlaceForRoute, toPlace: PlaceForRoute, mode: TravelMode) {
+  if (mode === 'TRANSIT') {
+    if (env.TRANSIT_PROVIDER === 'otp') return resolveOpenTripPlannerLeg(fromPlace, toPlace);
+    throw httpError(501, 'Public transit routing requires a GTFS-backed provider. Configure TRANSIT_PROVIDER=otp and TRANSIT_OTP_BASE_URL for OpenTripPlanner.');
+  }
+
   const coordinates = `${fromPlace.longitude},${fromPlace.latitude};${toPlace.longitude},${toPlace.latitude}`;
   const url = new URL(`${env.ROUTING_OSRM_BASE_URL.replace(/\/$/, '')}/route/v1/${osrmProfile(mode)}/${coordinates}`);
   url.searchParams.set('overview', 'full');
@@ -71,7 +159,7 @@ export async function resolveRouteLeg(fromPlace: PlaceForRoute, toPlace: PlaceFo
   url.searchParams.set('alternatives', 'false');
   url.searchParams.set('steps', 'false');
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) {
     const text = await response.text();
     throw httpError(response.status, `Routing provider failed: ${text.slice(0, 500)}`);

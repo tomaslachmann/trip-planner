@@ -21,13 +21,13 @@ function TripCardRow({
         <div className="col flex1" style={{ minWidth: 0 }}>
           <div className="row g8">
             <span className="t-h2" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trip.name}</span>
-            <span className={`badge ${joined ? 'green' : 'muted'}`}>{joined ? 'Připojeno' : 'Dostupné'}</span>
+            <span className={`badge ${joined ? 'green' : 'muted'}`}>{joined ? 'Připojeno' : 'Pozvánka'}</span>
           </div>
           <span className="muted t-sm mt4">{trip.destination ?? 'Bez destinace'}</span>
           <div className="row g10 mt10 muted t-xs wrap">
             <span className="row g4"><CalendarDays />{formatTripRange(trip)}</span>
             <span>{trip.members?.length ?? 0} členů</span>
-            <span className="mono">{trip.inviteCode}</span>
+            {joined && <span className="mono">{trip.inviteCode}</span>}
           </div>
         </div>
         <AvatarRow names={(trip.members ?? []).map((member) => member.user.name)} />
@@ -94,9 +94,9 @@ export function TripPickerScreen({
         <section className="col g12">
           <div>
             <div className="t-h2">Dostupné k připojení</div>
-            <div className="muted t-sm mt4">Tripy z backendu, ke kterým se ještě můžeš připojit.</div>
+            <div className="muted t-sm mt4">K dalším tripům se připojíš přes odkaz nebo kód pozvánky.</div>
           </div>
-          {availableTrips.length === 0 && <TripCard pad className="muted t-sm center">Žádné další tripy nejsou dostupné.</TripCard>}
+          {availableTrips.length === 0 && <TripCard pad className="muted t-sm center">Veřejný seznam tripů je vypnutý. Použij invite link.</TripCard>}
           {availableTrips.map((trip) => (
             <TripCardRow key={trip.id} trip={trip} joined={false} onOpen={() => onOpenTrip(trip.id)} onJoin={() => onJoinTrip(trip.id)} />
           ))}

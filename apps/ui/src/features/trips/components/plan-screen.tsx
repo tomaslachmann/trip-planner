@@ -91,6 +91,7 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
           onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)}
           onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)}
           onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)}
+          onUpdatePlanning={(memberId, input) => void actions.updateMemberPlanning(memberId, input)}
         />
       </div>
     );
@@ -127,8 +128,11 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
           {planView === 'itinerary' && (
             <ItineraryPanel
               days={state.data.itinerary}
+              weather={state.data.weather}
               onOpenPlace={actions.setSelectedPlaceId}
               onEditStop={(day, stop) => setEditingStop({ day, stop })}
+              actorTripMemberId={state.actorMember?.id}
+              onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
               onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
               onOptimize={() => void actions.optimizeRoute()}
             />

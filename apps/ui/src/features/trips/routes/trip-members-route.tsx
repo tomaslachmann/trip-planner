@@ -20,6 +20,7 @@ function DesktopMembers({ planner }: { planner: TripPlannerController }) {
           onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)}
           onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)}
           onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)}
+          onUpdatePlanning={(memberId, input) => void actions.updateMemberPlanning(memberId, input)}
         />
       </div>
     </div>
@@ -49,6 +50,7 @@ function MobileMembers({ planner }: { planner: TripPlannerController }) {
           onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)}
           onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)}
           onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)}
+          onUpdatePlanning={(memberId, input) => void actions.updateMemberPlanning(memberId, input)}
         />
       </div>
     </div>

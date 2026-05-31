@@ -53,7 +53,7 @@ function DesktopPlan({ planner }: { planner: TripPlannerController }) {
             }}
           />
         </div>
-        <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} onOpenPlace={actions.setSelectedPlaceId} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
+        <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} weather={state.data.weather} onOpenPlace={actions.setSelectedPlaceId} actorTripMemberId={state.actorMember?.id} onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
       </div>
     </DndContext>
   );

@@ -64,6 +64,24 @@ enum ChecklistScope {
   EVERYONE
 }
 
+enum WeatherSuitability {
+  INDOOR
+  OUTDOOR
+  MIXED
+}
+
+enum BudgetPreference {
+  BUDGET
+  NORMAL
+  PREMIUM
+}
+
+enum AttendanceStatus {
+  GOING
+  MAYBE
+  NO
+}
+
 model User {
   id        String           @id @default(cuid())
   email     String           @unique
@@ -86,6 +104,7 @@ model User {
   settlementPaymentsTo SettlementPayment[] @relation("SettlementToUser")
   markedSettlementPayments SettlementPayment[] @relation("SettlementMarkedBy")
   activityEvents ActivityEvent[] @relation("ActivityActor")
+  liveLocations UserLiveLocation[]
 }
 
 model Trip {
@@ -106,6 +125,7 @@ model Trip {
   checklistItems ChecklistItem[]
   settlementPayments SettlementPayment[]
   activityEvents ActivityEvent[]
+  liveLocations UserLiveLocation[]
 }
 
 model TripMember {
@@ -113,6 +133,8 @@ model TripMember {
   tripId              String
   userId              String
   role                TripRole                   @default(MEMBER)
+  budgetPreference    BudgetPreference           @default(NORMAL)
+  budgetAmount        Decimal?
   joinedAt            DateTime                   @default(now())
   trip                Trip                       @relation(fields: [tripId], references: [id], onDelete: Cascade)
   user                User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -158,6 +180,7 @@ model Place {
   durationMin              Int?
   estimatedCost            Decimal?
   sourceUrl                String?
+  weatherSuitability       WeatherSuitability     @default(MIXED)
   accommodationProvider    String?
   accommodationExternalId  String?
   accommodationRating      Float?
@@ -256,10 +279,28 @@ model ItineraryStopParticipant {
   id           String        @id @default(cuid())
   stopId       String
   tripMemberId String
+  status       AttendanceStatus @default(GOING)
   stop         ItineraryStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
   member       TripMember    @relation(fields: [tripMemberId], references: [id], onDelete: Cascade)
 
   @@unique([stopId, tripMemberId])
+}
+
+model UserLiveLocation {
+  id             String   @id @default(cuid())
+  tripId         String
+  userId         String
+  latitude       Float
+  longitude      Float
+  accuracyMeters Int?
+  sharedUntil    DateTime?
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  trip           Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@index([tripId, updatedAt])
 }
 
 model RoutePlan {

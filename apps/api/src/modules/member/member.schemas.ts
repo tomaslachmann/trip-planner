@@ -18,3 +18,8 @@ export const updateAvailabilitySchema = refineDateRange(actorUserIdSchema.extend
 }));
 
 export const deleteAvailabilitySchema = actorUserIdSchema;
+
+export const updateMemberPlanningSchema = actorUserIdSchema.extend({
+  budgetPreference: z.enum(['BUDGET', 'NORMAL', 'PREMIUM']).optional(),
+  budgetAmount: z.number().nonnegative().nullable().optional(),
+});

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LatLngExpression, LayerGroup, Map as LeafletMap } from 'leaflet';
 import { categoryKey } from '../lib/format';
-import type { Accommodation, Place, RoutePlan } from '../types';
+import type { Accommodation, DiscoveryPlace, LiveLocation, Place, RoutePlan } from '../types';
 
 type LeafletModule = typeof import('leaflet');
 type Point = { latitude: number; longitude: number };
@@ -100,24 +100,61 @@ function stayIcon(leaflet: LeafletModule, stay: Accommodation, selected: boolean
   });
 }
 
+function discoveryIcon(leaflet: LeafletModule, discovery: DiscoveryPlace) {
+  const cls = discovery.category === 'FOOD' ? 'food' : discovery.category === 'ACTIVITY' ? 'act' : discovery.category === 'TRANSPORT' ? 'trans' : 'see';
+  return leaflet.divIcon({
+    className: '',
+    html: `
+      <div class="leaflet-trip-pin discovery">
+        <span class="mk mk-${cls}"></span>
+        <span class="pin-label">${escapeHtml(discovery.name)}</span>
+      </div>
+    `,
+    iconSize: [150, 58],
+    iconAnchor: [75, 50],
+  });
+}
+
+function liveLocationIcon(leaflet: LeafletModule, location: LiveLocation) {
+  return leaflet.divIcon({
+    className: '',
+    html: `
+      <div class="leaflet-live-pin">
+        <span class="live-dot"></span>
+        <span class="pin-label">${escapeHtml(location.user?.name ?? 'Člen')}</span>
+      </div>
+    `,
+    iconSize: [120, 52],
+    iconAnchor: [60, 42],
+  });
+}
+
 export function MapCanvas({
   places,
   accommodations,
+  discoveries = [],
+  liveLocations = [],
   routes,
   selectedPlaceId,
   selectedAccommodationId,
   onPlaceSelect,
   onAccommodationSelect,
+  onDiscoverySelect,
+  onViewportChange,
   showStays,
   children,
 }: {
   places: Place[];
   accommodations: Accommodation[];
+  discoveries?: DiscoveryPlace[];
+  liveLocations?: LiveLocation[];
   routes: RoutePlan[];
   selectedPlaceId?: string;
   selectedAccommodationId?: string;
   onPlaceSelect: (placeId: string) => void;
   onAccommodationSelect: (accommodationId: string) => void;
+  onDiscoverySelect?: (discovery: DiscoveryPlace) => void;
+  onViewportChange?: (center: { latitude: number; longitude: number; zoom: number }) => void;
   showStays?: boolean;
   children?: ReactNode;
 }) {
@@ -125,6 +162,7 @@ export function MapCanvas({
   const mapRef = useRef<LeafletMap | null>(null);
   const leafletRef = useRef<LeafletModule | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
+  const fittedInitialDataRef = useRef(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -147,7 +185,14 @@ export function MapCanvas({
       }).addTo(map);
       layerRef.current = leaflet.layerGroup().addTo(map);
       mapRef.current = map;
-      fitMap(map, leaflet, allPoints(places, accommodations, showStays));
+      onViewportChange?.({ latitude: map.getCenter().lat, longitude: map.getCenter().lng, zoom: map.getZoom() });
+      map.on('moveend zoomend', () => {
+        const center = map.getCenter();
+        onViewportChange?.({ latitude: center.lat, longitude: center.lng, zoom: map.getZoom() });
+      });
+      const initialPoints = allPoints(places, accommodations, showStays);
+      fitMap(map, leaflet, initialPoints);
+      fittedInitialDataRef.current = initialPoints.length > 0;
       setReady(true);
     }
 
@@ -158,6 +203,7 @@ export function MapCanvas({
       mapRef.current = null;
       leafletRef.current = null;
       layerRef.current = null;
+      fittedInitialDataRef.current = false;
       setReady(false);
     };
   }, []);
@@ -196,10 +242,22 @@ export function MapCanvas({
           .on('click', () => onPlaceSelect(place.id))
           .addTo(layer);
       });
+      discoveries.filter(validPoint).forEach((discovery) => {
+        leaflet.marker([discovery.latitude, discovery.longitude], { icon: discoveryIcon(leaflet, discovery) })
+          .on('click', () => onDiscoverySelect?.(discovery))
+          .addTo(layer);
+      });
+      liveLocations.filter(validPoint).forEach((location) => {
+        leaflet.marker([location.latitude, location.longitude], { icon: liveLocationIcon(leaflet, location) }).addTo(layer);
+      });
     }
 
-    fitMap(map, leaflet, allPoints(places, accommodations, showStays));
-  }, [accommodations, onAccommodationSelect, onPlaceSelect, places, ready, routes, selectedAccommodationId, selectedPlaceId, showStays]);
+    const points = allPoints(places, accommodations, showStays);
+    if (!fittedInitialDataRef.current && points.length > 0) {
+      fitMap(map, leaflet, points);
+      fittedInitialDataRef.current = true;
+    }
+  }, [accommodations, discoveries, liveLocations, onAccommodationSelect, onDiscoverySelect, onPlaceSelect, places, ready, routes, selectedAccommodationId, selectedPlaceId, showStays]);
 
   function zoomBy(delta: number) {
     const map = mapRef.current;

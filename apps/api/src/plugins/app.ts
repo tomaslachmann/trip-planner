@@ -17,6 +17,8 @@ import { checklistRoutes } from '../modules/checklist/checklist.routes.js';
 import { locationRoutes } from '../modules/location/location.routes.js';
 import { pollRoutes } from '../modules/poll/poll.routes.js';
 import { activityRoutes } from '../modules/activity/activity.routes.js';
+import { weatherRoutes } from '../modules/weather/weather.routes.js';
+import { aiRoutes } from '../modules/ai/ai.routes.js';
 import { registerOpenApi } from './openapi.js';
 
 export async function registerApp(app: FastifyInstance) {
@@ -51,6 +53,8 @@ export async function registerApp(app: FastifyInstance) {
   await app.register(pollRoutes, { prefix: '/polls' });
   await app.register(checklistRoutes, { prefix: '/checklist' });
   await app.register(locationRoutes, { prefix: '/locations' });
+  await app.register(weatherRoutes, { prefix: '/weather' });
+  await app.register(aiRoutes, { prefix: '/ai' });
   await app.register(activityRoutes, { prefix: '/activity' });
   await app.register(expenseRoutes, { prefix: '/expenses' });
   await app.register(settlementRoutes, { prefix: '/settlements' });

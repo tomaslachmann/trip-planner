@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { env } from '../../config/env.js';
 import { prisma } from '../../db/prisma.js';
 import { getActorUserId, requireTripMember, requireTripRole, requireTripUsers } from '../access/access.js';
 import { httpError } from '../../utils/http.js';
-import { actorQuerySchema, emptyResponseSchema, routePlanIdParamSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
+import { actorQuerySchema, emptyResponseSchema, jsonResponseSchema, routePlanIdParamSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
 import { createRoutePlanSchema, deleteRoutePlanSchema, optimizeRoutePlanSchema, routePlanListResponseSchema, routePlanResponseSchema, updateRoutePlanSchema } from './route.schemas.js';
 import { distanceMeters, optimizePlaceOrder, resolveRouteLeg } from './route.service.js';
 
@@ -57,6 +58,26 @@ async function assertParticipantsAvailable(tripId: string, participantUserIds: s
 
 export async function routeRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
+
+  routes.get('/capabilities', {
+    schema: {
+      tags: ['routes'],
+      summary: 'Describe configured routing capabilities',
+      response: { 200: jsonResponseSchema },
+    },
+  }, async () => ({
+    provider: 'osrm',
+    transitProvider: env.TRANSIT_PROVIDER,
+    modes: {
+      DRIVE: true,
+      WALK: true,
+      BIKE: true,
+      TRANSIT: env.TRANSIT_PROVIDER === 'otp',
+    },
+    transitNote: env.TRANSIT_PROVIDER === 'otp'
+      ? 'Transit routing is backed by configured OpenTripPlanner. Coverage depends on imported GTFS feeds in that OTP instance.'
+      : 'OSM/OSRM does not include global public transport timetables. Configure OpenTripPlanner with GTFS feeds for free/open transit routing, or use a commercial provider.',
+  }));
 
   routes.get('/trip/:tripId', {
     schema: {

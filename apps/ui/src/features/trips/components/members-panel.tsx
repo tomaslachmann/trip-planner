@@ -44,6 +44,12 @@ function roleLabel(role?: string) {
   return 'člen';
 }
 
+function budgetLabel(value?: string) {
+  if (value === 'BUDGET') return 'budget';
+  if (value === 'PREMIUM') return 'premium';
+  return 'normal';
+}
+
 type AvailabilityWindow = NonNullable<TripMember['availabilityWindows']>[number];
 
 function AvailabilityForm({
@@ -92,6 +98,7 @@ export function MembersPanel({
   onUpdateAvailability,
   onDeleteAvailability,
   onUpdateRole,
+  onUpdatePlanning,
 }: {
   trip?: Trip;
   actorUserId?: string;
@@ -100,6 +107,7 @@ export function MembersPanel({
   onUpdateAvailability: (availabilityId: string, data: FormData) => void;
   onDeleteAvailability: (availabilityId: string) => void;
   onUpdateRole: (memberId: string, role: 'ADMIN' | 'MEMBER' | 'GUEST') => void;
+  onUpdatePlanning: (memberId: string, input: { budgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM'; budgetAmount?: number | null }) => void;
 }) {
   const members = trip?.members ?? [];
   const canManageAll = actorRole === 'OWNER' || actorRole === 'ADMIN';
@@ -124,6 +132,7 @@ export function MembersPanel({
               <div className="row g8">
                 <span className="t-h3">{member.user.name}</span>
                 <span className={`badge ${member.role === 'OWNER' ? 'solid' : 'muted'}`}><Shield />{roleLabel(member.role)}</span>
+                <span className="badge muted">{budgetLabel(member.budgetPreference)}{member.budgetAmount ? ` · ${Number(member.budgetAmount).toLocaleString('cs-CZ')}` : ''}</span>
               </div>
               <span className="muted t-xs mt4">{member.user.email}</span>
               {canManageAll && member.role !== 'OWNER' && (
@@ -136,6 +145,32 @@ export function MembersPanel({
                       <SelectItem value="GUEST">Host</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+              {(canManageAll || member.userId === actorUserId) && (
+                <div className="grid2 g8 mt8" style={{ maxWidth: 360 }}>
+                  <Select
+                    value={(member.budgetPreference ?? 'NORMAL') as string}
+                    onValueChange={(value) => onUpdatePlanning(member.id, { budgetPreference: value as 'BUDGET' | 'NORMAL' | 'PREMIUM' })}
+                  >
+                    <SelectTrigger aria-label="Budget režim"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BUDGET">Budget</SelectItem>
+                      <SelectItem value="NORMAL">Normal</SelectItem>
+                      <SelectItem value="PREMIUM">Premium</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="1"
+                    defaultValue={member.budgetAmount ? Number(member.budgetAmount) : ''}
+                    placeholder="Limit / osoba"
+                    onBlur={(event) => {
+                      const value = Number(event.currentTarget.value);
+                      onUpdatePlanning(member.id, { budgetAmount: Number.isFinite(value) && value > 0 ? value : null });
+                    }}
+                  />
                 </div>
               )}
               <div className="row g6 mt8 wrap">

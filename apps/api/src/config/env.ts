@@ -10,9 +10,17 @@ const envSchema = z.object({
   BOOKING_RAPIDAPI_BASE_URL: z.string().url().default('https://booking-com15.p.rapidapi.com'),
   BOOKING_RAPIDAPI_HOST: z.string().min(1).default('booking-com15.p.rapidapi.com'),
   RAPIDAPI_KEY: z.string().optional(),
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
   ROUTING_OSRM_BASE_URL: z.string().url().default('https://router.project-osrm.org'),
+  ROUTING_PROVIDER: z.enum(['osrm']).default('osrm'),
+  TRANSIT_PROVIDER: z.enum(['none', 'otp']).default('none'),
+  TRANSIT_OTP_BASE_URL: z.preprocess((value) => value === '' ? undefined : value, z.string().url().optional()),
   NOMINATIM_BASE_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   NOMINATIM_USER_AGENT: z.string().min(1).default('trip-planner-local/0.1'),
+  OVERPASS_BASE_URL: z.string().url().default('https://overpass-api.de/api/interpreter'),
+  OPEN_METEO_BASE_URL: z.string().url().default('https://api.open-meteo.com/v1/forecast'),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().min(1).default('gpt-4.1-mini'),
   JWT_SECRET: z.string().min(16).default(process.env.SESSION_SECRET ?? 'dev-trip-planner-jwt-secret'),
 });
 

@@ -38,6 +38,10 @@ export const updateItineraryStopSchema = refineDateRange(actorUserIdSchema.exten
   tripMemberIds: z.array(z.string().min(1)).optional(),
 }));
 
+export const updateStopAttendanceSchema = actorUserIdSchema.extend({
+  status: z.enum(['GOING', 'MAYBE', 'NO']),
+});
+
 export const lockItineraryDaySchema = actorUserIdSchema.extend({
   locked: z.boolean(),
 });

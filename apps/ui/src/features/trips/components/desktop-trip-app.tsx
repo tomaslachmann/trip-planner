@@ -114,7 +114,7 @@ export function DesktopTripApp({ planner }: { planner: TripPlannerController }) 
             {state.activeTab === 'plan' && (
               <div className="desk-body">
                 <div className="desk-scroll"><PlacesPanel places={state.data.places} selectedPlaceId={state.selectedPlaceId} onSelect={actions.setSelectedPlaceId} onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)} onEditPlace={(placeId) => { actions.setSelectedPlaceId(placeId); openModal('addPlace', true); }} /></div>
-                <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} onOpenPlace={actions.setSelectedPlaceId} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
+                <aside className="desk-panel"><ItineraryPanel days={state.data.itinerary} weather={state.data.weather} onOpenPlace={actions.setSelectedPlaceId} actorTripMemberId={state.actorMember?.id} onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)} onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)} onOptimize={() => void actions.optimizeRoute()} /></aside>
               </div>
             )}
             {state.activeTab === 'stay' && (
@@ -129,7 +129,7 @@ export function DesktopTripApp({ planner }: { planner: TripPlannerController }) 
               <div className="desk-body"><div className="desk-scroll maxw"><CostsPanel trip={state.selectedTrip} expenses={[]} settlements={state.data.settlements} onAddExpense={(data) => void actions.addExpense(data)} onUpdateSettlementStatus={(settlement, status) => void actions.updateSettlementStatus(settlement, status)} /></div></div>
             )}
             {state.activeTab === 'members' && (
-              <div className="desk-body"><div className="desk-scroll maxw"><MembersPanel trip={state.selectedTrip} actorUserId={state.actorUserId} actorRole={state.actorMember?.role} onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)} onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)} onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)} onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)} /></div></div>
+              <div className="desk-body"><div className="desk-scroll maxw"><MembersPanel trip={state.selectedTrip} actorUserId={state.actorUserId} actorRole={state.actorMember?.role} onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)} onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)} onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)} onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)} onUpdatePlanning={(memberId, input) => void actions.updateMemberPlanning(memberId, input)} /></div></div>
             )}
           </DndContext>
         </main>

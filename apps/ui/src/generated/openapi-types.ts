@@ -765,6 +765,11 @@ export interface paths {
                         estimatedCost?: number;
                         /** Format: uri */
                         sourceUrl?: string;
+                        /**
+                         * @default MIXED
+                         * @enum {string}
+                         */
+                        weatherSuitability?: "INDOOR" | "OUTDOOR" | "MIXED";
                     };
                 };
             };
@@ -848,6 +853,8 @@ export interface paths {
                         estimatedCost?: number | null;
                         /** Format: uri */
                         sourceUrl?: string | null;
+                        /** @enum {string} */
+                        weatherSuitability?: "INDOOR" | "OUTDOOR" | "MIXED";
                         /** @enum {string|null} */
                         accommodationStatus?: "SAVED" | "SHORTLISTED" | "SELECTED" | "BOOKED" | "REJECTED" | null;
                     };
@@ -1042,6 +1049,52 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/members/{tripMemberId}/planning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update member trip planning preferences */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripMemberId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        budgetPreference?: "BUDGET" | "NORMAL" | "PREMIUM";
+                        budgetAmount?: number | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/members/availability/{availabilityId}": {
@@ -1576,6 +1629,51 @@ export interface paths {
         };
         trace?: never;
     };
+    "/itinerary/stops/{stopId}/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update own attendance for itinerary stop */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    stopId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "GOING" | "MAYBE" | "NO";
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/itinerary/days/{dayId}/stops/reorder": {
         parameters: {
             query?: never;
@@ -1618,6 +1716,42 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/routes/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Describe configured routing capabilities */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/routes/trip/{tripId}": {
@@ -2617,6 +2751,256 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discover nearby map places via OpenStreetMap Overpass */
+        get: {
+            parameters: {
+                query: {
+                    latitude: number;
+                    longitude: number;
+                    radiusMeters?: number;
+                    category?: "SIGHTS" | "FOOD" | "ACTIVITY" | "TRANSPORT";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/live/trip/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active live locations for trip members */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Stop sharing own live location in a trip */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No response body */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": null;
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Share own live location in a trip */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        latitude: number;
+                        longitude: number;
+                        accuracyMeters?: number | null;
+                        /** @default 240 */
+                        sharedMinutes?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/weather/trip/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get weather forecast for itinerary days and places */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            provider: "open-meteo";
+                            generatedAt: string;
+                            points: {
+                                id: string;
+                                label: string;
+                                latitude: number;
+                                longitude: number;
+                            }[];
+                            days: {
+                                date: string;
+                                pointId: string;
+                                pointLabel: string;
+                                weatherCode: number | null;
+                                temperatureMax: number | null;
+                                temperatureMin: number | null;
+                                precipitationProbabilityMax: number | null;
+                                precipitationSum: number | null;
+                                windSpeedMax: number | null;
+                                sunrise: string | null;
+                                sunset: string | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/trip/{tripId}/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate trip planning insights with OpenAI Agents SDK */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            provider: "openai-agents";
+                            generatedAt: string;
+                            model: string;
+                            summary: string;
+                            insights: {
+                                title: string;
+                                /** @enum {string} */
+                                severity: "INFO" | "WARNING" | "CRITICAL";
+                                /** @enum {string} */
+                                area: "MAP" | "ITINERARY" | "STAY" | "COSTS" | "WEATHER" | "TRANSPORT" | "GROUP";
+                                detail: string;
+                                recommendedAction: string;
+                                /** @enum {string} */
+                                target: "map" | "plan" | "stay" | "costs" | "settle" | "members" | "more" | "checklist" | "polls" | "itinerary";
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
