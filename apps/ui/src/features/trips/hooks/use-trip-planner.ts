@@ -26,9 +26,10 @@ function parseDurationMinutes(value: string) {
 type PlannerRoute = {
   routeTripId?: string;
   routeView?: TabKey;
+  redirectAfterSignIn?: boolean;
 };
 
-export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
+export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = true }: PlannerRoute = {}) {
   const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [availableTrips, setAvailableTrips] = useState<Trip[]>([]);
@@ -219,7 +220,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
       setData(emptyData);
       setMessage(null);
       await loadTrips(session.accessToken);
-      if (!routeTripId) router.push('/trips', { scroll: false });
+      if (redirectAfterSignIn && !routeTripId) router.push('/trips', { scroll: false });
     } catch {
       setMessage('Přihlášení se nepodařilo.');
       setLoading(false);
@@ -276,11 +277,30 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if ((member as { userId?: string } | undefined)?.userId) await loadTripDetail(trip, (member as { userId: string }).userId, accessToken, { force: true });
   }
 
+  async function joinTripByInviteCode(inviteCode: string) {
+    if (!accessToken) return setMessage('Nejdřív se přihlaš.');
+    const { data: member, error } = await api.POST('/trips/invite/{inviteCode}/join', {
+      params: { path: { inviteCode } },
+    });
+    if (error) return setMessage('Nepodařilo se připojit k tripu.');
+    const tripId = (member as { tripId?: string } | undefined)?.tripId;
+    const nextTrips = await loadTrips(accessToken);
+    const trip = nextTrips.find((item) => item.id === tripId);
+    if (trip) {
+      setSelectedTripId(trip.id);
+      setActiveTab('map');
+      router.push(tripHref('map', trip.id), { scroll: false });
+      await loadTripDetail(trip, actorUserId, accessToken, { force: true });
+    } else {
+      router.push('/trips', { scroll: false });
+    }
+  }
+
   async function updateTrip(data: { name?: string; destination?: string; startsAt?: string | null; endsAt?: string | null; currency?: string }) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     const { error } = await api.PATCH('/trips/{id}', {
       params: { path: { id: selectedTrip.id } },
-      body: { actorUserId, ...data },
+      body: data,
     });
     if (error) return setMessage('Trip se nepodařilo aktualizovat.');
     const nextTrips = await loadTrips(accessToken);
@@ -292,7 +312,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     const { error } = await api.DELETE('/trips/{id}', {
       params: { path: { id: selectedTrip.id } },
-      body: { actorUserId },
+      body: {},
     });
     if (error) return setMessage('Trip se nepodařilo smazat.');
     setSelectedTripId('');
@@ -305,10 +325,11 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!accessToken || !viewerEmail) return setMessage('Nejdřív se přihlaš.');
     const name = String(formData.get('name') ?? '').trim();
     const destination = String(formData.get('destination') ?? '').trim();
+    const currency = String(formData.get('currency') ?? 'CZK').trim().toUpperCase() || 'CZK';
     const ownerName = viewerName || viewerEmail.split('@')[0] || 'Cestovatel';
     if (!name) return setMessage('Název tripu je povinný.');
     const { data: created, error } = await api.POST('/trips', {
-      body: { name, destination: destination || undefined, currency: 'EUR', owner: { name: ownerName, email: viewerEmail } },
+      body: { name, destination: destination || undefined, currency, owner: { name: ownerName, email: viewerEmail } },
     });
     if (error) return setMessage('Trip se nepodařilo vytvořit.');
     const trip = created as Trip;
@@ -335,7 +356,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     const { data: created, error } = await api.POST('/places', {
       body: {
         tripId: selectedTrip.id,
-        createdById: actorUserId,
         type,
         name,
         latitude,
@@ -368,7 +388,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     const { data: updated, error } = await api.PATCH('/places/{id}', {
       params: { path: { id: placeId } },
       body: {
-        actorUserId,
         name: name || undefined,
         type: type || undefined,
         description: description || null,
@@ -388,7 +407,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!actorUserId) return setMessage('Nejdřív se přihlaš.');
     const { error } = await api.DELETE('/places/{id}', {
       params: { path: { id: placeId } },
-      body: { actorUserId },
+      body: {},
     });
     if (error) return setMessage('Místo se nepodařilo smazat.');
     setSelectedPlaceId('');
@@ -398,7 +417,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
   async function createDefaultItineraryDay() {
     if (!selectedTrip || !actorUserId) throw new Error('Chybí trip nebo uživatel');
     const { data: day, error } = await api.POST('/itinerary/days', {
-      body: { tripId: selectedTrip.id, actorUserId, date: selectedTrip.startsAt ?? new Date().toISOString(), title: 'Den 1' },
+      body: { tripId: selectedTrip.id, date: selectedTrip.startsAt ?? new Date().toISOString(), title: 'Den 1' },
     });
     if (error) throw new Error('Nepodařilo se vytvořit den itineráře');
     return day as ItineraryDay;
@@ -425,7 +444,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     const endsAt = dayTimeToIso(day, input.endsAtTime) ?? isoPlusMinutes(startsAt, place?.durationMin);
     const { error } = await api.POST('/itinerary/days/{dayId}/stops', {
       params: { path: { dayId: day.id } },
-      body: { actorUserId, placeId, order: day.stops?.length ?? 0, startsAt, endsAt, note: input.note || undefined, tripMemberIds: input.tripMemberIds },
+      body: { placeId, order: day.stops?.length ?? 0, startsAt, endsAt, note: input.note || undefined, tripMemberIds: input.tripMemberIds },
     });
     if (error) return setMessage('Místo se nepodařilo přidat do itineráře.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -436,7 +455,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     const { error } = await api.POST('/places/{id}/votes', {
       params: { path: { id: placeId } },
-      body: { actorUserId, userId: actorUserId, value },
+      body: { value },
     });
     if (error) return setMessage('Hlas se nepodařilo uložit.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -447,7 +466,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch<Place>(`/places/${encodeURIComponent(placeId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, accommodationStatus: status }),
+        body: JSON.stringify({ accommodationStatus: status }),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -460,7 +479,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/itinerary/days/${encodeURIComponent(dayId)}/places/${encodeURIComponent(placeId)}/vote`, {
         method: 'PUT',
-        body: JSON.stringify({ actorUserId, userId: actorUserId, value }),
+        body: JSON.stringify({ value }),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -474,7 +493,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!text) return setMessage('Komentář nesmí být prázdný.');
     const { error } = await api.POST('/places/{id}/comments', {
       params: { path: { id: placeId } },
-      body: { actorUserId, userId: actorUserId, body: text },
+      body: { body: text },
     });
     if (error) return setMessage('Komentář se nepodařilo uložit.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -484,7 +503,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     const { error } = await api.PATCH('/itinerary/days/{dayId}/stops/reorder', {
       params: { path: { dayId } },
-      body: { actorUserId, stopIds },
+      body: { stopIds },
     });
     if (error) return setMessage('Pořadí itineráře se nepodařilo uložit.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -495,7 +514,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/itinerary/stops/${encodeURIComponent(stopId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, ...input }),
+        body: JSON.stringify(input),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -508,7 +527,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/itinerary/stops/${encodeURIComponent(stopId)}`, {
         method: 'DELETE',
-        body: JSON.stringify({ actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -568,7 +587,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
       await apiFetch<Expense>(`/expenses/${encodeURIComponent(expenseId)}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          actorUserId,
           paidById: payload.paidById,
           title: payload.title,
           amount: payload.amount,
@@ -592,7 +610,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/expenses/${encodeURIComponent(expenseId)}`, {
         method: 'DELETE',
-        body: JSON.stringify({ actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       setSelectedExpenseId('');
       await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -606,7 +624,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/settlements/trip/${encodeURIComponent(selectedTrip.id)}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, ...settlement, status }),
+        body: JSON.stringify({ ...settlement, status }),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -622,7 +640,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     const { data: result, error } = await api.POST('/accommodations/search', {
       body: {
         tripId: selectedTrip.id,
-        actorUserId,
         destination,
         checkin: String(formData?.get('checkin') ?? selectedTrip.startsAt?.slice(0, 10) ?? '') || undefined,
         checkout: String(formData?.get('checkout') ?? selectedTrip.endsAt?.slice(0, 10) ?? '') || undefined,
@@ -648,7 +665,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     const { error } = await api.POST('/accommodations/save', {
       body: {
         tripId: selectedTrip.id,
-        actorUserId,
         externalId: stay.externalId,
         name: stay.name,
         latitude: stay.latitude,
@@ -682,7 +698,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!startsAt || !endsAt) return setMessage('Vyplň začátek i konec dostupnosti.');
     const { error } = await api.POST('/members/{tripMemberId}/availability', {
       params: { path: { tripMemberId } },
-      body: { actorUserId, startsAt: toApiDateTime(startsAt), endsAt: toApiDateTime(endsAt, true), note: note || undefined },
+      body: { startsAt: toApiDateTime(startsAt), endsAt: toApiDateTime(endsAt, true), note: note || undefined },
     });
     if (error) return setMessage('Dostupnost se nepodařilo uložit.');
     setMessage(null);
@@ -697,7 +713,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!startsAt || !endsAt) return setMessage('Vyplň začátek i konec dostupnosti.');
     const { error } = await api.PATCH('/members/availability/{availabilityId}', {
       params: { path: { availabilityId } },
-      body: { actorUserId, startsAt: toApiDateTime(startsAt), endsAt: toApiDateTime(endsAt, true), note: note || null },
+      body: { startsAt: toApiDateTime(startsAt), endsAt: toApiDateTime(endsAt, true), note: note || null },
     });
     if (error) return setMessage('Dostupnost se nepodařilo upravit.');
     setMessage(null);
@@ -709,7 +725,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/trips/${encodeURIComponent(selectedTrip.id)}/members/${encodeURIComponent(memberId)}/role`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, role }),
+        body: JSON.stringify({ role }),
       }, accessToken);
       const nextTrips = await loadTrips(accessToken);
       const nextTrip = nextTrips.find((trip) => trip.id === selectedTrip.id) ?? selectedTrip;
@@ -724,7 +740,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/itinerary/trip/${encodeURIComponent(selectedTrip.id)}/sync-days`, {
         method: 'POST',
-        body: JSON.stringify({ actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -736,7 +752,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!actorUserId) return setMessage('Nejdřív se přihlaš.');
     const { error } = await api.PATCH('/itinerary/days/{dayId}', {
       params: { path: { dayId } },
-      body: { actorUserId, ...body },
+      body,
     });
     if (error) return setMessage('Den itineráře se nepodařilo upravit.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
@@ -749,7 +765,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
         method: 'POST',
         body: JSON.stringify({
           tripId: selectedTrip.id,
-          actorUserId,
           question: input.question,
           multiChoice: input.multiChoice ?? false,
           contextDayId: input.contextDayId,
@@ -768,7 +783,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/polls/options/${encodeURIComponent(optionId)}/vote`, {
         method: 'POST',
-        body: JSON.stringify({ actorUserId, userId: actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -781,7 +796,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/polls/options/${encodeURIComponent(optionId)}/vote`, {
         method: 'DELETE',
-        body: JSON.stringify({ actorUserId, userId: actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -794,7 +809,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/polls/${encodeURIComponent(pollId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, ...input }),
+        body: JSON.stringify(input),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -807,7 +822,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/polls/${encodeURIComponent(pollId)}`, {
         method: 'DELETE',
-        body: JSON.stringify({ actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -820,7 +835,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch('/checklist', {
         method: 'POST',
-        body: JSON.stringify({ tripId: selectedTrip.id, actorUserId, ...input, note: input.note ?? undefined, dueAt: input.dueAt ?? undefined }),
+        body: JSON.stringify({ tripId: selectedTrip.id, ...input, note: input.note ?? undefined, dueAt: input.dueAt ?? undefined }),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -833,7 +848,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/checklist/${encodeURIComponent(itemId)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, ...input }),
+        body: JSON.stringify(input),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -846,7 +861,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/checklist/${encodeURIComponent(itemId)}`, {
         method: 'DELETE',
-        body: JSON.stringify({ actorUserId }),
+        body: JSON.stringify({}),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -859,7 +874,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     try {
       await apiFetch(`/checklist/${encodeURIComponent(itemId)}/complete`, {
         method: 'PATCH',
-        body: JSON.stringify({ actorUserId, userId: actorUserId, completed }),
+        body: JSON.stringify({ completed }),
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
@@ -877,7 +892,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
     const { error } = await api.DELETE('/members/availability/{availabilityId}', {
       params: { path: { availabilityId } },
-      body: { actorUserId },
+      body: {},
     });
     if (error) return setMessage('Dostupnost se nepodařilo smazat.');
     setMessage(null);
@@ -891,7 +906,6 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
     const { error } = await api.POST('/routes/optimize', {
       body: {
         tripId: selectedTrip.id,
-        actorUserId,
         name: 'Návrh nejlepší trasy',
         mode: 'DRIVE',
         startsAt: selectedTrip.startsAt ?? undefined,
@@ -906,7 +920,7 @@ export function useTripPlanner({ routeTripId, routeView }: PlannerRoute = {}) {
 
   return {
     state: { trips, joinedTrips, availableTrips, selectedTrip, selectedTripId, viewerEmail, viewerName, actorUserId, actorMember, activeTab, data, selectedPlace, selectedPlaceId, selectedExpense, selectedExpenseId, accommodations, selectedAccommodation, selectedAccommodationId, loading, searchingStay, message },
-    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, optimizeRoute },
+    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, optimizeRoute },
   };
 }
 

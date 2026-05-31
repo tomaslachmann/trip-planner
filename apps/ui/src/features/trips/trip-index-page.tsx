@@ -28,6 +28,8 @@ function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
           <Input className="mb-3" id="name" name="name" placeholder="Barcelona 2026" />
           <Label htmlFor="destination">Destinace</Label>
           <Input className="mb-3" id="destination" name="destination" placeholder="Barcelona" />
+          <Label htmlFor="currency">Měna</Label>
+          <Input className="mb-3 uppercase" id="currency" name="currency" defaultValue="CZK" maxLength={3} placeholder="CZK" />
           <Button className="w-full" type="submit"><Plus />Vytvořit</Button>
         </Card>
       </form>

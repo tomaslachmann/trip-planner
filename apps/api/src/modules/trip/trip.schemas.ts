@@ -63,3 +63,15 @@ export const tripSummaryResponseSchema = z.object({
 });
 
 export const tripSummaryListResponseSchema = z.array(tripSummaryResponseSchema);
+
+export const inviteCodeParamSchema = z.object({ inviteCode: z.string().min(1) });
+
+export const tripInvitePreviewResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  destination: z.string().nullable(),
+  startsAt: nullableDateTimeResponseSchema,
+  endsAt: nullableDateTimeResponseSchema,
+  currency: z.string(),
+  memberCount: z.number().int().nonnegative(),
+});

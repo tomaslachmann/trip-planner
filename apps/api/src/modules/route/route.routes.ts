@@ -62,7 +62,7 @@ export async function routeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['routes'],
       summary: 'List trip routes',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: routePlanListResponseSchema },
@@ -82,7 +82,7 @@ export async function routeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['routes'],
       summary: 'Create route plan from ordered places',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createRoutePlanSchema,
       response: { 201: routePlanResponseSchema },
     },
@@ -111,7 +111,7 @@ export async function routeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['routes'],
       summary: 'Create optimized route plan',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: optimizeRoutePlanSchema,
       response: { 201: routePlanResponseSchema },
     },
@@ -143,7 +143,7 @@ export async function routeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['routes'],
       summary: 'Update route plan',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: routePlanIdParamSchema,
       body: updateRoutePlanSchema,
       response: { 200: routePlanResponseSchema },
@@ -166,7 +166,7 @@ export async function routeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['routes'],
       summary: 'Delete route plan',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: routePlanIdParamSchema,
       body: deleteRoutePlanSchema,
       response: { 204: emptyResponseSchema },

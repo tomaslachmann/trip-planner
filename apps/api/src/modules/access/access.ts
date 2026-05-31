@@ -12,10 +12,8 @@ const roleRank: Record<TripRoleName, number> = {
   GUEST: 1,
 };
 
-export function getActorUserId(request: FastifyRequest, body?: { actorUserId?: string }): string {
-  const actorUserId = requireJwt(request).sub;
-  if (body?.actorUserId && body.actorUserId !== actorUserId) throw httpError(403, 'actorUserId must match authenticated user');
-  return actorUserId;
+export function getActorUserId(request: FastifyRequest, _body?: unknown): string {
+  return requireJwt(request).sub;
 }
 
 export async function requireTripMember(tripId: string, userId: string) {

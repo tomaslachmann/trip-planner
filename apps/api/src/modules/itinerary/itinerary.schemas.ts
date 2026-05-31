@@ -45,7 +45,6 @@ export const lockItineraryDaySchema = actorUserIdSchema.extend({
 export const syncItineraryDaysSchema = actorUserIdSchema;
 
 export const placeDayVoteSchema = actorUserIdSchema.extend({
-  userId: z.string().min(1).optional(),
   value: z.enum(['UP','DOWN','MAYBE','MUST_HAVE']),
 });
 

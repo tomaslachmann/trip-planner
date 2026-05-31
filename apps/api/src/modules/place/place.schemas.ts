@@ -3,7 +3,6 @@ import { actorUserIdSchema, latitudeSchema, longitudeSchema } from '../../utils/
 
 export const createPlaceSchema = z.object({
   tripId: z.string().min(1),
-  createdById: z.string().min(1),
   type: z.enum(['PLACE','ACTIVITY','DAY_TRIP','STAY_AREA','ACCOMMODATION','FOOD','TRANSPORT','CUSTOM']),
   name: z.string().min(1),
   description: z.string().optional(),
@@ -27,12 +26,10 @@ export const updatePlaceSchema = actorUserIdSchema.extend({
 });
 
 export const votePlaceSchema = actorUserIdSchema.extend({
-  userId: z.string().min(1),
   value: z.enum(['UP','DOWN','MAYBE','MUST_HAVE']),
 });
 
 export const commentPlaceSchema = actorUserIdSchema.extend({
-  userId: z.string().min(1),
   body: z.string().min(1),
 });
 

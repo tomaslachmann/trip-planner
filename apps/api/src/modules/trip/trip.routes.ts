@@ -6,7 +6,7 @@ import { httpError } from '../../utils/http.js';
 import { getActorUserId, requireTripMember, requireTripRole } from '../access/access.js';
 import { requireJwt } from '../auth/jwt.js';
 import { syncItineraryDaysForTrip } from '../itinerary/itinerary.service.js';
-import { createTripSchema, deleteTripSchema, joinTripSchema, tripMemberResponseSchema, tripSummaryListResponseSchema, tripSummaryResponseSchema, updateTripMemberRoleSchema, updateTripSchema } from './trip.schemas.js';
+import { createTripSchema, deleteTripSchema, inviteCodeParamSchema, joinTripSchema, tripInvitePreviewResponseSchema, tripMemberResponseSchema, tripSummaryListResponseSchema, tripSummaryResponseSchema, updateTripMemberRoleSchema, updateTripSchema } from './trip.schemas.js';
 
 export async function tripRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
@@ -15,7 +15,7 @@ export async function tripRoutes(app: FastifyInstance) {
     schema: {
       tags: ['trips'],
       summary: 'List trips',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       response: { 200: tripSummaryListResponseSchema },
     },
   }, async (request) => {
@@ -31,7 +31,7 @@ export async function tripRoutes(app: FastifyInstance) {
     schema: {
       tags: ['trips'],
       summary: 'List trips available to join',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       response: { 200: tripSummaryListResponseSchema },
     },
   }, async (request) => {
@@ -43,11 +43,35 @@ export async function tripRoutes(app: FastifyInstance) {
     });
   });
 
+  routes.get('/invite/:inviteCode', {
+    schema: {
+      tags: ['trips'],
+      summary: 'Preview trip invite',
+      params: inviteCodeParamSchema,
+      response: { 200: tripInvitePreviewResponseSchema },
+    },
+  }, async (request) => {
+    const { inviteCode } = request.params as { inviteCode: string };
+    const trip = await prisma.trip.findUniqueOrThrow({
+      where: { inviteCode },
+      include: { _count: { select: { members: true } } },
+    });
+    return {
+      id: trip.id,
+      name: trip.name,
+      destination: trip.destination,
+      startsAt: trip.startsAt,
+      endsAt: trip.endsAt,
+      currency: trip.currency,
+      memberCount: trip._count.members,
+    };
+  });
+
   routes.get('/:id', {
     schema: {
       tags: ['trips'],
       summary: 'Get trip detail',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -72,7 +96,7 @@ export async function tripRoutes(app: FastifyInstance) {
     schema: {
       tags: ['trips'],
       summary: 'Create trip',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createTripSchema,
       response: { 201: tripSummaryResponseSchema },
     },
@@ -105,7 +129,7 @@ export async function tripRoutes(app: FastifyInstance) {
     schema: {
       tags: ['trips'],
       summary: 'Update trip',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: updateTripSchema,
       response: { 200: tripSummaryResponseSchema },
@@ -135,7 +159,7 @@ export async function tripRoutes(app: FastifyInstance) {
     schema: {
       tags: ['trips'],
       summary: 'Delete trip',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: deleteTripSchema,
       response: { 204: emptyResponseSchema },
@@ -153,7 +177,7 @@ export async function tripRoutes(app: FastifyInstance) {
     schema: {
       tags: ['trips'],
       summary: 'Join trip by invite code',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: joinTripSchema,
       response: { 201: tripMemberResponseSchema },
     },
@@ -175,11 +199,37 @@ export async function tripRoutes(app: FastifyInstance) {
     return reply.code(201).send(member);
   });
 
+  routes.post('/invite/:inviteCode/join', {
+    schema: {
+      tags: ['trips'],
+      summary: 'Join trip by invite URL',
+      security: [{ bearerAuth: [] }],
+      params: inviteCodeParamSchema,
+      response: { 201: tripMemberResponseSchema },
+    },
+  }, async (request, reply) => {
+    const { inviteCode } = request.params as { inviteCode: string };
+    const session = requireJwt(request);
+    const trip = await prisma.trip.findUniqueOrThrow({ where: { inviteCode } });
+    const user = await prisma.user.upsert({
+      where: { id: session.sub },
+      create: { id: session.sub, email: session.email, name: session.email.split('@')[0] ?? 'Cestovatel' },
+      update: {},
+    });
+    const member = await prisma.tripMember.upsert({
+      where: { tripId_userId: { tripId: trip.id, userId: user.id } },
+      create: { tripId: trip.id, userId: user.id },
+      update: {},
+      include: { user: true, trip: true },
+    });
+    return reply.code(201).send(member);
+  });
+
   routes.patch('/:tripId/members/:memberId/role', {
     schema: {
       tags: ['trips'],
       summary: 'Update trip member role',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema.merge(memberIdParamSchema),
       body: updateTripMemberRoleSchema,
       response: { 200: tripMemberResponseSchema },

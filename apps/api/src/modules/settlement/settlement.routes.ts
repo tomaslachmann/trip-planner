@@ -14,7 +14,7 @@ export async function settlementRoutes(app: FastifyInstance) {
     schema: {
       tags: ['settlements'],
       summary: 'Calculate trip settlements',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -30,7 +30,7 @@ export async function settlementRoutes(app: FastifyInstance) {
     schema: {
       tags: ['settlements'],
       summary: 'Update settlement payment status',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       body: updateSettlementStatusSchema,
       response: { 200: jsonResponseSchema },

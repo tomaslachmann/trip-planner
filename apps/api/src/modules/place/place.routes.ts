@@ -14,7 +14,7 @@ export async function placeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['places'],
       summary: 'List trip places',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -30,17 +30,16 @@ export async function placeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['places'],
       summary: 'Create place',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createPlaceSchema,
       response: { 201: jsonResponseSchema },
     },
   }, async (request, reply) => {
     const body = createPlaceSchema.parse(request.body);
-    const actorUserId = getActorUserId(request, { actorUserId: body.createdById });
-    if (actorUserId !== body.createdById) throw httpError(403, 'createdById must match actor user id');
+    const actorUserId = getActorUserId(request);
     await requireTripMember(body.tripId, actorUserId);
 
-    const place = await prisma.place.create({ data: body });
+    const place = await prisma.place.create({ data: { ...body, createdById: actorUserId } });
     return reply.code(201).send(place);
   });
 
@@ -48,7 +47,7 @@ export async function placeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['places'],
       summary: 'Update place',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: updatePlaceSchema,
       response: { 200: jsonResponseSchema },
@@ -61,8 +60,7 @@ export async function placeRoutes(app: FastifyInstance) {
     if (place.createdById !== actorUserId) await requireTripRole(place.tripId, actorUserId, 'ADMIN');
     if (body.accommodationStatus !== undefined && place.type !== 'ACCOMMODATION') throw httpError(400, 'Only accommodation places can have accommodation status');
 
-    const { actorUserId: _actorUserId, ...data } = body;
-    const updated = await prisma.place.update({ where: { id }, data });
+    const updated = await prisma.place.update({ where: { id }, data: body });
     if (body.accommodationStatus !== undefined) {
       if (body.accommodationStatus === 'BOOKED') {
         const title = `Potvrdit check-in: ${updated.name}`;
@@ -95,7 +93,7 @@ export async function placeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['places'],
       summary: 'Delete place',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: deletePlaceSchema,
       response: { 204: emptyResponseSchema },
@@ -114,7 +112,7 @@ export async function placeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['places'],
       summary: 'Vote for place',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: votePlaceSchema,
       response: { 201: jsonResponseSchema },
@@ -122,14 +120,13 @@ export async function placeRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = votePlaceSchema.parse(request.body);
-    const actorUserId = getActorUserId(request, { actorUserId: body.actorUserId ?? body.userId });
-    if (actorUserId !== body.userId) throw httpError(403, 'Vote userId must match actor user id');
+    const actorUserId = getActorUserId(request);
     const place = await prisma.place.findUniqueOrThrow({ where: { id } });
     await requireTripMember(place.tripId, actorUserId);
 
     const vote = await prisma.placeVote.upsert({
-      where: { placeId_userId: { placeId: id, userId: body.userId } },
-      create: { placeId: id, userId: body.userId, value: body.value },
+      where: { placeId_userId: { placeId: id, userId: actorUserId } },
+      create: { placeId: id, userId: actorUserId, value: body.value },
       update: { value: body.value },
     });
     return reply.code(201).send(vote);
@@ -139,7 +136,7 @@ export async function placeRoutes(app: FastifyInstance) {
     schema: {
       tags: ['places'],
       summary: 'Comment on place',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: commentPlaceSchema,
       response: { 201: jsonResponseSchema },
@@ -147,12 +144,11 @@ export async function placeRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = commentPlaceSchema.parse(request.body);
-    const actorUserId = getActorUserId(request, { actorUserId: body.actorUserId ?? body.userId });
-    if (actorUserId !== body.userId) throw httpError(403, 'Comment userId must match actor user id');
+    const actorUserId = getActorUserId(request);
     const place = await prisma.place.findUniqueOrThrow({ where: { id } });
     await requireTripMember(place.tripId, actorUserId);
 
-    const comment = await prisma.placeComment.create({ data: { placeId: id, userId: body.userId, body: body.body } });
+    const comment = await prisma.placeComment.create({ data: { placeId: id, userId: actorUserId, body: body.body } });
     return reply.code(201).send(comment);
   });
 }

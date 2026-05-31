@@ -11,7 +11,7 @@ export async function activityRoutes(app: FastifyInstance) {
     schema: {
       tags: ['activity'],
       summary: 'List trip activity events',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },

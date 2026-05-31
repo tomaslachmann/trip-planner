@@ -7,7 +7,7 @@
   },
   "components": {
     "securitySchemes": {
-      "actorUserId": {
+      "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
@@ -97,7 +97,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -122,7 +122,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -156,7 +156,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -398,7 +398,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -583,7 +583,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -763,6 +763,95 @@
         }
       }
     },
+    "/trips/invite/{inviteCode}": {
+      "get": {
+        "summary": "Preview trip invite",
+        "tags": [
+          "trips"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "inviteCode",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "destination": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "startsAt": {
+                      "nullable": true,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      ]
+                    },
+                    "endsAt": {
+                      "nullable": true,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "memberCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "destination",
+                    "startsAt",
+                    "endsAt",
+                    "currency",
+                    "memberCount"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trips/{id}": {
       "get": {
         "summary": "Get trip detail",
@@ -775,15 +864,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "id",
             "required": true
@@ -791,7 +871,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -819,10 +899,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "name": {
                     "type": "string",
                     "minLength": 1
@@ -866,7 +942,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1053,12 +1129,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -1076,7 +1147,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1144,7 +1215,126 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "tripId": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "OWNER",
+                        "ADMIN",
+                        "MEMBER",
+                        "GUEST"
+                      ]
+                    },
+                    "joinedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      ]
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "name",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "availabilityWindows": {
+                      "type": "array",
+                      "items": {}
+                    },
+                    "trip": {}
+                  },
+                  "required": [
+                    "id",
+                    "tripId",
+                    "userId",
+                    "role",
+                    "joinedAt",
+                    "user"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/invite/{inviteCode}/join": {
+      "post": {
+        "summary": "Join trip by invite URL",
+        "tags": [
+          "trips"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "inviteCode",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1257,10 +1447,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "role": {
                     "type": "string",
                     "enum": [
@@ -1300,7 +1486,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1412,15 +1598,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -1428,7 +1605,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1459,10 +1636,6 @@
                 "type": "object",
                 "properties": {
                   "tripId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "createdById": {
                     "type": "string",
                     "minLength": 1
                   },
@@ -1513,7 +1686,6 @@
                 },
                 "required": [
                   "tripId",
-                  "createdById",
                   "type",
                   "name",
                   "latitude",
@@ -1525,7 +1697,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1555,10 +1727,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "type": {
                     "type": "string",
                     "enum": [
@@ -1636,7 +1804,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1663,12 +1831,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -1686,7 +1849,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1721,14 +1884,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "value": {
                     "type": "string",
                     "enum": [
@@ -1740,7 +1895,6 @@
                   }
                 },
                 "required": [
-                  "userId",
                   "value"
                 ]
               }
@@ -1760,7 +1914,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1790,21 +1944,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "body": {
                     "type": "string",
                     "minLength": 1
                   }
                 },
                 "required": [
-                  "userId",
                   "body"
                 ]
               }
@@ -1824,7 +1969,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1853,15 +1998,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -1869,7 +2005,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1899,10 +2035,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "startsAt": {
                     "type": "string",
                     "format": "date-time",
@@ -1946,7 +2078,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1976,10 +2108,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "startsAt": {
                     "type": "string",
                     "format": "date-time",
@@ -2022,7 +2150,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2049,12 +2177,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -2072,7 +2195,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2106,15 +2229,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -2122,7 +2236,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2151,12 +2265,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -2174,7 +2283,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2204,10 +2313,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -2250,7 +2355,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2280,10 +2385,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "date": {
                     "type": "string",
                     "format": "date-time",
@@ -2337,7 +2438,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2364,12 +2465,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -2387,7 +2483,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2422,14 +2518,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "value": {
                     "type": "string",
                     "enum": [
@@ -2469,7 +2557,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2496,12 +2584,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -2528,7 +2611,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2563,10 +2646,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "locked": {
                     "type": "boolean"
                   }
@@ -2591,7 +2670,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2621,10 +2700,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "placeId": {
                     "type": "string",
                     "minLength": 1
@@ -2676,7 +2751,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2706,10 +2781,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "placeId": {
                     "type": "string",
                     "minLength": 1
@@ -2760,7 +2831,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2787,12 +2858,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -2810,7 +2876,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2845,10 +2911,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "stopIds": {
                     "minItems": 1,
                     "type": "array",
@@ -2878,7 +2940,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -2907,15 +2969,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -2923,7 +2976,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -3091,10 +3144,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -3143,7 +3192,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -3308,10 +3357,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -3367,7 +3412,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -3532,10 +3577,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "name": {
                     "type": "string",
                     "minLength": 1
@@ -3561,7 +3602,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -3723,12 +3764,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -3746,7 +3782,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -3781,10 +3817,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -3870,7 +3902,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -3979,10 +4011,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -4054,7 +4082,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4201,15 +4229,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -4217,7 +4236,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4247,10 +4266,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -4312,7 +4327,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4342,10 +4357,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "question": {
                     "type": "string",
                     "minLength": 1
@@ -4384,7 +4395,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4411,12 +4422,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -4434,7 +4440,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4468,16 +4474,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -4495,7 +4492,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4522,16 +4519,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -4549,7 +4537,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4583,15 +4571,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -4599,7 +4578,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4629,10 +4608,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -4676,7 +4651,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4706,10 +4681,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "title": {
                     "type": "string",
                     "minLength": 1
@@ -4757,7 +4728,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4784,12 +4755,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -4807,7 +4773,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -4842,14 +4808,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "completed": {
                     "type": "boolean"
                   }
@@ -4874,7 +4832,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5008,15 +4966,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -5024,7 +4973,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5053,15 +5002,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -5069,7 +5009,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5099,10 +5039,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "tripId": {
                     "type": "string",
                     "minLength": 1
@@ -5204,7 +5140,7 @@
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5234,10 +5170,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "title": {
                     "type": "string",
                     "minLength": 1
@@ -5343,7 +5275,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5370,12 +5302,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -5393,7 +5320,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5427,15 +5354,6 @@
               "type": "string",
               "minLength": 1
             },
-            "in": "query",
-            "name": "actorUserId",
-            "required": false
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
             "in": "path",
             "name": "tripId",
             "required": true
@@ -5443,7 +5361,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5473,10 +5391,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "fromUserId": {
                     "type": "string",
                     "minLength": 1
@@ -5533,7 +5447,7 @@
         ],
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -5563,14 +5477,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "actorUserId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "userId": {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   "label": {
                     "default": "Main",
                     "type": "string"
@@ -5587,17 +5493,14 @@
                   "recipientName": {
                     "type": "string"
                   }
-                },
-                "required": [
-                  "userId"
-                ]
+                }
               }
             }
           }
         },
         "security": [
           {
-            "actorUserId": []
+            "bearerAuth": []
           }
         ],
         "responses": {

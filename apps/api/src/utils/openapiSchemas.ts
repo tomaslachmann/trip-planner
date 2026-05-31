@@ -15,4 +15,4 @@ export const dayIdParamSchema = z.object({ dayId: z.string().min(1) });
 export const stopIdParamSchema = z.object({ stopId: z.string().min(1) });
 export const routePlanIdParamSchema = z.object({ routePlanId: z.string().min(1) });
 
-export const actorQuerySchema = z.object({ actorUserId: z.string().min(1).optional() });
+export const actorQuerySchema = z.object({});

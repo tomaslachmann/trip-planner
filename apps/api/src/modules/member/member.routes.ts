@@ -29,7 +29,7 @@ export async function memberRoutes(app: FastifyInstance) {
     schema: {
       tags: ['members'],
       summary: 'List trip members',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -48,7 +48,7 @@ export async function memberRoutes(app: FastifyInstance) {
     schema: {
       tags: ['members'],
       summary: 'Create member availability window',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripMemberIdParamSchema,
       body: createAvailabilitySchema,
       response: { 201: jsonResponseSchema },
@@ -78,7 +78,7 @@ export async function memberRoutes(app: FastifyInstance) {
     schema: {
       tags: ['members'],
       summary: 'Update member availability window',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: availabilityIdParamSchema,
       body: updateAvailabilitySchema,
       response: { 200: jsonResponseSchema },
@@ -115,7 +115,7 @@ export async function memberRoutes(app: FastifyInstance) {
     schema: {
       tags: ['members'],
       summary: 'Delete member availability window',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: availabilityIdParamSchema,
       body: deleteAvailabilitySchema,
       response: { 204: emptyResponseSchema },

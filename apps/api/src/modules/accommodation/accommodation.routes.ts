@@ -13,7 +13,7 @@ export async function accommodationRoutes(app: FastifyInstance) {
     schema: {
       tags: ['accommodations'],
       summary: 'Search Booking accommodations for a trip',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: searchAccommodationsSchema,
       response: { 200: searchAccommodationsResponseSchema },
     },
@@ -29,7 +29,7 @@ export async function accommodationRoutes(app: FastifyInstance) {
     schema: {
       tags: ['accommodations'],
       summary: 'Save an accommodation search result as a trip place',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: saveAccommodationSchema,
       response: { 201: savedAccommodationResponseSchema },
     },

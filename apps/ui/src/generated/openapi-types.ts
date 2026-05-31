@@ -347,6 +347,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/trips/invite/{inviteCode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview trip invite */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    inviteCode: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            name: string;
+                            destination: string | null;
+                            startsAt: (string) | null;
+                            endsAt: (string) | null;
+                            currency: string;
+                            memberCount: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trips/{id}": {
         parameters: {
             query?: never;
@@ -357,9 +403,7 @@ export interface paths {
         /** Get trip detail */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     id: string;
@@ -393,9 +437,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -425,7 +467,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         name?: string;
                         destination?: string | null;
                         /** Format: date-time */
@@ -539,6 +580,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/trips/invite/{inviteCode}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join trip by invite URL */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    inviteCode: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            tripId: string;
+                            userId: string;
+                            /** @enum {string} */
+                            role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
+                            joinedAt: string;
+                            user: {
+                                id: string;
+                                /** Format: email */
+                                email: string;
+                                name: string;
+                                createdAt: string;
+                            };
+                            availabilityWindows?: unknown[];
+                            trip?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trips/{tripId}/members/{memberId}/role": {
         parameters: {
             query?: never;
@@ -566,7 +661,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         /** @enum {string} */
                         role: "OWNER" | "ADMIN" | "MEMBER" | "GUEST";
                     };
@@ -612,9 +706,7 @@ export interface paths {
         /** List trip places */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -663,7 +755,6 @@ export interface paths {
                 content: {
                     "application/json": {
                         tripId: string;
-                        createdById: string;
                         /** @enum {string} */
                         type: "PLACE" | "ACTIVITY" | "DAY_TRIP" | "STAY_AREA" | "ACCOMMODATION" | "FOOD" | "TRANSPORT" | "CUSTOM";
                         name: string;
@@ -717,9 +808,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -749,7 +838,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         /** @enum {string} */
                         type?: "PLACE" | "ACTIVITY" | "DAY_TRIP" | "STAY_AREA" | "ACCOMMODATION" | "FOOD" | "TRANSPORT" | "CUSTOM";
                         name?: string;
@@ -801,8 +889,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
-                        userId: string;
                         /** @enum {string} */
                         value: "UP" | "DOWN" | "MAYBE" | "MUST_HAVE";
                     };
@@ -848,8 +934,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
-                        userId: string;
                         body: string;
                     };
                 };
@@ -882,9 +966,7 @@ export interface paths {
         /** List trip members */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -934,7 +1016,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         /** Format: date-time */
                         startsAt: string;
                         /** Format: date-time */
@@ -985,9 +1066,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -1017,7 +1096,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         /** Format: date-time */
                         startsAt?: string;
                         /** Format: date-time */
@@ -1052,9 +1130,7 @@ export interface paths {
         /** List trip itinerary days */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -1103,9 +1179,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -1146,7 +1220,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         /** Format: date-time */
                         date: string;
@@ -1202,9 +1275,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -1234,7 +1305,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         /** Format: date-time */
                         date?: string;
                         title?: string | null;
@@ -1283,8 +1353,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
-                        userId?: string;
                         /** @enum {string} */
                         value: "UP" | "DOWN" | "MAYBE" | "MUST_HAVE";
                     };
@@ -1316,9 +1384,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -1364,7 +1430,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         locked: boolean;
                     };
                 };
@@ -1405,7 +1470,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         placeId: string;
                         order: number;
                         /** Format: date-time */
@@ -1457,9 +1521,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -1489,7 +1551,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         placeId?: string;
                         order?: number;
                         /** Format: date-time */
@@ -1541,7 +1602,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         stopIds: string[];
                     };
                 };
@@ -1570,9 +1630,7 @@ export interface paths {
         /** List trip routes */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -1643,7 +1701,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         name: string;
                         /**
@@ -1720,7 +1777,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         /** @default Optimized route */
                         name?: string;
@@ -1801,9 +1857,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -1833,7 +1887,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         name?: string;
                         locked?: boolean;
                     };
@@ -1896,7 +1949,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         destination?: string;
                         /** Format: date */
@@ -1985,7 +2037,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         externalId: string;
                         name: string;
@@ -2057,9 +2108,7 @@ export interface paths {
         /** List trip polls */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -2107,7 +2156,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         question: string;
                         /** @default false */
@@ -2164,9 +2212,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -2196,7 +2242,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         question?: string;
                         /** @enum {string} */
                         status?: "OPEN" | "CLOSED";
@@ -2241,10 +2286,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                        userId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -2271,10 +2313,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                        userId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -2304,9 +2343,7 @@ export interface paths {
         /** List trip checklist items */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -2354,7 +2391,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         title: string;
                         note?: string;
@@ -2409,9 +2445,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -2441,7 +2475,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         title?: string;
                         note?: string | null;
                         /** @enum {string} */
@@ -2492,8 +2525,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
-                        userId?: string;
                         completed: boolean;
                     };
                 };
@@ -2602,9 +2633,7 @@ export interface paths {
         /** List trip activity events */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -2642,9 +2671,7 @@ export interface paths {
         /** List trip expenses */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -2692,7 +2719,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         tripId: string;
                         paidById: string;
                         title: string;
@@ -2759,9 +2785,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        actorUserId?: string;
-                    };
+                    "application/json": Record<string, never>;
                 };
             };
             responses: {
@@ -2791,7 +2815,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         title?: string;
                         paidById?: string;
                         amount?: number;
@@ -2837,9 +2860,7 @@ export interface paths {
         /** Calculate trip settlements */
         get: {
             parameters: {
-                query?: {
-                    actorUserId?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     tripId: string;
@@ -2893,7 +2914,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
                         fromUserId: string;
                         toUserId: string;
                         amount: number;
@@ -2938,8 +2958,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        actorUserId?: string;
-                        userId: string;
                         /** @default Main */
                         label?: string;
                         iban?: string;

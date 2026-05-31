@@ -28,7 +28,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     schema: {
       tags: ['expenses'],
       summary: 'List trip expenses',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -44,7 +44,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     schema: {
       tags: ['expenses'],
       summary: 'Create expense',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createExpenseSchema,
       response: { 201: jsonResponseSchema },
     },
@@ -108,7 +108,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     schema: {
       tags: ['expenses'],
       summary: 'Update expense',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: updateExpenseSchema,
       response: { 200: jsonResponseSchema },
@@ -181,7 +181,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     schema: {
       tags: ['expenses'],
       summary: 'Delete expense',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: deleteExpenseSchema,
       response: { 204: emptyResponseSchema },

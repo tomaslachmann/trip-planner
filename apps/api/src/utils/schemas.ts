@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const idSchema = z.string().min(1);
 export const currencySchema = z.string().trim().length(3).transform((value) => value.toUpperCase());
-export const actorUserIdSchema = z.object({ actorUserId: idSchema.optional() });
+export const actorUserIdSchema = z.object({});
 
 export const latitudeSchema = z.number().min(-90).max(90);
 export const longitudeSchema = z.number().min(-180).max(180);

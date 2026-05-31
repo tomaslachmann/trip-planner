@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: apps/api
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        working-directory: apps/api
+
+      - name: Typecheck API
+        run: npm run typecheck
+        working-directory: apps/api
+
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: apps/ui
+
+      - name: Typecheck UI
+        run: npm run typecheck
+        working-directory: apps/ui

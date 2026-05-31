@@ -57,7 +57,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'List trip itinerary days',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -84,7 +84,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Synchronize itinerary days from trip date range',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       body: syncItineraryDaysSchema,
       response: { 200: jsonResponseSchema },
@@ -102,7 +102,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Create itinerary day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createItineraryDaySchema,
       response: { 201: jsonResponseSchema },
     },
@@ -128,7 +128,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Update itinerary day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema,
       body: updateItineraryDaySchema,
       response: { 200: jsonResponseSchema },
@@ -160,7 +160,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Vote for a place on a specific itinerary day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema.merge(placeIdParamSchema),
       body: placeDayVoteSchema,
       response: { 200: jsonResponseSchema },
@@ -168,8 +168,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
   }, async (request) => {
     const { dayId, placeId } = request.params as { dayId: string; placeId: string };
     const body = placeDayVoteSchema.parse(request.body);
-    const actorUserId = getActorUserId(request, { actorUserId: body.actorUserId ?? body.userId });
-    if (body.userId && body.userId !== actorUserId) throw httpError(403, 'Vote userId must match actor user id');
+    const actorUserId = getActorUserId(request);
     const day = await prisma.itineraryDay.findUniqueOrThrow({ where: { id: dayId } });
     await requireTripMember(day.tripId, actorUserId);
     await assertPlaceBelongsToTrip(day.tripId, placeId);
@@ -184,7 +183,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Remove own vote for a place on a specific itinerary day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema.merge(placeIdParamSchema),
       body: syncItineraryDaysSchema,
       response: { 204: emptyResponseSchema },
@@ -203,7 +202,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Lock or unlock itinerary day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema,
       body: lockItineraryDaySchema,
       response: { 200: jsonResponseSchema },
@@ -221,7 +220,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Delete itinerary day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema,
       body: deleteItinerarySchema,
       response: { 204: emptyResponseSchema },
@@ -240,7 +239,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Create itinerary stop',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema,
       body: createItineraryStopSchema,
       response: { 201: jsonResponseSchema },
@@ -274,7 +273,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Update itinerary stop',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: stopIdParamSchema,
       body: updateItineraryStopSchema,
       response: { 200: jsonResponseSchema },
@@ -320,7 +319,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Reorder itinerary stops for a day',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: dayIdParamSchema,
       body: reorderItineraryStopsSchema,
       response: { 200: jsonResponseSchema },
@@ -358,7 +357,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     schema: {
       tags: ['itinerary'],
       summary: 'Delete itinerary stop',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: stopIdParamSchema,
       body: deleteItinerarySchema,
       response: { 204: emptyResponseSchema },

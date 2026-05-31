@@ -22,8 +22,6 @@ export const updatePollSchema = actorUserIdSchema.extend({
   closesAt: z.string().datetime().nullable().optional(),
 });
 
-export const votePollOptionSchema = actorUserIdSchema.extend({
-  userId: z.string().min(1).optional(),
-});
+export const votePollOptionSchema = actorUserIdSchema;
 
 export const deletePollSchema = actorUserIdSchema;

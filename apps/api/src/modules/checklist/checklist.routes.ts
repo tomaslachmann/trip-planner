@@ -23,7 +23,7 @@ export async function checklistRoutes(app: FastifyInstance) {
     schema: {
       tags: ['checklist'],
       summary: 'List trip checklist items',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -43,7 +43,7 @@ export async function checklistRoutes(app: FastifyInstance) {
     schema: {
       tags: ['checklist'],
       summary: 'Create checklist item',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createChecklistItemSchema,
       response: { 201: jsonResponseSchema },
     },
@@ -72,7 +72,7 @@ export async function checklistRoutes(app: FastifyInstance) {
     schema: {
       tags: ['checklist'],
       summary: 'Update checklist item',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: updateChecklistItemSchema,
       response: { 200: jsonResponseSchema },
@@ -108,7 +108,7 @@ export async function checklistRoutes(app: FastifyInstance) {
     schema: {
       tags: ['checklist'],
       summary: 'Complete or uncomplete a checklist item',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: completeChecklistItemSchema,
       response: { 200: jsonResponseSchema },
@@ -116,8 +116,7 @@ export async function checklistRoutes(app: FastifyInstance) {
   }, async (request) => {
     const { id } = request.params as { id: string };
     const body = completeChecklistItemSchema.parse(request.body);
-    const actorUserId = getActorUserId(request, { actorUserId: body.actorUserId ?? body.userId });
-    if (body.userId && body.userId !== actorUserId) throw httpError(403, 'Completion userId must match actor user id');
+    const actorUserId = getActorUserId(request);
     const item = await prisma.checklistItem.findUniqueOrThrow({ where: { id }, include: { assignments: true } });
     await requireTripMember(item.tripId, actorUserId);
     if (item.assignments.length && !item.assignments.some((assignment) => assignment.userId === actorUserId)) {
@@ -142,7 +141,7 @@ export async function checklistRoutes(app: FastifyInstance) {
     schema: {
       tags: ['checklist'],
       summary: 'Delete checklist item',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: deleteChecklistItemSchema,
       response: { 204: emptyResponseSchema },

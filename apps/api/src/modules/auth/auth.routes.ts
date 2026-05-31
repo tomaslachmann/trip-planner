@@ -34,7 +34,7 @@ export async function authRoutes(app: FastifyInstance) {
     schema: {
       tags: ['auth'],
       summary: 'Get current session user',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       response: { 200: jsonResponseSchema },
     },
   }, async (request) => {
@@ -47,7 +47,7 @@ export async function authRoutes(app: FastifyInstance) {
     schema: {
       tags: ['auth'],
       summary: 'Clear current session',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       response: { 200: z.object({ ok: z.boolean() }) },
     },
   }, async (request) => {

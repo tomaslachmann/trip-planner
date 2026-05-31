@@ -19,7 +19,6 @@ export const updateChecklistItemSchema = actorUserIdSchema.extend({
 });
 
 export const completeChecklistItemSchema = actorUserIdSchema.extend({
-  userId: z.string().min(1).optional(),
   completed: z.boolean(),
 });
 

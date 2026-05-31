@@ -24,7 +24,7 @@ export async function pollRoutes(app: FastifyInstance) {
     schema: {
       tags: ['polls'],
       summary: 'List trip polls',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: tripIdParamSchema,
       querystring: actorQuerySchema,
       response: { 200: jsonResponseSchema },
@@ -44,7 +44,7 @@ export async function pollRoutes(app: FastifyInstance) {
     schema: {
       tags: ['polls'],
       summary: 'Create poll',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       body: createPollSchema,
       response: { 201: jsonResponseSchema },
     },
@@ -84,7 +84,7 @@ export async function pollRoutes(app: FastifyInstance) {
     schema: {
       tags: ['polls'],
       summary: 'Update poll',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: updatePollSchema,
       response: { 200: jsonResponseSchema },
@@ -111,7 +111,7 @@ export async function pollRoutes(app: FastifyInstance) {
     schema: {
       tags: ['polls'],
       summary: 'Delete poll',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: deletePollSchema,
       response: { 204: emptyResponseSchema },
@@ -130,7 +130,7 @@ export async function pollRoutes(app: FastifyInstance) {
     schema: {
       tags: ['polls'],
       summary: 'Vote for poll option',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: votePollOptionSchema,
       response: { 201: jsonResponseSchema },
@@ -138,8 +138,7 @@ export async function pollRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = votePollOptionSchema.parse(request.body ?? {});
-    const actorUserId = getActorUserId(request, { actorUserId: body.actorUserId ?? body.userId });
-    if (body.userId && body.userId !== actorUserId) throw httpError(403, 'Vote userId must match actor user id');
+    const actorUserId = getActorUserId(request);
     const option = await prisma.pollOption.findUniqueOrThrow({ where: { id }, include: { poll: { include: { options: true } } } });
     await requireTripMember(option.poll.tripId, actorUserId);
     if (option.poll.status !== 'OPEN') throw httpError(409, 'Poll is closed');
@@ -158,7 +157,7 @@ export async function pollRoutes(app: FastifyInstance) {
     schema: {
       tags: ['polls'],
       summary: 'Remove own poll option vote',
-      security: [{ actorUserId: [] }],
+      security: [{ bearerAuth: [] }],
       params: idParamSchema,
       body: votePollOptionSchema,
       response: { 204: emptyResponseSchema },

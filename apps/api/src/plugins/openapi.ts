@@ -14,7 +14,7 @@ export async function registerOpenApi(app: FastifyInstance) {
       servers: [{ url: 'http://localhost:3001' }],
       components: {
         securitySchemes: {
-          actorUserId: {
+          bearerAuth: {
             type: 'http',
             scheme: 'bearer',
             bearerFormat: 'JWT',
