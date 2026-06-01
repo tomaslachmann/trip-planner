@@ -185,13 +185,17 @@ export function MapCanvas({
       }).addTo(map);
       layerRef.current = leaflet.layerGroup().addTo(map);
       mapRef.current = map;
-      onViewportChange?.({ latitude: map.getCenter().lat, longitude: map.getCenter().lng, zoom: map.getZoom() });
-      map.on('moveend zoomend', () => {
+
+      const emitViewportChange = () => {
         const center = map.getCenter();
+        if (!Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return;
         onViewportChange?.({ latitude: center.lat, longitude: center.lng, zoom: map.getZoom() });
-      });
+      };
+
       const initialPoints = allPoints(places, accommodations, showStays);
       fitMap(map, leaflet, initialPoints);
+      emitViewportChange();
+      map.on('moveend zoomend', emitViewportChange);
       fittedInitialDataRef.current = initialPoints.length > 0;
       setReady(true);
     }
