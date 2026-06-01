@@ -1,7 +1,7 @@
 'use client';
 
-import { Check, Circle, MapPin, Plus, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Circle, MapPin, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChipButton, ChipGroup } from '@/components/ui/chip-group';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
+import { isMemberAvailableForRange, memberAvailabilitySummary } from '../lib/availability';
 import { categoryMeta } from './category';
 import { LocationCombobox } from './location-combobox';
 
@@ -31,6 +32,18 @@ function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
       <span aria-hidden="true" style={{ width: 64 }} />
     </div>
   );
+}
+
+function dayTimeToIso(dayDate: string, value?: string) {
+  if (!value) return undefined;
+  return new Date(`${dayDate.slice(0, 10)}T${value}:00`).toISOString();
+}
+
+function isoPlusMinutes(value: string | undefined, minutes?: number | null) {
+  if (!value || !minutes) return undefined;
+  const date = new Date(value);
+  date.setMinutes(date.getMinutes() + minutes);
+  return date.toISOString();
 }
 
 /* ── inline delete confirm ── */
@@ -320,9 +333,34 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
   const members = state.selectedTrip?.members ?? [];
   const [pick, setPick] = useState(approved[0]?.id ?? '');
   const [dayId, setDayId] = useState(initialDayId ?? state.data.itinerary[0]?.id ?? 'default');
+  const [startsAtTime, setStartsAtTime] = useState('09:30');
+  const [endsAtTime, setEndsAtTime] = useState('');
   const [participants, setParticipants] = useState<Record<string, boolean>>(() => Object.fromEntries(members.map((member) => [member.id, true])));
-  const selectedParticipantIds = members.filter((member) => participants[member.id]).map((member) => member.id);
+  const selectedDay = state.data.itinerary.find((day) => day.id === dayId);
+  const selectedPlace = approved.find((place) => place.id === pick);
+  const selectedDayDate = selectedDay?.date ?? state.selectedTrip?.startsAt ?? new Date().toISOString();
+  const computedStartsAt = useMemo(() => dayTimeToIso(selectedDayDate, startsAtTime), [selectedDayDate, startsAtTime]);
+  const computedEndsAt = useMemo(() => dayTimeToIso(selectedDayDate, endsAtTime) ?? isoPlusMinutes(computedStartsAt, selectedPlace?.durationMin), [computedStartsAt, endsAtTime, selectedDayDate, selectedPlace?.durationMin]);
+  const participantAvailability = useMemo<Record<string, boolean>>(
+    () => Object.fromEntries(members.map((member) => [member.id, isMemberAvailableForRange(member, computedStartsAt, computedEndsAt)])),
+    [computedEndsAt, computedStartsAt, members],
+  );
+  const selectedParticipantIds = members.filter((member) => participantAvailability[member.id] !== false && participants[member.id]).map((member) => member.id);
   const hasParticipants = members.length === 0 || selectedParticipantIds.length > 0;
+
+  useEffect(() => {
+    setParticipants((current) => {
+      let changed = false;
+      const next: Record<string, boolean> = {};
+      for (const member of members) {
+        const available = participantAvailability[member.id] ?? true;
+        next[member.id] = available && (current[member.id] ?? true);
+        if (next[member.id] !== current[member.id]) changed = true;
+      }
+      if (Object.keys(current).length !== members.length) changed = true;
+      return changed ? next : current;
+    });
+  }, [members, participantAvailability]);
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -336,8 +374,8 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
             const fd = new FormData(event.currentTarget);
             if (!pick) return;
             void actions.addPlaceToItinerary(pick, dayId === 'default' ? undefined : dayId, {
-              startsAtTime: String(fd.get('startsAtTime') ?? '').trim() || undefined,
-              endsAtTime: String(fd.get('endsAtTime') ?? '').trim() || undefined,
+              startsAtTime: startsAtTime.trim() || undefined,
+              endsAtTime: endsAtTime.trim() || undefined,
               note: String(fd.get('note') ?? '').trim() || undefined,
               tripMemberIds: selectedParticipantIds,
             });
@@ -381,11 +419,11 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
             </div>
             <div className="flex1">
               <Label htmlFor="startsAtTime">Čas začátku</Label>
-              <Input id="startsAtTime" name="startsAtTime" type="time" defaultValue="09:30" />
+              <Input id="startsAtTime" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} />
             </div>
             <div className="flex1">
               <Label htmlFor="endsAtTime">Konec</Label>
-              <Input id="endsAtTime" name="endsAtTime" type="time" placeholder="auto" />
+              <Input id="endsAtTime" name="endsAtTime" type="time" value={endsAtTime} onChange={(event) => setEndsAtTime(event.target.value)} placeholder="auto" />
             </div>
           </div>
 
@@ -393,26 +431,33 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
             <>
               <Label className="mt16">Kdo se účastní</Label>
               <div className="col mt8" style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-                {members.map((member, index) => (
-                  <div key={member.id}>
-                    {index > 0 && <hr className="sep" />}
-                    <button
-                      className="row g10 between"
-                      type="button"
-                      aria-pressed={!!participants[member.id]}
-                      style={{ width: '100%', padding: '10px 12px', textAlign: 'left', cursor: 'pointer', border: 0, background: 'transparent', color: 'inherit' }}
-                      onClick={() => setParticipants((current) => ({ ...current, [member.id]: !current[member.id] }))}
-                    >
-                      <span className="row g10">
-                        <span className={`badge ${participants[member.id] ? 'solid' : 'muted'}`} style={{ width: 22, height: 22, padding: 0, justifyContent: 'center' }}>
-                          {participants[member.id] && <Check size={13} />}
+                {members.map((member, index) => {
+                  const isAvailable = participantAvailability[member.id] !== false;
+                  return (
+                    <div key={member.id} title={memberAvailabilitySummary(member)}>
+                      {index > 0 && <hr className="sep" />}
+                      <div
+                        className="row g10 between"
+                        style={{ width: '100%', padding: '10px 12px', textAlign: 'left', opacity: isAvailable ? 1 : 0.58 }}
+                      >
+                        <span className="row g10" style={{ minWidth: 0 }}>
+                          <Checkbox
+                            id={`itinerary-participant-${member.id}`}
+                            checked={isAvailable && !!participants[member.id]}
+                            disabled={!isAvailable}
+                            onCheckedChange={(checked) => setParticipants((current) => ({ ...current, [member.id]: checked === true }))}
+                          />
+                          <Label htmlFor={`itinerary-participant-${member.id}`} className="t-sm medi" style={{ cursor: isAvailable ? 'pointer' : 'not-allowed' }}>
+                            {member.user.name}
+                          </Label>
                         </span>
-                        <span className="t-sm medi">{member.user.name}</span>
-                      </span>
-                      <span className="muted t-xs">{member.role}</span>
-                    </button>
-                  </div>
-                ))}
+                        <span className={isAvailable ? 'muted t-xs' : 'badge amber'}>
+                          {isAvailable ? member.role : 'Mimo dostupnost'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}

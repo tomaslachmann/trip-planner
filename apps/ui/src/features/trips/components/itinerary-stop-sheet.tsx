@@ -1,13 +1,14 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
+import { isMemberAvailableForRange, memberAvailabilitySummary } from '../lib/availability';
 import type { ItineraryDay, ItineraryStop } from '../types';
 import type { TripMember } from '../types';
 
@@ -49,7 +50,13 @@ export function ItineraryStopSheet({
   const [attendance, setAttendance] = useState<Record<string, AttendanceChoice>>(initialAttendance);
   const [startsAtTime, setStartsAtTime] = useState(toTimeInput(editing.stop.startsAt));
   const [endsAtTime, setEndsAtTime] = useState(toTimeInput(editing.stop.endsAt));
-  const selectedParticipantIds = members.filter((member) => attendance[member.id] !== 'OUT').map((member) => member.id);
+  const computedStartsAt = useMemo(() => dayTimeToIso(editing.day, startsAtTime), [editing.day, startsAtTime]);
+  const computedEndsAt = useMemo(() => dayTimeToIso(editing.day, endsAtTime), [editing.day, endsAtTime]);
+  const participantAvailability = useMemo<Record<string, boolean>>(
+    () => Object.fromEntries(members.map((member) => [member.id, isMemberAvailableForRange(member, computedStartsAt, computedEndsAt)])),
+    [computedEndsAt, computedStartsAt, members],
+  );
+  const selectedParticipantIds = members.filter((member) => participantAvailability[member.id] !== false && attendance[member.id] !== 'OUT').map((member) => member.id);
   const hasParticipants = members.length === 0 || selectedParticipantIds.length > 0;
   const durationMinutes = startsAtTime && endsAtTime
     ? Math.max(0, Math.round((new Date(`${editing.day.date.slice(0, 10)}T${endsAtTime}:00`).getTime() - new Date(`${editing.day.date.slice(0, 10)}T${startsAtTime}:00`).getTime()) / 60000))
@@ -61,6 +68,20 @@ export function ItineraryStopSheet({
     next.setMinutes(next.getMinutes() + minutes);
     setEndsAtTime(next.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', hour12: false }));
   }
+
+  useEffect(() => {
+    setAttendance((current) => {
+      let changed = false;
+      const next: Record<string, AttendanceChoice> = {};
+      for (const member of members) {
+        const currentChoice = current[member.id] ?? 'GOING';
+        next[member.id] = participantAvailability[member.id] === false ? 'OUT' : currentChoice;
+        if (next[member.id] !== current[member.id]) changed = true;
+      }
+      if (Object.keys(current).length !== members.length) changed = true;
+      return changed ? next : current;
+    });
+  }, [members, participantAvailability]);
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -111,27 +132,31 @@ export function ItineraryStopSheet({
               <div className="col mt8" style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                 {members.map((member, index) => {
                   const choices: AttendanceChoice[] = member.id === actorTripMemberId ? ['GOING', 'MAYBE', 'NO', 'OUT'] : ['GOING', 'OUT'];
+                  const isAvailable = participantAvailability[member.id] !== false;
+                  const effectiveAttendance = isAvailable ? attendance[member.id] : 'OUT';
                   return (
-                    <div key={member.id}>
+                    <div key={member.id} title={memberAvailabilitySummary(member)}>
                       {index > 0 && <hr className="sep" />}
-                      <div className="row g10 between" style={{ width: '100%', padding: '10px 12px' }}>
+                      <div className="row g10 between" style={{ width: '100%', padding: '10px 12px', opacity: isAvailable ? 1 : 0.58 }}>
                         <span className="row g10">
-                          <span className={`badge ${attendance[member.id] !== 'OUT' ? 'solid' : 'muted'}`} style={{ width: 22, height: 22, padding: 0, justifyContent: 'center' }}>
-                            {attendance[member.id] !== 'OUT' && <Check size={13} />}
+                          <span className={`badge ${effectiveAttendance !== 'OUT' ? 'solid' : 'muted'}`} style={{ width: 22, height: 22, padding: 0, justifyContent: 'center' }}>
+                            {effectiveAttendance !== 'OUT' && <Check size={13} />}
                           </span>
                           <span className="t-sm medi">{member.user.name}</span>
                         </span>
                         <div className="row g4 wrap" style={{ justifyContent: 'flex-end' }}>
                           {choices.map((status) => (
                             <button
-                              className={`chip${attendance[member.id] === status ? ' on' : ''}`}
+                              className={`chip${effectiveAttendance === status ? ' on' : ''}`}
                               key={status}
                               type="button"
+                              disabled={!isAvailable && status !== 'OUT'}
                               onClick={() => setAttendance((current) => ({ ...current, [member.id]: status }))}
                             >
                               {status === 'GOING' ? 'Jde' : status === 'MAYBE' ? 'Možná' : status === 'NO' ? 'Nejde' : 'Mimo'}
                             </button>
                           ))}
+                          {!isAvailable && <span className="badge amber">Mimo dostupnost</span>}
                         </div>
                       </div>
                     </div>
