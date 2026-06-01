@@ -8,6 +8,12 @@ import { requireJwt } from '../auth/jwt.js';
 import { syncItineraryDaysForTrip } from '../itinerary/itinerary.service.js';
 import { createTripSchema, deleteTripSchema, inviteCodeParamSchema, joinTripSchema, tripInvitePreviewResponseSchema, tripMemberResponseSchema, tripSummaryListResponseSchema, tripSummaryResponseSchema, updateTripMemberRoleSchema, updateTripSchema } from './trip.schemas.js';
 
+const tripPlaceInclude = {
+  votes: true,
+  comments: { include: { user: true }, orderBy: { createdAt: 'asc' as const } },
+  dayVotes: true,
+};
+
 export async function tripRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
 
@@ -82,7 +88,7 @@ export async function tripRoutes(app: FastifyInstance) {
       where: { id },
       include: {
         members: { include: { user: true, availabilityWindows: true } },
-        places: { include: { votes: true, comments: true, dayVotes: true } },
+        places: { include: tripPlaceInclude },
         expenses: { include: { splits: true } },
         itineraryDays: { include: { basePlace: true, placeVotes: true, stops: { include: { place: true, participants: true } } } },
         routePlans: { include: { legs: true } },

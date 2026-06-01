@@ -54,7 +54,7 @@ export type Place = {
   accommodationStatus?: string | null;
   votes?: Array<{ userId?: string; value: string }>;
   dayVotes?: Array<{ itineraryDayId?: string; userId?: string; value: string }>;
-  comments?: Array<{ id?: string; userId?: string; body?: string; createdAt?: string }>;
+  comments?: Array<{ id?: string; userId?: string; body?: string; createdAt?: string; user?: { id: string; name: string; email: string } }>;
 };
 
 export type ItineraryStop = {

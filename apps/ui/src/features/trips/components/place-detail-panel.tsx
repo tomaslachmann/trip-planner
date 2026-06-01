@@ -9,6 +9,7 @@ import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { normalizePlaceStatus, placeRecommendationScore, placeStatusMeta, type PlaceStatus } from '../lib/decision';
 import type { Place } from '../types';
 import { CategoryBadge } from './category';
+import { PlaceCommentCard } from './place-comment-card';
 
 function voteCounts(place: Place) {
   const values = place.votes ?? [];
@@ -52,7 +53,7 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
   return (
     <div className="col" style={{ height: '100%', minHeight: 0 }}>
       <div className="scroll p18" style={{ flex: 1 }}>
-        <div className="receipt center" style={{ height: compact ? 118 : 156, borderRadius: 14, border: '1px solid var(--border)' }}>
+        <div className="receipt center flex justify-center" style={{ height: compact ? 118 : 156, borderRadius: 14, border: '1px solid var(--border)' }}>
           <span className="row g6 t-xs mono muted"><MapPin />foto místa</span>
         </div>
         <div className="row between g8 mt16">
@@ -102,9 +103,7 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
         <div className="row between mt16 mb12"><span className="t-h3">Komentáře</span><span className="badge muted">{place.comments?.length ?? 0}</span></div>
         <div className="col g12">
           {(place.comments ?? []).map((comment) => (
-            <Card className="p-[14px]" key={comment.id ?? `${comment.userId}-${comment.body}`}>
-              <span className="t-sm">{comment.body}</span>
-            </Card>
+            <PlaceCommentCard comment={comment} key={comment.id ?? `${comment.userId}-${comment.body}`} />
           ))}
         </div>
         <div className="relative mt8" style={{ marginBottom: 18 }}>

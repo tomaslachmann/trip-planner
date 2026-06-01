@@ -7,6 +7,12 @@ import { actorQuerySchema, emptyResponseSchema, idParamSchema, jsonResponseSchem
 import { commentPlaceSchema, createPlaceSchema, deletePlaceSchema, updatePlaceSchema, votePlaceSchema } from './place.schemas.js';
 import { recordActivity } from '../activity/activity.service.js';
 
+const placeInclude = {
+  votes: true,
+  comments: { include: { user: true }, orderBy: { createdAt: 'asc' as const } },
+  dayVotes: true,
+};
+
 export async function placeRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
 
@@ -23,7 +29,7 @@ export async function placeRoutes(app: FastifyInstance) {
     const { tripId } = request.params as { tripId: string };
     const actorUserId = getActorUserId(request);
     await requireTripMember(tripId, actorUserId);
-    return prisma.place.findMany({ where: { tripId }, include: { votes: true, comments: true, dayVotes: true } });
+    return prisma.place.findMany({ where: { tripId }, include: placeInclude });
   });
 
   routes.post('', {
@@ -158,7 +164,10 @@ export async function placeRoutes(app: FastifyInstance) {
     const place = await prisma.place.findUniqueOrThrow({ where: { id } });
     await requireTripMember(place.tripId, actorUserId);
 
-    const comment = await prisma.placeComment.create({ data: { placeId: id, userId: actorUserId, body: body.body } });
+    const comment = await prisma.placeComment.create({
+      data: { placeId: id, userId: actorUserId, body: body.body },
+      include: { user: true },
+    });
     return reply.code(201).send(comment);
   });
 }

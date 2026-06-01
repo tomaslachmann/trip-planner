@@ -9,6 +9,7 @@ import { AvatarRow } from './avatar';
 import { CategoryBadge } from './category';
 import { AiInsightsPanel } from './ai-insights-panel';
 import { MapCanvas } from './map-canvas';
+import { PlaceCommentCard } from './place-comment-card';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { normalizePlaceStatus, placeRecommendationScore, placeStatusMeta } from '../lib/decision';
 import type { DiscoveryPlace, Place } from '../types';
@@ -458,9 +459,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <div className="row between mt16 mb12"><span className="t-h3">Komentáře</span><span className="badge muted">{state.selectedPlace.comments?.length ?? 0}</span></div>
                 <div className="col g12">
                   {(state.selectedPlace.comments ?? []).map((comment) => (
-                    <Card className="p-[14px]" key={comment.id ?? `${comment.userId}-${comment.body}`}>
-                      <span className="t-sm">{comment.body}</span>
-                    </Card>
+                    <PlaceCommentCard comment={comment} key={comment.id ?? `${comment.userId}-${comment.body}`} />
                   ))}
                 </div>
                 <div className="relative mt8" style={{ marginBottom: 18 }}>
