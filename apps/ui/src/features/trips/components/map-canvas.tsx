@@ -187,7 +187,13 @@ export function MapCanvas({
       mapRef.current = map;
 
       const emitViewportChange = () => {
-        const center = map.getCenter();
+        if (mapRef.current !== map) return;
+        let center;
+        try {
+          center = map.getCenter();
+        } catch {
+          return;
+        }
         if (!Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return;
         onViewportChange?.({ latitude: center.lat, longitude: center.lng, zoom: map.getZoom() });
       };

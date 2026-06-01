@@ -1,10 +1,11 @@
-import { ArrowUpDown, Banknote, BedDouble, ChevronRight, Clock, LocateFixed, MapPin, MessageCircle, Radio, Search, Star, ThumbsDown, ThumbsUp, Users, X } from 'lucide-react';
+import { ArrowUpDown, Banknote, BedDouble, ChevronRight, Clock, ExternalLink, LocateFixed, MapPin, MessageCircle, Radio, Search, Star, ThumbsDown, ThumbsUp, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChipGroup } from '@/components/ui/chip-group';
 import { DockedSheet, dockSnapHeights, type DockSnap } from '@/components/ui/docked-sheet';
 import { Input } from '@/components/ui/input';
+import { apiFetch } from '@/lib/api';
 import { AvatarRow } from './avatar';
 import { CategoryBadge } from './category';
 import { AiInsightsPanel } from './ai-insights-panel';
@@ -14,7 +15,7 @@ import { PlaceScoreBadge } from './place-score-badge';
 import { StatusActionButton } from './status-action-button';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { normalizePlaceStatus, placeStatusMeta } from '../lib/decision';
-import type { DiscoveryPlace, Place } from '../types';
+import type { DiscoveryPlace, Place, WikipediaPlaceSummary } from '../types';
 
 const filters = [
   { key: 'ALL', label: 'Vše' },
@@ -23,8 +24,134 @@ const filters = [
   { key: 'ACTIVITY', label: 'Aktivity' },
   { key: 'DAY_TRIP', label: 'Výlety' },
   { key: 'ACCOMMODATION', label: 'Ubytování' },
-  { key: 'TRANSPORT', label: 'Doprava' },
 ];
+
+const discoveryCategoryLabels: Record<DiscoveryPlace['category'], string> = {
+  SIGHTS: 'Památky',
+  FOOD: 'Jídlo',
+  ACTIVITY: 'Aktivity',
+  TRANSPORT: 'Doprava',
+};
+
+const discoveryCategoryClasses: Record<DiscoveryPlace['category'], string> = {
+  SIGHTS: 'see',
+  FOOD: 'food',
+  ACTIVITY: 'act',
+  TRANSPORT: 'trans',
+};
+
+const discoveryTypeLabels: Record<string, string> = {
+  attraction: 'Zajímavost',
+  museum: 'Muzeum',
+  gallery: 'Galerie',
+  viewpoint: 'Vyhlídka',
+  artwork: 'Umění',
+  zoo: 'Zoo',
+  theme_park: 'Zábavní park',
+  restaurant: 'Restaurace',
+  cafe: 'Kavárna',
+  bar: 'Bar',
+  pub: 'Hospoda',
+  fast_food: 'Rychlé občerstvení',
+  biergarten: 'Biergarten',
+  food_court: 'Food court',
+  park: 'Park',
+  sports_centre: 'Sportoviště',
+  swimming_pool: 'Bazén',
+  playground: 'Hřiště',
+  stadium: 'Stadion',
+  bus_station: 'Autobusové nádraží',
+  ferry_terminal: 'Přívoz',
+  taxi: 'Taxi',
+};
+
+function discoveryCategoryLabel(category: DiscoveryPlace['category']) {
+  return discoveryCategoryLabels[category] ?? category;
+}
+
+function discoveryCategoryClass(category: DiscoveryPlace['category']) {
+  return discoveryCategoryClasses[category] ?? 'see';
+}
+
+function discoveryTypeLabel(type?: string) {
+  if (!type) return 'Objevené místo';
+  return discoveryTypeLabels[type] ?? type.replaceAll('_', ' ');
+}
+
+function DiscoveryDetailCard({
+  discovery,
+  summary,
+  loading,
+  compact = false,
+  onSave,
+  onClose,
+}: {
+  discovery: DiscoveryPlace;
+  summary?: WikipediaPlaceSummary | null;
+  loading: boolean;
+  compact?: boolean;
+  onSave: () => void;
+  onClose?: () => void;
+}) {
+  const imageUrl = summary?.imageUrl ?? discovery.imageUrl;
+  const description = summary?.extract ?? discovery.description;
+  const pageUrl = summary?.pageUrl ?? discovery.wikipediaUrl;
+
+  return (
+    <Card className={compact ? 'p-[12px] shadow-[var(--sh-sm)]' : 'p-[14px] shadow-[var(--sh-md)]'}>
+      <div className="row between mb10">
+        <div className="row g6 wrap">
+          <span className={`badge cat-${discoveryCategoryClass(discovery.category)}`}>{discoveryCategoryLabel(discovery.category)}</span>
+          <span className="badge muted">{discoveryTypeLabel(discovery.type)}</span>
+          {summary && <span className="badge muted">Wikipedie</span>}
+        </div>
+        {onClose && <Button size="icon" variant="ghost" type="button" onClick={onClose}><X /></Button>}
+      </div>
+      <div className="row g12" style={{ alignItems: 'flex-start' }}>
+        {imageUrl ? (
+          <img
+            alt={discovery.name}
+            src={imageUrl}
+            style={{ width: compact ? 72 : 112, height: compact ? 72 : 92, objectFit: 'cover', borderRadius: 12, border: '1px solid var(--border)', flex: '0 0 auto' }}
+          />
+        ) : (
+          <div className="receipt center" style={{ width: compact ? 72 : 112, height: compact ? 72 : 92, borderRadius: 12, border: '1px solid var(--border)', flex: '0 0 auto' }}>
+            <MapPin className="faint" />
+          </div>
+        )}
+        <div className="col flex1" style={{ minWidth: 0 }}>
+          <span className={compact ? 't-h2' : 't-title'}>{discovery.name}</span>
+          <span className="muted t-sm mt4">{summary?.description ?? discoveryTypeLabel(discovery.type)}</span>
+          {loading ? (
+            <span className="muted t-sm mt10">Dohledávám popis z Wikipedie...</span>
+          ) : description ? (
+            <p className="t-body mt10" style={{ color: '#3f3f46' }}>{description}</p>
+          ) : (
+            <p className="muted t-sm mt10">K tomuhle místu jsem na Wikipedii nenašel spolehlivý popis. Můžeš ho uložit z OpenStreetMap a doplnit poznámky ručně.</p>
+          )}
+        </div>
+      </div>
+      <div className="row g8 mt12 wrap">
+        <Button size="sm" type="button" onClick={onSave}>Uložit místo</Button>
+        {pageUrl && (
+          <Button size="sm" variant="outline" type="button" asChild>
+            <a href={pageUrl} target="_blank" rel="noreferrer"><ExternalLink />Wikipedie</a>
+          </Button>
+        )}
+        {discovery.websiteUrl && (
+          <Button size="sm" variant="outline" type="button" asChild>
+            <a href={discovery.websiteUrl} target="_blank" rel="noreferrer"><ExternalLink />Web</a>
+          </Button>
+        )}
+        {discovery.sourceUrl && (
+          <Button size="sm" variant="ghost" type="button" asChild>
+            <a href={discovery.sourceUrl} target="_blank" rel="noreferrer">OpenStreetMap</a>
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 function votes(place: Place) {
   const values = place.votes ?? [];
@@ -55,6 +182,14 @@ function placeWeatherLabel(planner: TripPlannerController) {
   return `${temp} · déšť ${forecast.precipitationProbabilityMax ?? 0}%`;
 }
 
+function discoveryCategoryForContext(filter: string, selectedPlace?: Place): DiscoveryPlace['category'] {
+  if (filter === 'FOOD') return 'FOOD';
+  if (filter === 'ACTIVITY' || filter === 'DAY_TRIP') return 'ACTIVITY';
+  if (selectedPlace?.type === 'FOOD') return 'FOOD';
+  if (selectedPlace?.type === 'ACTIVITY' || selectedPlace?.type === 'DAY_TRIP') return 'ACTIVITY';
+  return 'SIGHTS';
+}
+
 export function MapScreen({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
   const [filter, setFilter] = useState('ALL');
@@ -62,8 +197,9 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const [detailOpen, setDetailOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [mapSearch, setMapSearch] = useState('');
-  const [discoveryCategory, setDiscoveryCategory] = useState<DiscoveryPlace['category']>('SIGHTS');
   const [selectedDiscovery, setSelectedDiscovery] = useState<DiscoveryPlace | null>(null);
+  const [discoveryDetails, setDiscoveryDetails] = useState<Record<string, WikipediaPlaceSummary | null>>({});
+  const [loadingDiscoveryDetailId, setLoadingDiscoveryDetailId] = useState('');
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const showStays = filter === 'ACCOMMODATION';
   const filteredPlaces = useMemo(() => {
@@ -88,6 +224,39 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
     setSnap('peek');
   }
 
+  async function loadDiscoveryDetail(discovery: DiscoveryPlace) {
+    if (discoveryDetails[discovery.externalId] !== undefined || loadingDiscoveryDetailId === discovery.externalId) return;
+    setLoadingDiscoveryDetailId(discovery.externalId);
+    try {
+      const result = await apiFetch<{ result: WikipediaPlaceSummary | null }>(
+        `/locations/wikipedia-summary?name=${encodeURIComponent(discovery.wikipediaTitle ?? discovery.name)}&latitude=${encodeURIComponent(discovery.latitude)}&longitude=${encodeURIComponent(discovery.longitude)}&language=cs&radiusMeters=1400`,
+      );
+      setDiscoveryDetails((current) => ({ ...current, [discovery.externalId]: result.result }));
+      if (result.result) {
+        setSelectedDiscovery((current) => current?.externalId === discovery.externalId
+          ? {
+              ...current,
+              description: result.result?.extract ?? current.description,
+              imageUrl: result.result?.imageUrl ?? current.imageUrl,
+              wikipediaTitle: result.result?.title ?? current.wikipediaTitle,
+              wikipediaUrl: result.result?.pageUrl ?? current.wikipediaUrl,
+            }
+          : current);
+      }
+    } catch {
+      setDiscoveryDetails((current) => ({ ...current, [discovery.externalId]: null }));
+    } finally {
+      setLoadingDiscoveryDetailId((current) => current === discovery.externalId ? '' : current);
+    }
+  }
+
+  function selectDiscovery(discovery: DiscoveryPlace) {
+    setSelectedDiscovery(discovery);
+    actions.setSelectedPlaceId('');
+    setSnap('half');
+    void loadDiscoveryDetail(discovery);
+  }
+
   function setMapFilter(next: string) {
     setFilter(next);
     setSnap('half');
@@ -95,15 +264,15 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   }
 
   function discoverAroundMap() {
-    const center = mapCenter ?? state.selectedPlace ?? state.data.places[0];
+    const center = state.selectedPlace ?? mapCenter ?? state.data.places[0];
     if (!center) {
       return;
     }
     void actions.discoverPlaces({
       latitude: center.latitude,
       longitude: center.longitude,
-      category: discoveryCategory,
-      radiusMeters: 3000,
+      category: activeDiscoveryCategory,
+      radiusMeters: activeDiscoveryCategory === 'ACTIVITY' ? 1800 : 3000,
     });
   }
 
@@ -118,9 +287,13 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
     : undefined;
   const selectedAccommodationVote = selectedAccommodationPlace?.votes?.find((vote) => vote.userId === state.actorUserId)?.value;
   const selectedAccommodationStatus = String(selectedAccommodationPlace?.accommodationStatus ?? '').toUpperCase();
+  const selectedDiscoveryDetail = selectedDiscovery ? discoveryDetails[selectedDiscovery.externalId] : undefined;
+  const selectedDiscoveryLoading = selectedDiscovery ? loadingDiscoveryDetailId === selectedDiscovery.externalId : false;
   const selectedWeather = placeWeatherLabel(planner);
   const selectedStatus = normalizePlaceStatus(state.selectedPlace?.status);
   const selectedStatusMeta = placeStatusMeta[selectedStatus];
+  const activeDiscoveryCategory = discoveryCategoryForContext(filter, state.selectedPlace);
+  const discoverButtonLabel = state.selectedPlace ? 'Objevit u místa' : 'Objevit v mapě';
   const canChangeSelectedStatus = state.selectedPlace
     ? state.selectedPlace.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN'
     : false;
@@ -137,11 +310,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
         selectedAccommodationId={state.selectedAccommodationId}
         onPlaceSelect={selectPlace}
         onAccommodationSelect={selectStay}
-        onDiscoverySelect={(discovery) => {
-          setSelectedDiscovery(discovery);
-          actions.setSelectedPlaceId('');
-          setSnap('peek');
-        }}
+        onDiscoverySelect={selectDiscovery}
         onViewportChange={setMapCenter}
         showStays={showStays}
       >
@@ -165,20 +334,11 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
           <ChipGroup value={filter} options={filters.map((item) => ({ value: item.key, label: item.label }))} onValueChange={setMapFilter} className="mt10" />
           {!showStays && (
             <div className="row g8 mt10 wrap">
-              <ChipGroup
-                value={discoveryCategory}
-                options={[
-                  { value: 'SIGHTS', label: 'Památky' },
-                  { value: 'FOOD', label: 'Jídlo' },
-                  { value: 'ACTIVITY', label: 'Aktivity' },
-                  { value: 'TRANSPORT', label: 'Doprava' },
-                ]}
-                onValueChange={(value) => setDiscoveryCategory(value as DiscoveryPlace['category'])}
-              />
+              <span className={`badge cat-${discoveryCategoryClass(activeDiscoveryCategory)}`}>{discoveryCategoryLabel(activeDiscoveryCategory)}</span>
               <Button size="sm" variant="outline" type="button" onClick={discoverAroundMap} disabled={state.discovering}>
-                <Search size={14} />{state.discovering ? 'Hledám' : 'Objevit okolí'}
+                <Search size={14} />{state.discovering ? 'Hledám' : discoverButtonLabel}
               </Button>
-              <Button size="sm" variant="outline" type="button" onClick={() => void actions.discoverNearbyCurrentLocation(discoveryCategory)}>
+              <Button size="sm" variant="outline" type="button" onClick={() => void actions.discoverNearbyCurrentLocation(activeDiscoveryCategory)}>
                 <LocateFixed size={14} />Kolem mě
               </Button>
             </div>
@@ -198,6 +358,18 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
         >
           <LocateFixed />
         </Button>
+
+        {desktop && selectedDiscovery && (
+          <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 20, width: 390, maxWidth: 'calc(100% - 32px)' }}>
+            <DiscoveryDetailCard
+              discovery={selectedDiscovery}
+              summary={selectedDiscoveryDetail}
+              loading={selectedDiscoveryLoading}
+              onSave={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}
+              onClose={() => setSelectedDiscovery(null)}
+            />
+          </div>
+        )}
 
         {!desktop && (
           <DockedSheet snap={snap} onSnapChange={setSnap}>
@@ -230,19 +402,13 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   </div>
                 </>
               ) : selectedDiscovery ? (
-                <>
-                  <div className="row between mb8">
-                    <span className="badge muted">{selectedDiscovery.category}</span>
-                    <span className="badge muted">{selectedDiscovery.provider}</span>
-                  </div>
-                  <div className="row between">
-                    <div className="col">
-                      <span className="t-h2">{selectedDiscovery.name}</span>
-                      <span className="muted t-sm mt4">{selectedDiscovery.type ?? 'Objevené místo'}</span>
-                    </div>
-                    <Button size="sm" type="button" onClick={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}>Uložit</Button>
-                  </div>
-                </>
+                <DiscoveryDetailCard
+                  compact
+                  discovery={selectedDiscovery}
+                  summary={selectedDiscoveryDetail}
+                  loading={selectedDiscoveryLoading}
+                  onSave={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}
+                />
               ) : state.selectedPlace ? (
                 <>
                   <div className="row between mb8">
@@ -309,6 +475,17 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   </div>
                 </div>
                 <div className="scroll px18" style={{ flex: 1, paddingBottom: 18 }}>
+                  {selectedDiscovery && (
+                    <div className="mb12">
+                      <DiscoveryDetailCard
+                        discovery={selectedDiscovery}
+                        summary={selectedDiscoveryDetail}
+                        loading={selectedDiscoveryLoading}
+                        onSave={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}
+                        onClose={() => setSelectedDiscovery(null)}
+                      />
+                    </div>
+                  )}
                   <AiInsightsPanel
                     compact
                     insights={state.data.aiInsights}
@@ -361,17 +538,13 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                               className="row pressable w-full text-left"
                               type="button"
                               style={{ padding: '10px 0' }}
-	                              onClick={() => {
-	                                setSelectedDiscovery(discovery);
-	                                actions.setSelectedPlaceId('');
-	                                setSnap('peek');
-	                              }}
+                              onClick={() => selectDiscovery(discovery)}
                             >
                               <div className="col flex1" style={{ minWidth: 0 }}>
                                 <span className="t-sm semib ellipsis">{discovery.name}</span>
-                                <span className="muted t-xs mt2">{discovery.type ?? discovery.category}</span>
+                                <span className="muted t-xs mt2">{discoveryTypeLabel(discovery.type)} · {discoveryCategoryLabel(discovery.category)}</span>
                               </div>
-	                              <span className="badge muted">Detail</span>
+                              <span className="badge muted">Detail</span>
                             </button>
                           </div>
                         ))}

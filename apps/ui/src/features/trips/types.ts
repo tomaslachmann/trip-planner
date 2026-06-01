@@ -222,7 +222,22 @@ export type DiscoveryPlace = {
   latitude: number;
   longitude: number;
   type?: string;
+  description?: string;
+  websiteUrl?: string;
+  wikipediaTitle?: string;
+  wikipediaUrl?: string;
+  imageUrl?: string;
   sourceUrl?: string;
+};
+
+export type WikipediaPlaceSummary = {
+  provider: 'wikipedia';
+  language: string;
+  title: string;
+  description?: string;
+  extract?: string;
+  imageUrl?: string;
+  pageUrl?: string;
 };
 
 export type LiveLocation = {

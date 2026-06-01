@@ -36,6 +36,27 @@ type OverpassElement = {
   tags?: Record<string, string>;
 };
 
+type WikipediaGeoSearchItem = {
+  title?: string;
+  dist?: number;
+};
+
+type WikipediaSearchItem = {
+  title?: string;
+};
+
+type WikipediaSummaryPayload = {
+  title?: string;
+  description?: string;
+  extract?: string;
+  thumbnail?: { source?: string };
+  originalimage?: { source?: string };
+  content_urls?: {
+    desktop?: { page?: string };
+    mobile?: { page?: string };
+  };
+};
+
 export type DiscoveryResult = {
   provider: 'overpass';
   externalId: string;
@@ -44,8 +65,23 @@ export type DiscoveryResult = {
   latitude: number;
   longitude: number;
   type?: string;
+  description?: string;
+  websiteUrl?: string;
+  wikipediaTitle?: string;
+  wikipediaUrl?: string;
+  imageUrl?: string;
   sourceUrl?: string;
   raw: unknown;
+};
+
+export type WikipediaSummaryResult = {
+  provider: 'wikipedia';
+  language: string;
+  title: string;
+  description?: string;
+  extract?: string;
+  imageUrl?: string;
+  pageUrl?: string;
 };
 
 const cache = new Map<string, { expiresAt: number; value: unknown }>();
@@ -147,11 +183,23 @@ function overpassType(tags: Record<string, string> = {}) {
   return tags.tourism ?? tags.amenity ?? tags.leisure ?? tags.public_transport ?? tags.railway;
 }
 
+function wikipediaTitle(tags: Record<string, string> = {}) {
+  const tagged = tags.wikipedia ?? tags['wikipedia:cs'] ?? tags['wikipedia:en'];
+  if (!tagged) return undefined;
+  return tagged.includes(':') ? tagged.split(':').slice(1).join(':') : tagged;
+}
+
+function wikipediaUrl(title?: string, language = 'cs') {
+  if (!title) return undefined;
+  return `https://${language}.wikipedia.org/wiki/${encodeURIComponent(title.replaceAll(' ', '_'))}`;
+}
+
 function normalizeDiscovery(element: OverpassElement, category: DiscoveryCategory): DiscoveryResult | undefined {
   const latitude = element.lat ?? element.center?.lat;
   const longitude = element.lon ?? element.center?.lon;
   const name = element.tags?.name ?? element.tags?.['name:en'] ?? element.tags?.brand;
   if (!name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
+  const wikiTitle = wikipediaTitle(element.tags);
   return {
     provider: 'overpass',
     externalId: `${element.type}:${element.id}`,
@@ -160,6 +208,11 @@ function normalizeDiscovery(element: OverpassElement, category: DiscoveryCategor
     latitude: latitude as number,
     longitude: longitude as number,
     type: overpassType(element.tags),
+    description: element.tags?.description ?? element.tags?.['description:cs'] ?? element.tags?.['description:en'],
+    websiteUrl: element.tags?.website ?? element.tags?.['contact:website'],
+    wikipediaTitle: wikiTitle,
+    wikipediaUrl: wikipediaUrl(wikiTitle),
+    imageUrl: element.tags?.image,
     sourceUrl: `https://www.openstreetmap.org/${element.type}/${element.id}`,
     raw: element,
   };
@@ -190,15 +243,18 @@ async function overpassQuery(query: string) {
 
 export async function discoverLocations(input: { latitude: number; longitude: number; radiusMeters: number; category: DiscoveryCategory; limit: number }) {
   const filter = overpassFilter(input.category);
-  const around = `(around:${input.radiusMeters},${input.latitude},${input.longitude})`;
+  const radiusMeters = input.category === 'ACTIVITY' ? Math.min(input.radiusMeters, 1800) : input.radiusMeters;
+  const limit = input.category === 'ACTIVITY' ? Math.min(input.limit, 18) : input.limit;
+  const around = `(around:${radiusMeters},${input.latitude},${input.longitude})`;
+  const relationQuery = input.category === 'ACTIVITY' ? '' : `relation${around}${filter};`;
   const query = `
     [out:json][timeout:18];
     (
       node${around}${filter};
       way${around}${filter};
-      relation${around}${filter};
+      ${relationQuery}
     );
-    out center tags ${input.limit};
+    out center tags ${limit};
   `;
   const payload = await overpassQuery(query);
   const elements = (payload as { elements?: unknown[] }).elements ?? [];
@@ -212,5 +268,132 @@ export async function discoverLocations(input: { latitude: number; longitude: nu
       seen.add(key);
       return true;
     })
-    .slice(0, input.limit);
+    .slice(0, limit);
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function titleScore(name: string, title: string) {
+  const normalizedName = normalizeText(name);
+  const normalizedTitle = normalizeText(title);
+  if (!normalizedName || !normalizedTitle) return 0;
+  if (normalizedName === normalizedTitle) return 1;
+  if (normalizedTitle.includes(normalizedName) || normalizedName.includes(normalizedTitle)) return 0.82;
+  const nameTokens = new Set(normalizedName.split(' ').filter((token) => token.length > 2));
+  const titleTokens = normalizedTitle.split(' ').filter((token) => token.length > 2);
+  if (!nameTokens.size || !titleTokens.length) return 0;
+  const shared = titleTokens.filter((token) => nameTokens.has(token)).length;
+  return shared / Math.max(nameTokens.size, titleTokens.length);
+}
+
+function wikipediaOrigin(language: string) {
+  const safeLanguage = /^[a-z-]{2,12}$/i.test(language) ? language.toLowerCase() : 'cs';
+  return `https://${safeLanguage}.wikipedia.org`;
+}
+
+async function wikipediaGet(origin: string, path: string, query: Record<string, string | number | undefined> = {}) {
+  const url = new URL(`${origin}${path}`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
+  }
+
+  const cacheKey = url.toString();
+  const cached = readCache<unknown>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': env.NOMINATIM_USER_AGENT,
+    },
+  });
+  if (response.status === 404) return undefined;
+  if (!response.ok) {
+    const text = await response.text();
+    throw httpError(response.status, `Wikipedia lookup failed: ${text.slice(0, 500)}`);
+  }
+  const payload = await response.json() as unknown;
+  writeCache(cacheKey, payload);
+  return payload;
+}
+
+async function wikipediaSummary(origin: string, title: string) {
+  const payload = await wikipediaGet(origin, `/api/rest_v1/page/summary/${encodeURIComponent(title.replaceAll(' ', '_'))}`) as WikipediaSummaryPayload | undefined;
+  if (!payload?.title) return undefined;
+  return payload;
+}
+
+function normalizeWikipediaSummary(payload: WikipediaSummaryPayload, language: string): WikipediaSummaryResult | undefined {
+  if (!payload.title) return undefined;
+  return {
+    provider: 'wikipedia',
+    language,
+    title: payload.title,
+    description: payload.description,
+    extract: payload.extract,
+    imageUrl: payload.originalimage?.source ?? payload.thumbnail?.source,
+    pageUrl: payload.content_urls?.desktop?.page ?? payload.content_urls?.mobile?.page,
+  };
+}
+
+export async function getWikipediaSummary(input: { name: string; latitude?: number; longitude?: number; language: string; radiusMeters: number }) {
+  const language = /^[a-z-]{2,12}$/i.test(input.language) ? input.language.toLowerCase() : 'cs';
+  const origin = wikipediaOrigin(language);
+  const candidates = new Map<string, number>();
+
+  if (input.latitude !== undefined && input.longitude !== undefined) {
+    const geoPayload = await wikipediaGet(origin, '/w/api.php', {
+      action: 'query',
+      list: 'geosearch',
+      gscoord: `${input.latitude}|${input.longitude}`,
+      gsradius: input.radiusMeters,
+      gslimit: 8,
+      format: 'json',
+    }) as { query?: { geosearch?: WikipediaGeoSearchItem[] } } | undefined;
+
+    for (const item of geoPayload?.query?.geosearch ?? []) {
+      if (!item.title) continue;
+      const score = titleScore(input.name, item.title) + Math.max(0, 0.3 - (item.dist ?? input.radiusMeters) / input.radiusMeters / 4);
+      candidates.set(item.title, Math.max(candidates.get(item.title) ?? 0, score));
+    }
+  }
+
+  const searchPayload = await wikipediaGet(origin, '/w/api.php', {
+    action: 'query',
+    list: 'search',
+    srsearch: input.name,
+    srlimit: 5,
+    format: 'json',
+  }) as { query?: { search?: WikipediaSearchItem[] } } | undefined;
+
+  for (const item of searchPayload?.query?.search ?? []) {
+    if (!item.title) continue;
+    candidates.set(item.title, Math.max(candidates.get(item.title) ?? 0, titleScore(input.name, item.title) + 0.25));
+  }
+
+  if (!candidates.size) candidates.set(input.name, 0.1);
+
+  const sortedTitles = [...candidates.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .map(([title]) => title)
+    .slice(0, 6);
+
+  for (const title of sortedTitles) {
+    const summary = await wikipediaSummary(origin, title);
+    const normalized = summary ? normalizeWikipediaSummary(summary, language) : undefined;
+    if (normalized?.extract || normalized?.imageUrl) return normalized;
+  }
+
+  if (language !== 'en') {
+    return getWikipediaSummary({ ...input, language: 'en' });
+  }
+
+  return null;
 }

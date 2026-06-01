@@ -1133,8 +1133,8 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         name: discovery.name,
         latitude: discovery.latitude,
         longitude: discovery.longitude,
-        description: discovery.type,
-        sourceUrl: discovery.sourceUrl,
+        description: discovery.description ?? discovery.type,
+        sourceUrl: discovery.wikipediaUrl ?? discovery.sourceUrl,
         weatherSuitability,
       },
     });

@@ -21,6 +21,14 @@ export const discoverLocationsSchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(20),
 });
 
+export const wikipediaSummarySchema = z.object({
+  name: z.string().trim().min(2),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
+  language: z.string().trim().regex(/^[a-z-]{2,12}$/i).default('cs'),
+  radiusMeters: z.coerce.number().int().positive().max(10000).default(1200),
+});
+
 export const shareLiveLocationSchema = z.object({
   latitude: latitudeSchema,
   longitude: longitudeSchema,

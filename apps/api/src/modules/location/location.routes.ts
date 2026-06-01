@@ -3,8 +3,8 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { prisma } from '../../db/prisma.js';
 import { getActorUserId, requireTripMember } from '../access/access.js';
 import { emptyResponseSchema, jsonResponseSchema, tripIdParamSchema } from '../../utils/openapiSchemas.js';
-import { discoverLocationsSchema, reverseLocationSchema, searchLocationsSchema, shareLiveLocationSchema } from './location.schemas.js';
-import { discoverLocations, reverseLocation, searchLocations } from './location.service.js';
+import { discoverLocationsSchema, reverseLocationSchema, searchLocationsSchema, shareLiveLocationSchema, wikipediaSummarySchema } from './location.schemas.js';
+import { discoverLocations, getWikipediaSummary, reverseLocation, searchLocations } from './location.service.js';
 
 export async function locationRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
@@ -49,6 +49,20 @@ export async function locationRoutes(app: FastifyInstance) {
     getActorUserId(request);
     const query = discoverLocationsSchema.parse(request.query);
     return { provider: 'overpass', results: await discoverLocations(query) };
+  });
+
+  routes.get('/wikipedia-summary', {
+    schema: {
+      tags: ['locations'],
+      summary: 'Fetch place detail from Wikipedia summary API',
+      security: [{ bearerAuth: [] }],
+      querystring: wikipediaSummarySchema,
+      response: { 200: jsonResponseSchema },
+    },
+  }, async (request) => {
+    getActorUserId(request);
+    const query = wikipediaSummarySchema.parse(request.query);
+    return { provider: 'wikipedia', result: await getWikipediaSummary(query) };
   });
 
   routes.get('/live/trip/:tripId', {
