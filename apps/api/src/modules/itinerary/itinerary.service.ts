@@ -35,7 +35,7 @@ export async function syncItineraryDaysForTrip(
   if (!days.length) return [];
 
   await client.itineraryDay.createMany({
-    data: days.map((date) => ({ tripId, date })),
+    data: days.map((date, index) => ({ tripId, date, title: `Den ${index + 1}` })),
     skipDuplicates: true,
   });
 

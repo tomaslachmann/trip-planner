@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChipButton, ChipGroup } from '@/components/ui/chip-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,9 +14,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { ValidatedForm } from '@/components/ui/validated-form';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { isMemberAvailableForRange, memberAvailabilitySummary } from '../lib/availability';
-import { categoryMeta } from './category';
+import { roleLabel } from '../lib/format';
+import { canManageTrip } from '../lib/permissions';
+import { categoryLabel, categoryMeta } from './category';
 import { LocationCombobox } from './location-combobox';
 import { Avatar } from './avatar';
+import type { ReactNode } from 'react';
 
 const EXPENSE_CATEGORIES = [
   { value: 'FOOD', label: 'Jídlo' },
@@ -36,14 +40,58 @@ function normalizeExpenseCurrency(value?: string | null): ExpenseCurrency {
   return value === 'EUR' ? 'EUR' : 'CZK';
 }
 
-/* ── shared sheet header (Cancel · Title · Save) ── */
-function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
+type ModalPresentation = 'sheet' | 'dialog';
+
+/* ── shared modal frame: mobile sheet, desktop dialog ── */
+function ModalHead({ title, onClose, presentation }: { title: string; onClose: () => void; presentation: ModalPresentation }) {
+  if (presentation === 'dialog') {
+    return (
+      <div className="trip-dialog-head">
+        <DialogTitle className="t-h3">{title}</DialogTitle>
+      </div>
+    );
+  }
+
   return (
     <div className="sheet-head">
       <Button variant="ghost" size="sm" type="button" onClick={onClose}>Zrušit</Button>
       <SheetTitle className="t-h3">{title}</SheetTitle>
       <span aria-hidden="true" style={{ width: 64 }} />
     </div>
+  );
+}
+
+function ModalFrame({
+  children,
+  onClose,
+  presentation = 'sheet',
+  sheetHeight = '94%',
+  title,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  presentation?: ModalPresentation;
+  sheetHeight?: string;
+  title: string;
+}) {
+  if (presentation === 'dialog') {
+    return (
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="trip-dialog-content flex max-h-[calc(100vh-48px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[680px]">
+          <ModalHead title={title} onClose={onClose} presentation={presentation} />
+          {children}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent style={{ height: sheetHeight }}>
+        <ModalHead title={title} onClose={onClose} presentation={presentation} />
+        {children}
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -72,7 +120,7 @@ function DeleteInline({ label, onConfirm }: { label: string; onConfirm: () => vo
 /* ──────────────────────────────────────────────────────────
    ADD EXPENSE SHEET
 ────────────────────────────────────────────────────────── */
-export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlannerController; edit?: boolean; onClose: () => void }) {
+export function AddExpenseSheet({ planner, edit, onClose, presentation = 'sheet' }: { planner: TripPlannerController; edit?: boolean; onClose: () => void; presentation?: ModalPresentation }) {
   const { state, actions } = planner;
   const members = state.selectedTrip?.members ?? [];
   const expense = edit ? state.selectedExpense : undefined;
@@ -96,9 +144,7 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: '94%' }}>
-        <SheetHead title={edit ? 'Upravit výdaj' : 'Nový výdaj'} onClose={onClose} />
+    <ModalFrame title={edit ? 'Upravit výdaj' : 'Nový výdaj'} onClose={onClose} presentation={presentation}>
         <ValidatedForm id="expense-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <input type="hidden" name="paidById" value={paidById} />
           <input type="hidden" name="splitScope" value={splitScope} />
@@ -215,8 +261,7 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
             {edit ? 'Uložit změny' : 'Přidat výdaj'}
           </button>
         </div>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }
 
@@ -245,13 +290,14 @@ const WEATHER_OPTIONS = [
   { key: 'OUTDOOR', label: 'Venku' },
 ] as const;
 
-export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlannerController; edit?: boolean; onClose: () => void }) {
+export function AddPlaceSheet({ planner, edit, onClose, presentation = 'sheet' }: { planner: TripPlannerController; edit?: boolean; onClose: () => void; presentation?: ModalPresentation }) {
   const { state, actions } = planner;
   const place = edit ? state.selectedPlace : undefined;
   const [cat, setCat] = useState<string>(place?.type ?? 'PLACE');
   const [status, setStatus] = useState<(typeof PLACE_STATUS)[number]['key']>((place?.status as (typeof PLACE_STATUS)[number]['key'] | undefined) ?? 'PROPOSED');
   const [dayId, setDayId] = useState<string>('none');
   const [weather, setWeather] = useState<string>(place?.weatherSuitability ?? 'MIXED');
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -261,17 +307,15 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
 	    const saved = edit && place?.id ? await actions.updatePlace(place.id, data) : await actions.addPlace(data);
 	    if (!saved) return;
 	    const savedPlaceId = saved?.id ?? place?.id;
-	    if (savedPlaceId) await actions.updatePlaceStatus(savedPlaceId, status);
-	    if (dayId !== 'none') {
+	    if (canManagePlanning && savedPlaceId) await actions.updatePlaceStatus(savedPlaceId, status);
+	    if (canManagePlanning && dayId !== 'none') {
       if (savedPlaceId) await actions.addPlaceToItinerary(savedPlaceId, dayId);
     }
     onClose();
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: '94%' }}>
-        <SheetHead title={edit ? 'Upravit místo' : 'Přidat místo'} onClose={onClose} />
+    <ModalFrame title={edit ? 'Upravit místo' : 'Přidat místo'} onClose={onClose} presentation={presentation}>
         <ValidatedForm id="place-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <Label htmlFor="placeName">Název</Label>
           <Input id="placeName" name="placeName" defaultValue={place?.name ?? ''} placeholder="např. Sagrada Família" autoFocus required />
@@ -313,29 +357,31 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
             </div>
           </div>
 
-          <div className="row g12 mt16">
-            <div className="flex1">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PLACE_STATUS.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+          {canManagePlanning && (
+            <div className="row g12 mt16">
+              <div className="flex1">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PLACE_STATUS.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex1">
+                <Label>Navrhovaný den</Label>
+                <Select value={dayId} onValueChange={setDayId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Žádný</SelectItem>
+                    {state.data.itinerary.map((day, index) => (
+                      <SelectItem key={day.id} value={day.id}>{day.title ?? `Den ${index + 1}`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex1">
-              <Label>Navrhovaný den</Label>
-              <Select value={dayId} onValueChange={setDayId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Žádný</SelectItem>
-                  {state.data.itinerary.map((day, index) => (
-                    <SelectItem key={day.id} value={day.id}>{day.title ?? `Den ${index + 1}`}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
           <Label className="mt16" htmlFor="notes">Poznámky</Label>
           <Textarea id="notes" rows={3} name="notes" defaultValue={place?.description ?? ''} placeholder="Tipy, info o rezervaci…" />
@@ -348,16 +394,16 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
         <div className="p16" style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <Button className="w-full" size="lg" type="submit" form="place-form">{edit ? 'Uložit změny' : 'Přidat místo'}</Button>
         </div>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }
 
 /* ──────────────────────────────────────────────────────────
    ADD ITINERARY ITEM SHEET
 ────────────────────────────────────────────────────────── */
-export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner: TripPlannerController; initialDayId?: string; onClose: () => void }) {
+export function AddItinerarySheet({ planner, initialDayId, onClose, presentation = 'sheet' }: { planner: TripPlannerController; initialDayId?: string; onClose: () => void; presentation?: ModalPresentation }) {
   const { state, actions } = planner;
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
   const approved = state.data.places;
   const members = state.selectedTrip?.members ?? [];
   const [pick, setPick] = useState(approved[0]?.id ?? '');
@@ -388,10 +434,18 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
     });
   }, [members, participantAvailability]);
 
+  if (!canManagePlanning) {
+    return (
+      <ModalFrame title="Přidat do itineráře" onClose={onClose} presentation={presentation} sheetHeight="auto">
+        <div className="px18" style={{ paddingBottom: 18 }}>
+          <p className="muted t-sm">Itinerář může upravovat jen vlastník nebo správce výletu.</p>
+        </div>
+      </ModalFrame>
+    );
+  }
+
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: 'auto' }}>
-        <SheetHead title="Přidat do itineráře" onClose={onClose} />
+    <ModalFrame title="Přidat do itineráře" onClose={onClose} presentation={presentation} sheetHeight="auto">
         <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
@@ -419,7 +473,7 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
                   <div className="row pressable" style={{ padding: '10px 0', cursor: 'pointer' }} onClick={() => setPick(p.id)}>
                     <div className="col flex1">
                       <span className="t-sm semib">{p.name}</span>
-                      <span className="faint t-xs">{p.type}</span>
+                      <span className="faint t-xs">{categoryLabel(p.type)}</span>
                     </div>
                     <div style={{ width: 22, height: 22, borderRadius: 999, border: `2px solid ${pick === p.id ? 'var(--primary)' : 'var(--border)'}`, background: pick === p.id ? 'var(--primary)' : 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {pick === p.id && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -445,11 +499,21 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
             </div>
             <div className="flex1">
               <Label htmlFor="startsAtTime">Čas začátku</Label>
-              <Input id="startsAtTime" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} required />
+              <Input id="startsAtTime" name="startsAtTime" type="time" value={startsAtTime} max={endsAtTime || undefined} onChange={(event) => setStartsAtTime(event.target.value)} required />
             </div>
             <div className="flex1">
               <Label htmlFor="endsAtTime">Konec</Label>
-              <Input id="endsAtTime" name="endsAtTime" type="time" value={endsAtTime} onChange={(event) => setEndsAtTime(event.target.value)} placeholder="auto" />
+              <Input
+                id="endsAtTime"
+                name="endsAtTime"
+                type="time"
+                value={endsAtTime}
+                min={startsAtTime || undefined}
+                data-after-field="startsAtTime"
+                data-after-message="Čas konce nemůže být před začátkem."
+                onChange={(event) => setEndsAtTime(event.target.value)}
+                placeholder="auto"
+              />
             </div>
           </div>
 
@@ -478,7 +542,7 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
                           </Label>
                         </span>
                         <span className={isAvailable ? 'muted t-xs' : 'badge amber'}>
-                          {isAvailable ? member.role : 'Mimo dostupnost'}
+                          {isAvailable ? roleLabel(member.role) : 'Mimo dostupnost'}
                         </span>
                       </div>
                     </div>
@@ -499,15 +563,14 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
             Přidat do itineráře
           </button>
         </ValidatedForm>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }
 
 /* ──────────────────────────────────────────────────────────
    ADD ACCOMMODATION SHEET
 ────────────────────────────────────────────────────────── */
-export function AddAccommodationSheet({ planner, edit, onClose }: { planner: TripPlannerController; edit?: boolean; onClose: () => void }) {
+export function AddAccommodationSheet({ planner, edit, onClose, presentation = 'sheet' }: { planner: TripPlannerController; edit?: boolean; onClose: () => void; presentation?: ModalPresentation }) {
   const { state, actions } = planner;
   const place = edit ? state.selectedPlace : undefined;
 
@@ -522,9 +585,7 @@ export function AddAccommodationSheet({ planner, edit, onClose }: { planner: Tri
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: '94%' }}>
-        <SheetHead title={edit ? 'Upravit ubytování' : 'Přidat ubytování'} onClose={onClose} />
+    <ModalFrame title={edit ? 'Upravit ubytování' : 'Přidat ubytování'} onClose={onClose} presentation={presentation}>
         <ValidatedForm id="accommodation-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <input type="hidden" name="placeType" value="ACCOMMODATION" />
           <input type="hidden" name="weatherSuitability" value="INDOOR" />
@@ -565,15 +626,14 @@ export function AddAccommodationSheet({ planner, edit, onClose }: { planner: Tri
         <div className="p16" style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <button className="btn primary block lg" type="submit" form="accommodation-form">{edit ? 'Uložit změny' : 'Přidat ubytování'}</button>
         </div>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }
 
 /* ──────────────────────────────────────────────────────────
    ADD NOTE SHEET
 ────────────────────────────────────────────────────────── */
-export function AddNoteSheet({ planner, onClose }: { planner: TripPlannerController; onClose: () => void }) {
+export function AddNoteSheet({ planner, onClose, presentation = 'sheet' }: { planner: TripPlannerController; onClose: () => void; presentation?: ModalPresentation }) {
   const { actions } = planner;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -586,28 +646,30 @@ export function AddNoteSheet({ planner, onClose }: { planner: TripPlannerControl
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: 'auto' }}>
-        <SheetHead title="Přidat poznámku" onClose={onClose} />
+    <ModalFrame title="Přidat poznámku" onClose={onClose} presentation={presentation} sheetHeight="auto">
         <ValidatedForm className="px18" style={{ paddingBottom: 18 }} onSubmit={handleSubmit}>
           <Label htmlFor="tripNote">Poznámka pro skupinu</Label>
           <Textarea id="tripNote" name="note" rows={4} placeholder="Nech poznámku pro skupinu..." autoFocus required />
           <Button className="mt16 w-full" size="lg" type="submit">Přidat poznámku</Button>
         </ValidatedForm>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }
 
 /* ──────────────────────────────────────────────────────────
    TRIP SETTINGS SHEET
 ────────────────────────────────────────────────────────── */
-export function TripSettingsSheet({ planner, onClose }: { planner: TripPlannerController; onClose: () => void }) {
+export function TripSettingsSheet({ planner, onClose, presentation = 'sheet' }: { planner: TripPlannerController; onClose: () => void; presentation?: ModalPresentation }) {
   const { state, actions } = planner;
   const trip = state.selectedTrip;
+  const canEditTrip = canManageTrip(state.actorMember?.role);
+  const canDeleteTrip = state.actorMember?.role === 'OWNER';
+  const [startsAtDate, setStartsAtDate] = useState(trip?.startsAt?.slice(0, 10) ?? '');
+  const [endsAtDate, setEndsAtDate] = useState(trip?.endsAt?.slice(0, 10) ?? '');
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!canEditTrip) return;
     const fd = new FormData(e.currentTarget);
     const startsAt = String(fd.get('startsAt') ?? '').trim();
     const endsAt = String(fd.get('endsAt') ?? '').trim();
@@ -623,33 +685,56 @@ export function TripSettingsSheet({ planner, onClose }: { planner: TripPlannerCo
   }
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: '94%' }}>
-        <SheetHead title="Nastavení výletu" onClose={onClose} />
+    <ModalFrame title="Nastavení výletu" onClose={onClose} presentation={presentation}>
         <ValidatedForm className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <div className="card pad">
+            {!canEditTrip && (
+              <div className="badge amber mb14" style={{ justifyContent: 'flex-start' }}>
+                Nastavení výletu může měnit jen vlastník nebo správce.
+              </div>
+            )}
             <Label htmlFor="tripName">Název výletu</Label>
-            <Input id="tripName" name="name" defaultValue={trip?.name ?? ''} placeholder="Barcelona 2026" required />
+            <Input id="tripName" name="name" defaultValue={trip?.name ?? ''} placeholder="Barcelona 2026" disabled={!canEditTrip} required />
 
             <Label className="mt14" htmlFor="tripDestination">Destinace</Label>
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" id="tripDestination" name="destination" defaultValue={trip?.destination ?? ''} placeholder="Město nebo oblast" required />
+              <Input className="pl-9" id="tripDestination" name="destination" defaultValue={trip?.destination ?? ''} placeholder="Město nebo oblast" disabled={!canEditTrip} required />
             </div>
 
             <div className="row g12 mt14">
               <div className="flex1">
                 <Label htmlFor="tripStartsAt">Od</Label>
-                <Input id="tripStartsAt" name="startsAt" type="date" defaultValue={trip?.startsAt?.slice(0, 10) ?? ''} required />
+                <Input
+                  id="tripStartsAt"
+                  name="startsAt"
+                  type="date"
+                  value={startsAtDate}
+                  max={endsAtDate || undefined}
+                  onChange={(event) => setStartsAtDate(event.target.value)}
+                  disabled={!canEditTrip}
+                  required
+                />
               </div>
               <div className="flex1">
                 <Label htmlFor="tripEndsAt">Do</Label>
-                <Input id="tripEndsAt" name="endsAt" type="date" defaultValue={trip?.endsAt?.slice(0, 10) ?? ''} required />
+                <Input
+                  id="tripEndsAt"
+                  name="endsAt"
+                  type="date"
+                  value={endsAtDate}
+                  min={startsAtDate || undefined}
+                  data-after-field="startsAt"
+                  data-after-message="Datum konce výletu nemůže být před začátkem."
+                  onChange={(event) => setEndsAtDate(event.target.value)}
+                  disabled={!canEditTrip}
+                  required
+                />
               </div>
             </div>
 
             <Label className="mt14">Měna</Label>
-            <Select name="currency" defaultValue={normalizeExpenseCurrency(trip?.currency)}>
+            <Select name="currency" defaultValue={normalizeExpenseCurrency(trip?.currency)} disabled={!canEditTrip}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="CZK">CZK - Koruna</SelectItem>
@@ -658,27 +743,24 @@ export function TripSettingsSheet({ planner, onClose }: { planner: TripPlannerCo
             </Select>
           </div>
 
-          <DeleteInline label="Smazat výlet" onConfirm={() => { void actions.deleteTrip(); onClose(); }} />
+          {canDeleteTrip && <DeleteInline label="Smazat výlet" onConfirm={() => { void actions.deleteTrip(); onClose(); }} />}
 
-          <button className="btn primary block lg mt20" type="submit">Uložit nastavení</button>
+          <button className="btn primary block lg mt20" type="submit" disabled={!canEditTrip}>Uložit nastavení</button>
         </ValidatedForm>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }
 
 /* ──────────────────────────────────────────────────────────
    CREATE POLL SHEET (desktop-aware)
 ────────────────────────────────────────────────────────── */
-export function CreatePollDialog({ planner, onClose }: { planner: TripPlannerController; onClose: () => void }) {
+export function CreatePollDialog({ planner, onClose, presentation = 'sheet' }: { planner: TripPlannerController; onClose: () => void; presentation?: ModalPresentation }) {
   const { actions } = planner;
   const [opts, setOpts] = useState(['', '']);
   const [multi, setMulti] = useState(false);
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent style={{ height: 'auto' }}>
-        <SheetHead title="Nová anketa" onClose={onClose} />
+    <ModalFrame title="Nová anketa" onClose={onClose} presentation={presentation} sheetHeight="auto">
         <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
@@ -718,7 +800,6 @@ export function CreatePollDialog({ planner, onClose }: { planner: TripPlannerCon
 
           <button className="btn primary block lg mt20" type="submit">Vytvořit anketu</button>
         </ValidatedForm>
-      </SheetContent>
-    </Sheet>
+    </ModalFrame>
   );
 }

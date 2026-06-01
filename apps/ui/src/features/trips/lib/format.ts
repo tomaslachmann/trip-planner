@@ -30,3 +30,10 @@ export function categoryKey(type?: string) {
   if (type === 'TRANSPORT') return 'trans';
   return 'see';
 }
+
+export function roleLabel(role?: string) {
+  if (role === 'OWNER') return 'Vlastník';
+  if (role === 'ADMIN') return 'Správce';
+  if (role === 'GUEST') return 'Host';
+  return 'Člen';
+}

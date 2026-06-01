@@ -14,6 +14,7 @@ function PollsPageContent({ planner, desktop = false }: { planner: TripPlannerCo
       desktop={desktop}
       polls={state.data.polls}
       actorUserId={state.actorUserId}
+      actorRole={state.actorMember?.role}
       members={state.selectedTrip?.members ?? []}
       onBack={desktop ? undefined : () => actions.setActiveTab('more')}
       onCreate={(input) => void actions.createPoll(input)}

@@ -42,7 +42,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/sign-in": {
+    "/auth/register": {
         parameters: {
             query?: never;
             header?: never;
@@ -51,7 +51,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sign in with email for development session */
+        /** Register a user account with password */
         post: {
             parameters: {
                 query?: never;
@@ -64,7 +64,52 @@ export interface paths {
                     "application/json": {
                         /** Format: email */
                         email: string;
-                        name?: string;
+                        password: string;
+                        name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign in with email and password */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: email */
+                        email: string;
+                        password: string;
                     };
                 };
             };
@@ -2155,6 +2200,8 @@ export interface paths {
                         longitude?: number;
                         /** @default 15 */
                         radiusKm?: number;
+                        minPrice?: number;
+                        maxPrice?: number;
                         /** @default 20 */
                         limit?: number;
                         bookingRequest?: {
@@ -3127,7 +3174,18 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": {
+                        focus?: {
+                            latitude: number;
+                            longitude: number;
+                            radiusMeters?: number;
+                            label?: string;
+                        };
+                    };
+                };
+            };
             responses: {
                 /** @description Default Response */
                 200: {
@@ -3197,7 +3255,18 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": {
+                        focus?: {
+                            latitude: number;
+                            longitude: number;
+                            radiusMeters?: number;
+                            label?: string;
+                        };
+                    };
+                };
+            };
             responses: {
                 /** @description Default Response */
                 200: {

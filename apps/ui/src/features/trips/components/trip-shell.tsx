@@ -189,16 +189,16 @@ function DesktopShellInner({ planner, children }: { planner: TripPlannerControll
         </main>
 
         {/* Add menu modal */}
-        {addOpen && <AddMenu onClose={() => setAddOpen(false)} onPick={pickAdd} />}
+        {addOpen && <AddMenu onClose={() => setAddOpen(false)} onPick={pickAdd} presentation="dialog" />}
 
         {/* Dialog forms */}
-        {modal.type === 'addExpense'  && <AddExpenseSheet     planner={planner} edit={modal.edit} onClose={closeModal} />}
-        {modal.type === 'addPlace'    && <AddPlaceSheet       planner={planner} edit={modal.edit} onClose={closeModal} />}
-        {modal.type === 'addStay'     && <AddAccommodationSheet planner={planner} edit={modal.edit} onClose={closeModal} />}
-        {modal.type === 'addItinerary'&& <AddItinerarySheet   planner={planner} initialDayId={modal.dayId} onClose={closeModal} />}
-        {modal.type === 'addNote'     && <AddNoteSheet        planner={planner} onClose={closeModal} />}
-        {modal.type === 'createPoll'  && <CreatePollDialog    planner={planner} onClose={closeModal} />}
-        {modal.type === 'tripSettings'&& <TripSettingsSheet   planner={planner} onClose={closeModal} />}
+        {modal.type === 'addExpense'  && <AddExpenseSheet     planner={planner} edit={modal.edit} onClose={closeModal} presentation="dialog" />}
+        {modal.type === 'addPlace'    && <AddPlaceSheet       planner={planner} edit={modal.edit} onClose={closeModal} presentation="dialog" />}
+        {modal.type === 'addStay'     && <AddAccommodationSheet planner={planner} edit={modal.edit} onClose={closeModal} presentation="dialog" />}
+        {modal.type === 'addItinerary'&& <AddItinerarySheet   planner={planner} initialDayId={modal.dayId} onClose={closeModal} presentation="dialog" />}
+        {modal.type === 'addNote'     && <AddNoteSheet        planner={planner} onClose={closeModal} presentation="dialog" />}
+        {modal.type === 'createPoll'  && <CreatePollDialog    planner={planner} onClose={closeModal} presentation="dialog" />}
+        {modal.type === 'tripSettings'&& <TripSettingsSheet   planner={planner} onClose={closeModal} presentation="dialog" />}
       </div>
     </div>
   );

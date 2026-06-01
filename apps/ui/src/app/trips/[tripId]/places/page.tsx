@@ -13,6 +13,7 @@ import { useModal } from '@/features/trips/context/modal-context';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
 import type { TripPlannerController } from '@/features/trips/hooks/use-trip-planner';
 import { placeRecommendationScore } from '@/features/trips/lib/decision';
+import { canManageTrip } from '@/features/trips/lib/permissions';
 
 const FILTERS = [
   { key: 'all', label: 'Vše' },
@@ -42,7 +43,7 @@ function DesktopPlacesPage({ planner }: { planner: TripPlannerController }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [sortVotes, setSortVotes] = useState(false);
-  const canChangeStatus = (createdById?: string) => createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN';
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
 
   const filtered = state.data.places
     .filter((place) => {
@@ -102,9 +103,9 @@ function DesktopPlacesPage({ planner }: { planner: TripPlannerController }) {
                     place={place}
                     selected={state.selectedPlaceId === place.id}
                     onSelect={() => actions.setSelectedPlaceId(place.id)}
-                    onAdd={() => void actions.addPlaceToItinerary(place.id)}
-                    onApprove={canChangeStatus(place.createdById) ? () => void actions.updatePlaceStatus(place.id, 'APPROVED') : undefined}
-                    onShortlist={canChangeStatus(place.createdById) ? () => void actions.updatePlaceStatus(place.id, 'SHORTLISTED') : undefined}
+                    onAdd={canManagePlanning ? () => void actions.addPlaceToItinerary(place.id) : undefined}
+                    onApprove={canManagePlanning ? () => void actions.updatePlaceStatus(place.id, 'APPROVED') : undefined}
+                    onShortlist={canManagePlanning ? () => void actions.updatePlaceStatus(place.id, 'SHORTLISTED') : undefined}
                     onMore={() => {
                       actions.setSelectedPlaceId(place.id);
                       openModal('addPlace', true);
@@ -135,8 +136,8 @@ function MobilePlacesPage({ planner }: { planner: TripPlannerController }) {
           selectedPlaceId={state.selectedPlaceId}
           onSelect={actions.setSelectedPlaceId}
           onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
-          onStatusChange={(placeId, status) => void actions.updatePlaceStatus(placeId, status)}
-          onAddPlaceToItinerary={(placeId) => void actions.addPlaceToItinerary(placeId)}
+          onStatusChange={canManageTrip(state.actorMember?.role) ? (placeId, status) => void actions.updatePlaceStatus(placeId, status) : undefined}
+          onAddPlaceToItinerary={canManageTrip(state.actorMember?.role) ? (placeId) => void actions.addPlaceToItinerary(placeId) : undefined}
           onEditPlace={(placeId) => {
             actions.setSelectedPlaceId(placeId);
             openModal('addPlace', true);

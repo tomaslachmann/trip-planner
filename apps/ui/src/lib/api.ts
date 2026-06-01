@@ -42,6 +42,15 @@ export type SignInResponse = {
   accessToken: string;
 };
 
+export type AuthCredentials = {
+  email: string;
+  password: string;
+};
+
+export type RegisterCredentials = AuthCredentials & {
+  name: string;
+};
+
 export function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_URL ?? fallbackApiUrl;
 }
@@ -85,7 +94,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, accessTo
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-export function signInRequest(body: { email: string; name: string }) {
+export function registerRequest(body: RegisterCredentials) {
+  return apiFetch<SignInResponse>('/auth/register', { method: 'POST', body: JSON.stringify(body) }, '');
+}
+
+export function signInRequest(body: AuthCredentials) {
   return apiFetch<SignInResponse>('/auth/sign-in', { method: 'POST', body: JSON.stringify(body) }, '');
 }
 

@@ -478,6 +478,7 @@ export async function runTripPlanDraftAgent(tripId: string, input: AiDraftInput 
     summary: output.summary,
     days: output.days.map((day, dayIndex) => ({
       ...day,
+      title: `Den ${dayIndex + 1}`,
       items: day.items.map((item, itemIndex) => ({
         id: `draft-${dayIndex + 1}-${itemIndex + 1}`,
         kind: item.kind,

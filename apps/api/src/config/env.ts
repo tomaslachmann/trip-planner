@@ -20,12 +20,13 @@ const envSchema = z.object({
   WIKIMEDIA_USER_AGENT: z.string().min(1).default('trip-planner-local/0.1 (http://localhost:3001)'),
   WIKIMEDIA_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(200),
   OVERPASS_BASE_URL: z.string().url().default('https://overpass-api.de/api/interpreter'),
+  OVERPASS_TIMEOUT_MS: z.coerce.number().int().positive().default(120000),
   OPEN_METEO_BASE_URL: z.string().url().default('https://api.open-meteo.com/v1/forecast'),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().min(1).default('gpt-4.1-mini'),
   JWT_SECRET: z.string().min(16).default(process.env.SESSION_SECRET ?? 'dev-trip-planner-jwt-secret'),
   UPLOAD_DIR: z.string().min(1).default('uploads'),
-  PUBLIC_API_URL: z.string().url().optional(),
+  PUBLIC_API_URL: z.preprocess((value) => value === '' ? undefined : value, z.string().url().optional()),
 });
 
 export const env = envSchema.parse(process.env);

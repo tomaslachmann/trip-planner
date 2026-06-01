@@ -1,5 +1,5 @@
 import { BedDouble, Check, ExternalLink, Link2, MapPin, MessageCircle, Minus, Plus, Search, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -35,6 +35,14 @@ function tripNights(trip?: Trip, place?: Place) {
   const end = new Date(trip.endsAt);
   const diff = Math.ceil((end.getTime() - start.getTime()) / 86400000);
   return Math.max(1, diff);
+}
+
+function nextDateInput(value?: string) {
+  if (!value) return '';
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
 }
 
 function sourceLabel(place: Place) {
@@ -84,6 +92,10 @@ export function StayPanel({
   onStatusChange?: (placeId: string, status: AccommodationStatus) => void;
 }) {
   const [mode, setMode] = useState<'select' | 'search'>(savedPlaces.length > 0 ? 'select' : 'search');
+  const defaultCheckin = trip?.startsAt?.slice(0, 10) ?? '';
+  const defaultCheckout = trip?.endsAt?.slice(0, 10) ?? '';
+  const [checkin, setCheckin] = useState(defaultCheckin);
+  const [checkout, setCheckout] = useState(defaultCheckout);
   const tripMembers = trip?.members ?? [];
   const members = Math.max(1, tripMembers.length || 1);
   const summaries = new Map(savedPlaces.map((place) => [place.id, getAccommodationSummary(place, tripMembers, actorUserId)]));
@@ -96,6 +108,11 @@ export function StayPanel({
   const rejectedCount = savedPlaces.filter((place) => summaries.get(place.id)?.status === 'REJECTED').length;
   const savedByExternalId = new Map(savedPlaces.map((place) => [place.accommodationExternalId, place]));
   const searchByExternalId = new Map(stays.map((stay) => [stay.externalId, stay]));
+
+  useEffect(() => {
+    setCheckin(defaultCheckin);
+    setCheckout(defaultCheckout);
+  }, [defaultCheckin, defaultCheckout, trip?.id]);
 
   return (
     <div className="scroll px18" style={{ flex: 1, paddingTop: 10, paddingBottom: 18 }}>
@@ -222,12 +239,11 @@ export function StayPanel({
                       <div className="row g8 wrap">
                         <StatusActionButton active={stats.myVote === 'UP' || status === 'SHORTLISTED'} tone="amber" size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'UP')}><ThumbsUp />Užší výběr</StatusActionButton>
                         <StatusActionButton active={stats.myVote === 'DOWN' || status === 'REJECTED'} tone="red" variant={stats.myVote === 'DOWN' || status === 'REJECTED' ? 'outline' : 'ghost'} size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'DOWN')}><ThumbsDown />Proti</StatusActionButton>
-                        <StatusActionButton active={status === 'SELECTED'} tone="green" size="sm" type="button" onClick={() => {
-                          if (statusFlow.nextStatus === 'SELECTED') onVotePlace?.(place.id, 'MUST_HAVE');
-                          else onStatusChange?.(place.id, statusFlow.nextStatus);
-                        }}>
-                          <Check />{statusFlow.actionLabel}
-                        </StatusActionButton>
+                        {onStatusChange && (
+                          <StatusActionButton active={status === 'SELECTED'} tone="green" size="sm" type="button" onClick={() => onStatusChange(place.id, statusFlow.nextStatus)}>
+                            <Check />{statusFlow.actionLabel}
+                          </StatusActionButton>
+                        )}
                       </div>
                     )}
                   </div>
@@ -269,8 +285,27 @@ export function StayPanel({
                 )}
               </div>
               <div className="grid2" style={{ gap: 8 }}>
-                <Input name="checkin" defaultValue={trip?.startsAt?.slice(0, 10) ?? ''} type="date" aria-label="Příjezd" required />
-                <Input name="checkout" defaultValue={trip?.endsAt?.slice(0, 10) ?? ''} type="date" aria-label="Odjezd" required />
+                <Input
+                  name="checkin"
+                  value={checkin}
+                  max={checkout || undefined}
+                  type="date"
+                  aria-label="Příjezd"
+                  onChange={(event) => setCheckin(event.target.value)}
+                  required
+                />
+                <Input
+                  name="checkout"
+                  value={checkout}
+                  min={nextDateInput(checkin) || undefined}
+                  type="date"
+                  aria-label="Odjezd"
+                  data-after-field="checkin"
+                  data-after-strict="true"
+                  data-after-message="Odjezd musí být po příjezdu."
+                  onChange={(event) => setCheckout(event.target.value)}
+                  required
+                />
               </div>
               <div className="grid2 mt8" style={{ gap: 8 }}>
                 <Input name="minPrice" min={0} step={10} type="number" aria-label="Cena od" placeholder={`Cena od (${trip?.currency ?? 'EUR'})`} />

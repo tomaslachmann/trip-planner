@@ -11,6 +11,7 @@ function ChecklistPageContent({ planner, desktop = false }: { planner: TripPlann
       desktop={desktop}
       items={state.data.checklist}
       actorUserId={state.actorUserId}
+      actorRole={state.actorMember?.role}
       members={state.selectedTrip?.members ?? []}
       onBack={desktop ? undefined : () => actions.setActiveTab('more')}
       onCreate={(input) => void actions.createChecklistItem(input)}

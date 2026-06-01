@@ -33,6 +33,12 @@ function daySummary(day: ItineraryDay) {
   return { plannedMinutes, bufferMinutes, bufferTotal, missingTimes };
 }
 
+function dayTitle(day: ItineraryDay, index: number) {
+  const title = day.title?.trim();
+  if (!title || (/^den\s+\D/i.test(title) && !/^den\s+\d+$/i.test(title))) return `Den ${index + 1}`;
+  return title;
+}
+
 function hoursLabel(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
@@ -72,10 +78,12 @@ function SortableStop({
   stop,
   onOpen,
   onEdit,
+  canManagePlanning = true,
 }: {
   stop: ItineraryStop;
   onOpen?: (placeId: string) => void;
   onEdit?: () => void;
+  canManagePlanning?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `stop:${stop.id}` });
   const counts = attendanceCounts(stop);
@@ -86,7 +94,7 @@ function SortableStop({
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
       <div className="row">
-        <Button size="icon" variant="ghost" type="button" {...attributes} {...listeners} title="Přetáhnout zastávku"><GripVertical /></Button>
+        {canManagePlanning && <Button size="icon" variant="ghost" type="button" {...attributes} {...listeners} title="Přetáhnout zastávku"><GripVertical /></Button>}
         <div className="col flex1 pressable" style={{ minWidth: 0 }} onClick={() => stop.placeId && onOpen?.(stop.placeId)}>
           <span className="t-h3" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stop.place?.name ?? 'Nepojmenovaná zastávka'}</span>
           <span className="muted t-xs mt4">{stop.startsAt ? new Date(stop.startsAt).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) : 'Bez času'} · {categoryLabel(stop.place?.type)}</span>
@@ -127,6 +135,7 @@ export function ItineraryPanel({
   onOptimize,
   routeCapabilities,
   places = [],
+  canManagePlanning = true,
 }: {
   days: ItineraryDay[];
   weather?: TripWeather | null;
@@ -138,6 +147,7 @@ export function ItineraryPanel({
   onOptimize: () => void;
   routeCapabilities?: RouteCapabilities | null;
   places?: Place[];
+  canManagePlanning?: boolean;
 }) {
   const [editingDay, setEditingDay] = useState<ItineraryDay | null>(null);
   const transitAvailable = routeCapabilities?.modes.TRANSIT === true;
@@ -146,11 +156,11 @@ export function ItineraryPanel({
       <div className="row between mb12">
         <div>
           <div className="t-h2">Itinerář</div>
-          <div className="muted t-xs mt4">Přetahuj místa do dnů a měň pořadí zastávek.</div>
+          <div className="muted t-xs mt4">{canManagePlanning ? 'Přetahuj místa do dnů a měň pořadí zastávek.' : 'Itinerář spravuje vlastník nebo správce výletu.'}</div>
         </div>
         <div className="row g8">
           <span className={`badge ${transitAvailable ? 'green' : 'muted'}`}>MHD {transitAvailable ? 'zapnutá' : 'není'}</span>
-          <Button variant="outline" size="sm" type="button" onClick={onOptimize}><Route />Optimalizovat</Button>
+          {canManagePlanning && <Button variant="outline" size="sm" type="button" onClick={onOptimize}><Route />Optimalizovat</Button>}
         </div>
       </div>
       {!transitAvailable && routeCapabilities?.transitNote && (
@@ -165,7 +175,7 @@ export function ItineraryPanel({
         </Card>
       )}
 
-      {days.map((day) => {
+      {days.map((day, index) => {
         const stops = day.stops ?? [];
         const summary = daySummary(day);
         const forecast = weatherSummary(weather, day);
@@ -174,12 +184,12 @@ export function ItineraryPanel({
           <DropDay day={day} key={day.id}>
             <div className="row between mb12">
               <div className="col">
-                <span className="t-h3">{day.title ?? new Date(day.date).toLocaleDateString()}</span>
+                <span className="t-h3">{dayTitle(day, index)}</span>
                 <span className="muted t-xs mt4">{new Date(day.date).toLocaleDateString('cs-CZ')} · {stops.length} zastávek</span>
               </div>
               <div className="row g6">
                 <span className={`badge ${day.locked ? 'solid' : 'muted'}`}>{day.locked && <Lock />}{day.locked ? 'Zamčeno' : 'Návrh'}</span>
-                {onUpdateDay && (
+                {canManagePlanning && onUpdateDay && (
                   <Button size="icon" variant="ghost" type="button" onClick={() => setEditingDay(day)} aria-label="Upravit den">
                     <Edit3 />
                   </Button>
@@ -202,16 +212,17 @@ export function ItineraryPanel({
                     key={stop.id}
                     stop={stop}
                     onOpen={onOpenPlace}
-                    onEdit={onEditStop ? () => onEditStop(day, stop) : undefined}
+                    onEdit={canManagePlanning && onEditStop ? () => onEditStop(day, stop) : undefined}
+                    canManagePlanning={canManagePlanning}
                   />
                 ))}
               </div>
             </SortableContext>
-            {stops.length === 0 && <div className="p14 muted t-sm center">Sem přetáhni místa</div>}
+            {stops.length === 0 && <div className="p14 muted t-sm center">{canManagePlanning ? 'Sem přetáhni místa' : 'Zatím bez zastávek'}</div>}
           </DropDay>
         );
       })}
-      {editingDay && onUpdateDay && (
+      {canManagePlanning && editingDay && onUpdateDay && (
         <ItineraryDaySettingsSheet
           day={editingDay}
           places={places}

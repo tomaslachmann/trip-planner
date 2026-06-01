@@ -206,6 +206,7 @@ export function MapCanvas({
   onViewportChange,
   showStays,
   fitKey,
+  focusLocation,
   children,
 }: {
   places: Place[];
@@ -224,6 +225,7 @@ export function MapCanvas({
   onViewportChange?: (center: { latitude: number; longitude: number; zoom: number }) => void;
   showStays?: boolean;
   fitKey?: string;
+  focusLocation?: { latitude: number; longitude: number; zoom?: number; key: string | number } | null;
   children?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -232,6 +234,7 @@ export function MapCanvas({
   const layerRef = useRef<LayerGroup | null>(null);
   const fittedInitialDataRef = useRef(false);
   const lastFitKeyRef = useRef<string | undefined>(undefined);
+  const lastFocusKeyRef = useRef<string | number | undefined>(undefined);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -284,6 +287,7 @@ export function MapCanvas({
       layerRef.current = null;
       fittedInitialDataRef.current = false;
       lastFitKeyRef.current = undefined;
+      lastFocusKeyRef.current = undefined;
       setReady(false);
     };
   }, []);
@@ -356,6 +360,17 @@ export function MapCanvas({
     fittedInitialDataRef.current = true;
     lastFitKeyRef.current = fitKey;
   }, [accommodations, aiCandidates, fitKey, places, ready, showStays]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !focusLocation || lastFocusKeyRef.current === focusLocation.key) return;
+    map.setView(
+      [focusLocation.latitude, focusLocation.longitude],
+      Math.max(2, Math.min(19, focusLocation.zoom ?? Math.max(map.getZoom(), 14))),
+      { animate: true },
+    );
+    lastFocusKeyRef.current = focusLocation.key;
+  }, [focusLocation, ready]);
 
   function zoomBy(delta: number) {
     const map = mapRef.current;

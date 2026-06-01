@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { env } from '../../config/env.js';
 import { httpError } from '../../utils/http.js';
 
-const issuer = 'trip-planner-api';
+const issuer = 'trip-planner-api-password-v1';
 const expiresInSeconds = 60 * 60 * 24 * 30;
 
 export type AuthJwtPayload = {

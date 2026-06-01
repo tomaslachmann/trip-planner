@@ -1,6 +1,6 @@
 'use client';
 
-import { Bot, ChevronRight, MapPinPlus, Route, Sparkles } from 'lucide-react';
+import { Bot, ChevronRight, MapPinPlus, Route, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { TabKey, TripAiInsights, TripAiPlanDraft, TripAiSuggestions } from '../types';
@@ -72,9 +72,11 @@ export function AiInsightsPanel({
   onGenerateSuggestions,
   onGeneratePlanDraft,
   onNavigate,
+  onDismiss,
   loading = false,
   loadingSuggestions = false,
   loadingPlanDraft = false,
+  compactDetails = true,
 }: {
   insights?: TripAiInsights | null;
   suggestions?: TripAiSuggestions | null;
@@ -84,9 +86,11 @@ export function AiInsightsPanel({
   onGenerateSuggestions?: () => void;
   onGeneratePlanDraft?: () => void;
   onNavigate?: (tab: TabKey) => void;
+  onDismiss?: () => void;
   loading?: boolean;
   loadingSuggestions?: boolean;
   loadingPlanDraft?: boolean;
+  compactDetails?: boolean;
 }) {
   const items = insights?.insights ?? [];
   const candidates = suggestions?.candidates ?? planDraft?.candidates ?? [];
@@ -94,12 +98,13 @@ export function AiInsightsPanel({
   if (compact) {
     return (
       <Card className="p-[12px] shadow-[var(--sh-sm)] mb12">
-        <div className="row between g10">
-          <div className="t-h3 row g6"><Bot size={16} />AI plánovač</div>
-          <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
+        <div className="col between g10">
+          <div className="t-h3 row g6 flex w-full"><Bot size={16} />AI plánovač</div>
+          <div className="row g6 wrap">
             <Button size="sm" variant="outline" type="button" onClick={onGenerate} disabled={loading}><Sparkles size={14} />{loading ? 'Běží' : 'Kontrola'}</Button>
             {onGenerateSuggestions && <Button size="sm" variant="outline" type="button" onClick={onGenerateSuggestions} disabled={loadingSuggestions}><MapPinPlus size={14} />{loadingSuggestions ? 'Běží' : 'Místa'}</Button>}
             {onGeneratePlanDraft && <Button size="sm" variant="outline" type="button" onClick={onGeneratePlanDraft} disabled={loadingPlanDraft}><Route size={14} />{loadingPlanDraft ? 'Běží' : 'Plán'}</Button>}
+            {onDismiss && (suggestions || planDraft) && <Button size="icon" variant="ghost" type="button" title="Skrýt AI návrhy" onClick={onDismiss}><X /></Button>}
           </div>
         </div>
         {summary && <span className="muted t-sm mt8">{summary}</span>}
@@ -112,7 +117,7 @@ export function AiInsightsPanel({
             ))}
           </div>
         )}
-        {planDraft?.days?.length ? (
+        {compactDetails && planDraft?.days?.length ? (
           <div className="col g8 mt10">
             {planDraft.days.slice(0, 2).map((day) => (
               <div className="softbox" key={`${day.date}-${day.title}`}>
@@ -133,7 +138,7 @@ export function AiInsightsPanel({
             ))}
           </div>
         ) : null}
-        {candidates.length > 0 && (
+        {compactDetails && candidates.length > 0 && (
           <div className="col g8 mt10">
             {candidates.slice(0, 3).map((candidate) => (
               <div className="softbox" key={candidate.id}>
@@ -159,9 +164,9 @@ export function AiInsightsPanel({
 
   return (
     <Card className="p-[16px] shadow-[var(--sh-sm)]">
-      <div className="row between g10 mb12">
-        <div className="col">
-          <div className="t-h3 row g6"><Bot size={16} />AI plánovač</div>
+      <div className="col between g10 mb12">
+        <div className="col flex-1">
+          <div className="t-h3 row g6 flex w-max"><Bot size={16} />AI plánovač</div>
           <span className="muted t-xs mt4">{insights ? `${insights.model} · ${new Date(insights.generatedAt).toLocaleString('cs-CZ')}` : 'Agent projde výlet a navrhne další kroky.'}</span>
         </div>
         <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>

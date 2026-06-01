@@ -13,6 +13,9 @@ import { TripPickerScreen } from './components/trip-picker-screen';
 import { useTripPlanner } from './hooks/use-trip-planner';
 
 function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
+  const [startsAtDate, setStartsAtDate] = useState('');
+  const [endsAtDate, setEndsAtDate] = useState('');
+
   return (
     <div className="app-empty-stage">
       <ValidatedForm
@@ -30,6 +33,34 @@ function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
           <Input className="mb-3" id="name" name="name" placeholder="Barcelona 2026" required />
           <Label htmlFor="destination">Destinace</Label>
           <Input className="mb-3" id="destination" name="destination" placeholder="Barcelona" required />
+          <div className="grid2 mb-3" style={{ gap: 8 }}>
+            <div>
+              <Label htmlFor="startsAt">Od</Label>
+              <Input
+                id="startsAt"
+                name="startsAt"
+                type="date"
+                value={startsAtDate}
+                max={endsAtDate || undefined}
+                onChange={(event) => setStartsAtDate(event.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="endsAt">Do</Label>
+              <Input
+                id="endsAt"
+                name="endsAt"
+                type="date"
+                value={endsAtDate}
+                min={startsAtDate || undefined}
+                data-after-field="startsAt"
+                data-after-message="Datum konce výletu nemůže být před začátkem."
+                onChange={(event) => setEndsAtDate(event.target.value)}
+                required
+              />
+            </div>
+          </div>
           <Label>Měna</Label>
           <Select name="currency" defaultValue="CZK">
             <SelectTrigger className="mb-3"><SelectValue /></SelectTrigger>

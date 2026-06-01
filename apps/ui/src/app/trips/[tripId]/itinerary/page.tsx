@@ -17,6 +17,7 @@ import { categoryMeta } from '@/features/trips/components/category';
 import { useModal } from '@/features/trips/context/modal-context';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
 import type { TripPlannerController } from '@/features/trips/hooks/use-trip-planner';
+import { canManageTrip } from '@/features/trips/lib/permissions';
 import type { ItineraryDay, ItineraryStop, TripWeather } from '@/features/trips/types';
 
 type DayIntensity = 'CALM' | 'NORMAL' | 'INTENSE';
@@ -58,10 +59,12 @@ function StopCard({
   stop,
   onEdit,
   onOpen,
+  canManagePlanning,
 }: {
   stop: ItineraryStop;
-  onEdit: () => void;
+  onEdit?: () => void;
   onOpen?: (placeId: string) => void;
+  canManagePlanning: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `stop:${stop.id}` });
   const meta = categoryMeta(stop.place?.type);
@@ -92,12 +95,16 @@ function StopCard({
         >
           {stop.place?.name ?? 'Zastávka'}
         </button>
-        <Button size="icon" variant="ghost" type="button" onClick={onEdit} style={{ width: 24, height: 24, padding: 0, flexShrink: 0 }} aria-label="Upravit zastávku">
-          <Edit3 size={14} />
-        </Button>
-        <Button size="icon" variant="ghost" type="button" {...attributes} {...listeners} style={{ width: 24, height: 24, padding: 0, flexShrink: 0 }}>
-          <GripVertical size={14} />
-        </Button>
+        {onEdit && (
+          <Button size="icon" variant="ghost" type="button" onClick={onEdit} style={{ width: 24, height: 24, padding: 0, flexShrink: 0 }} aria-label="Upravit zastávku">
+            <Edit3 size={14} />
+          </Button>
+        )}
+        {canManagePlanning && (
+          <Button size="icon" variant="ghost" type="button" {...attributes} {...listeners} style={{ width: 24, height: 24, padding: 0, flexShrink: 0 }}>
+            <GripVertical size={14} />
+          </Button>
+        )}
       </div>
       {stop.note && <div className="muted t-xs mt8" style={{ paddingLeft: 50 }}>{stop.note}</div>}
       <div className="row g6 mt8 wrap" style={{ paddingLeft: 50 }}>
@@ -116,13 +123,15 @@ function DayColumn({
   onEditDay,
   onOpenPlace,
   weather,
+  canManagePlanning,
 }: {
   day: ItineraryDay;
-  onAdd: () => void;
+  onAdd?: () => void;
   onEditStop: (stop: ItineraryStop) => void;
   onEditDay: (day: ItineraryDay) => void;
   onOpenPlace: (placeId: string) => void;
   weather?: TripWeather | null;
+  canManagePlanning: boolean;
 }) {
   const stops = day.stops ?? [];
   const date = new Date(day.date);
@@ -140,9 +149,11 @@ function DayColumn({
         </div>
         <div className="row g6">
           <span className={`badge ${day.locked ? 'solid' : 'muted'}`}>{day.locked && <Lock size={12} />}{day.locked ? 'Zamčeno' : 'Návrh'}</span>
-          <Button size="icon" variant="ghost" type="button" onClick={() => onEditDay(day)} style={{ width: 28, height: 28 }} aria-label="Upravit den">
-            <Edit3 size={14} />
-          </Button>
+          {canManagePlanning && (
+            <Button size="icon" variant="ghost" type="button" onClick={() => onEditDay(day)} style={{ width: 28, height: 28 }} aria-label="Upravit den">
+              <Edit3 size={14} />
+            </Button>
+          )}
         </div>
       </div>
       <span className="faint t-xs" style={{ display: 'block', marginBottom: 12 }}>{dateStr} · {stops.length} zastávek</span>
@@ -157,13 +168,15 @@ function DayColumn({
       </div>
       <SortableContext items={stops.map((stop) => `stop:${stop.id}`)} strategy={verticalListSortingStrategy}>
         <div className="col g8">
-          {stops.map((stop) => <StopCard key={stop.id} stop={stop} onEdit={() => onEditStop(stop)} onOpen={onOpenPlace} />)}
+          {stops.map((stop) => <StopCard key={stop.id} stop={stop} onEdit={canManagePlanning ? () => onEditStop(stop) : undefined} onOpen={onOpenPlace} canManagePlanning={canManagePlanning} />)}
         </div>
       </SortableContext>
-      {stops.length === 0 && <div className="center muted t-xs" style={{ padding: '12px 0' }}>Přetáhni sem místa</div>}
-      <button className="btn ghost sm" style={{ border: '1px dashed var(--border-2)', width: '100%', marginTop: 8 }} type="button" onClick={onAdd}>
-        <Plus size={14} />Přidat zastávku
-      </button>
+      {stops.length === 0 && <div className="center muted t-xs" style={{ padding: '12px 0' }}>{canManagePlanning ? 'Přetáhni sem místa' : 'Zatím bez zastávek'}</div>}
+      {canManagePlanning && onAdd && (
+        <button className="btn ghost sm" style={{ border: '1px dashed var(--border-2)', width: '100%', marginTop: 8 }} type="button" onClick={onAdd}>
+          <Plus size={14} />Přidat zastávku
+        </button>
+      )}
     </Card>
   );
 }
@@ -172,9 +185,10 @@ function stopDayId(planner: TripPlannerController, stopId: string) {
   return planner.state.data.itinerary.find((day) => (day.stops ?? []).some((stop) => stop.id === stopId))?.id;
 }
 
-function useItineraryDrag(planner: TripPlannerController) {
+function useItineraryDrag(planner: TripPlannerController, canManagePlanning: boolean) {
   const { state, actions } = planner;
   return async function handleDragEnd(event: DragEndEvent) {
+    if (!canManagePlanning) return;
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : '';
     if (!overId) return;
@@ -200,7 +214,8 @@ function DesktopItineraryPage({ planner }: { planner: TripPlannerController }) {
   const { openModal } = useModal();
   const [editing, setEditing] = useState<EditingItineraryStop | null>(null);
   const [editingDay, setEditingDay] = useState<ItineraryDay | null>(null);
-  const handleDragEnd = useItineraryDrag(planner);
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
+  const handleDragEnd = useItineraryDrag(planner, canManagePlanning);
   const transitAvailable = state.data.routeCapabilities?.modes.TRANSIT === true;
 
   return (
@@ -210,12 +225,16 @@ function DesktopItineraryPage({ planner }: { planner: TripPlannerController }) {
           <h1 className="desk-h">Itinerář</h1>
           <div className="row g10">
             <span className={`badge ${transitAvailable ? 'green' : 'muted'}`}>MHD {transitAvailable ? 'zapnutá' : 'není'}</span>
-            <Button variant="outline" type="button" onClick={() => openModal('addItinerary')}>
-              <Plus size={16} />Přidat zastávku
-            </Button>
-            <Button type="button" onClick={() => void actions.optimizeRoute()}>
-              <Route size={16} />Optimalizovat
-            </Button>
+            {canManagePlanning && (
+              <>
+                <Button variant="outline" type="button" onClick={() => openModal('addItinerary')}>
+                  <Plus size={16} />Přidat zastávku
+                </Button>
+                <Button type="button" onClick={() => void actions.optimizeRoute()}>
+                  <Route size={16} />Optimalizovat
+                </Button>
+              </>
+            )}
           </div>
         </div>
         {!transitAvailable && state.data.routeCapabilities?.transitNote && (
@@ -240,12 +259,13 @@ function DesktopItineraryPage({ planner }: { planner: TripPlannerController }) {
                   onEditDay={setEditingDay}
                   onOpenPlace={actions.setSelectedPlaceId}
                   weather={state.data.weather}
+                  canManagePlanning={canManagePlanning}
                 />
               ))}
             </div>
           </DndContext>
         )}
-        {editing && (
+        {canManagePlanning && editing && (
           <ItineraryStopSheet
             key={editing.stop.id}
             editing={editing}
@@ -257,7 +277,7 @@ function DesktopItineraryPage({ planner }: { planner: TripPlannerController }) {
             onDelete={(stopId) => void actions.deleteItineraryStop(stopId)}
           />
         )}
-        {editingDay && (
+        {canManagePlanning && editingDay && (
           <ItineraryDaySettingsSheet
             day={editingDay}
             places={state.data.places}
@@ -275,7 +295,8 @@ function DesktopItineraryPage({ planner }: { planner: TripPlannerController }) {
 function MobileItineraryPage({ planner }: { planner: TripPlannerController }) {
   const { state, actions } = planner;
   const [editing, setEditing] = useState<EditingItineraryStop | null>(null);
-  const handleDragEnd = useItineraryDrag(planner);
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
+  const handleDragEnd = useItineraryDrag(planner, canManagePlanning);
 
   return (
     <div className="screen">
@@ -286,15 +307,16 @@ function MobileItineraryPage({ planner }: { planner: TripPlannerController }) {
           weather={state.data.weather}
           routeCapabilities={state.data.routeCapabilities}
           onOpenPlace={actions.setSelectedPlaceId}
-          onEditStop={(day, stop) => setEditing({ day, stop })}
-          onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
-          onSearchLocations={actions.searchLocations}
-          onCreatePlace={actions.addPlace}
+          onEditStop={canManagePlanning ? (day, stop) => setEditing({ day, stop }) : undefined}
+          onUpdateDay={canManagePlanning ? (dayId, input) => void actions.updateItineraryDay(dayId, input) : undefined}
+          onSearchLocations={canManagePlanning ? actions.searchLocations : undefined}
+          onCreatePlace={canManagePlanning ? actions.addPlace : undefined}
           onOptimize={() => void actions.optimizeRoute()}
           places={state.data.places}
+          canManagePlanning={canManagePlanning}
         />
       </DndContext>
-      {editing && (
+      {canManagePlanning && editing && (
         <ItineraryStopSheet
           key={editing.stop.id}
           editing={editing}

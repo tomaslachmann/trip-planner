@@ -19,6 +19,7 @@ function validationMessage(field: Field) {
   const label = fieldLabel(field);
   const validity = field.validity;
   if (validity.valueMissing) return `${label}: vyplň hodnotu.`;
+  if (validity.customError && field.validationMessage) return `${label}: ${field.validationMessage}`;
   if (validity.typeMismatch) return `${label}: zadej platný formát.`;
   if (validity.patternMismatch) return `${label}: hodnota nemá správný formát.`;
   if (validity.rangeUnderflow) return `${label}: hodnota je příliš nízká.`;
@@ -28,6 +29,33 @@ function validationMessage(field: Field) {
   if (validity.tooLong) return `${label}: hodnota je příliš dlouhá.`;
   if (field.validationMessage) return `${label}: ${field.validationMessage}`;
   return `${label}: zkontroluj hodnotu.`;
+}
+
+function findField(form: HTMLFormElement, key: string) {
+  const byName = form.elements.namedItem(key);
+  if (byName instanceof HTMLInputElement || byName instanceof HTMLTextAreaElement || byName instanceof HTMLSelectElement) {
+    return byName;
+  }
+  const byId = form.querySelector<Field>(`#${CSS.escape(key)}`);
+  return byId;
+}
+
+function applyCrossFieldValidation(form: HTMLFormElement, fields: Field[]) {
+  for (const field of fields) {
+    if (field.dataset.afterField) field.setCustomValidity('');
+  }
+
+  for (const field of fields) {
+    const startKey = field.dataset.afterField;
+    if (!startKey || !field.value) continue;
+    const startField = findField(form, startKey);
+    if (!startField?.value) continue;
+    const strict = field.dataset.afterStrict === 'true';
+    const invalid = strict ? field.value <= startField.value : field.value < startField.value;
+    if (invalid) {
+      field.setCustomValidity(field.dataset.afterMessage || 'Konec nemůže být před začátkem.');
+    }
+  }
 }
 
 export type ValidatedFormProps = React.FormHTMLAttributes<HTMLFormElement> & {
@@ -46,6 +74,7 @@ export const ValidatedForm = React.forwardRef<HTMLFormElement, ValidatedFormProp
       if (!form) return true;
       const nextErrors: string[] = [];
       const fields = Array.from(form.querySelectorAll<Field>(fieldSelector));
+      applyCrossFieldValidation(form, fields);
       for (const field of fields) {
         if (field.disabled) continue;
         const hasValue = field.value.trim().length > 0;

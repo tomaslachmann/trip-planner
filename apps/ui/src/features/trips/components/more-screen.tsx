@@ -32,6 +32,28 @@ const desktopSettings: DesktopSettingItem[] = [
   { key: 'polls',        label: 'Hlasování',          icon: 'vote' },
 ];
 
+const activityTokenLabels: Record<string, string> = {
+  SAVED: 'uloženo',
+  SHORTLISTED: 'užší výběr',
+  APPROVED: 'schváleno',
+  REJECTED: 'zamítnuto',
+  SELECTED: 'vybráno',
+  BOOKED: 'rezervováno',
+};
+
+function activityLabel(label: string) {
+  return label.replace(/\b(SAVED|SHORTLISTED|APPROVED|REJECTED|SELECTED|BOOKED)\b/g, (value) => activityTokenLabels[value] ?? value);
+}
+
+function entityTypeLabel(type?: string | null) {
+  if (type === 'PLACE') return 'místo';
+  if (type === 'ACCOMMODATION') return 'ubytování';
+  if (type === 'EXPENSE') return 'náklad';
+  if (type === 'SETTLEMENT') return 'vyrovnání';
+  if (type === 'TRIP') return 'výlet';
+  return 'výlet';
+}
+
 export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
   const router = useRouter();
@@ -64,6 +86,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
         desktop={desktop}
         polls={state.data.polls}
         actorUserId={state.actorUserId}
+        actorRole={state.actorMember?.role}
         members={state.selectedTrip?.members ?? []}
         onBack={() => setSection('menu')}
         onCreate={(input) => void actions.createPoll(input)}
@@ -81,6 +104,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
         desktop={desktop}
         items={state.data.checklist}
         actorUserId={state.actorUserId}
+        actorRole={state.actorMember?.role}
         members={state.selectedTrip?.members ?? []}
         onBack={() => setSection('menu')}
         onCreate={(input) => void actions.createChecklistItem(input)}
@@ -152,10 +176,10 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
                   {index > 0 && <hr className="sep" />}
                   <div className="row between g12" style={{ padding: '10px 0' }}>
                     <div className="col flex1" style={{ minWidth: 0 }}>
-                      <span className="t-sm semib ellipsis">{event.label}</span>
+                      <span className="t-sm semib ellipsis">{activityLabel(event.label)}</span>
                       <span className="faint t-xs mt2">{event.actor?.name ?? 'Systém'} · {new Date(event.createdAt).toLocaleString('cs-CZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <span className="badge muted">{event.entityType ?? 'výlet'}</span>
+                    <span className="badge muted">{entityTypeLabel(event.entityType)}</span>
                   </div>
                 </div>
               ))}
@@ -229,7 +253,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
             <div key={event.id}>
               {index > 0 && <hr className="sep" />}
               <div className="col" style={{ padding: '10px 0' }}>
-                <span className="t-sm semib">{event.label}</span>
+                <span className="t-sm semib">{activityLabel(event.label)}</span>
                 <span className="faint t-xs mt2">{event.actor?.name ?? 'Systém'} · {new Date(event.createdAt).toLocaleString('cs-CZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </div>

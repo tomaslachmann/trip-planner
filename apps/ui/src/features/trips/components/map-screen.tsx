@@ -1,5 +1,5 @@
 import { ArrowUpDown, Banknote, BedDouble, Bookmark, CalendarDays, Check, ChevronRight, Clock, ExternalLink, LocateFixed, MapPin, MessageCircle, Radio, Search, Star, ThumbsDown, ThumbsUp, Users, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChipGroup } from '@/components/ui/chip-group';
@@ -11,16 +11,20 @@ import { AvatarRow } from './avatar';
 import { CategoryBadge } from './category';
 import { AccommodationPhoto, AccommodationRatingBadge, accommodationPriceLabel, accommodationTypeLabel } from './accommodation-display';
 import { AiInsightsPanel } from './ai-insights-panel';
+import { AccommodationDetailPanel } from './accommodation-detail-panel';
 import { MapCanvas } from './map-canvas';
 import { PlaceCommentCard } from './place-comment-card';
+import { PlaceDetailPanel } from './place-detail-panel';
 import { PlaceImage } from './place-image';
+import { PlaceRow } from './place-row';
 import { PlaceScoreBadge } from './place-score-badge';
 import { StatusActionButton } from './status-action-button';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { bookingDetailUrl } from '../lib/booking-links';
 import { normalizePlaceStatus, placeStatusMeta } from '../lib/decision';
 import { externalMapUrl } from '../lib/map-links';
-import type { AiSuggestionCandidate, DiscoveryPlace, ItineraryDay, Place, WikipediaPlaceSummary } from '../types';
+import { canManageTrip } from '../lib/permissions';
+import type { AiSuggestionCandidate, DiscoveryPlace, ItineraryDay, LocationResult, Place, WikipediaPlaceSummary } from '../types';
 
 const filters = [
   { key: 'ALL', label: 'Vše' },
@@ -201,7 +205,9 @@ function mapDayLabel(day: ItineraryDay, index: number) {
   const dateLabel = Number.isNaN(date.getTime())
     ? `Den ${index + 1}`
     : date.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' });
-  return day.title ? `${day.title} · ${dateLabel}` : dateLabel;
+  const title = day.title?.trim();
+  const normalizedTitle = title && (!/^den\s+\D/i.test(title) || /^den\s+\d+$/i.test(title)) ? title : `Den ${index + 1}`;
+  return `${normalizedTitle} · ${dateLabel}`;
 }
 
 function itineraryDayPlaceIds(day: ItineraryDay) {
@@ -271,6 +277,19 @@ function candidateToDiscovery(candidate: AiSuggestionCandidate): DiscoveryPlace 
     wikipediaUrl: candidate.verification.wikipediaUrl ?? undefined,
     imageUrl: candidate.verification.imageUrl ?? undefined,
     sourceUrl: candidate.verification.sourceUrl ?? undefined,
+  };
+}
+
+function locationToDiscovery(location: LocationResult, category: DiscoveryPlace['category']): DiscoveryPlace {
+  return {
+    provider: 'overpass',
+    externalId: location.externalId,
+    category,
+    name: location.label.split(',')[0]?.trim() || location.label,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    type: location.type ?? 'search',
+    description: location.label,
   };
 }
 
@@ -362,6 +381,10 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const [discoveryDetails, setDiscoveryDetails] = useState<Record<string, WikipediaPlaceSummary | null>>({});
   const [loadingDiscoveryDetailId, setLoadingDiscoveryDetailId] = useState('');
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
+  const [mapSearchResults, setMapSearchResults] = useState<LocationResult[]>([]);
+  const [mapSearchLoading, setMapSearchLoading] = useState(false);
+  const [mapSearchFocus, setMapSearchFocus] = useState<{ latitude: number; longitude: number; zoom?: number; key: string | number } | null>(null);
+  const [mapSearchArea, setMapSearchArea] = useState<{ latitude: number; longitude: number; label: string } | null>(null);
   const [mapDayId, setMapDayId] = useState('all');
   const showStays = filter === 'ACCOMMODATION';
   const selectedMapDay = mapDayId === 'all' ? undefined : state.data.itinerary.find((day) => day.id === mapDayId);
@@ -375,18 +398,66 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
     ...state.data.itinerary.map((day, index) => ({ value: day.id, label: mapDayLabel(day, index) })),
   ], [state.data.itinerary]);
   const filteredPlaces = useMemo(() => {
-    const query = mapSearch.trim().toLowerCase();
     return dayScopedPlaces.filter((place) => {
       const matchesFilter = filter === 'ALL' || place.type === filter || (filter === 'PLACE' && place.type === 'CUSTOM');
-      const matchesQuery = !query || place.name.toLowerCase().includes(query) || (place.description ?? '').toLowerCase().includes(query);
-      return matchesFilter && matchesQuery;
+      return matchesFilter;
     });
-  }, [dayScopedPlaces, filter, mapSearch]);
+  }, [dayScopedPlaces, filter]);
+  const localMapSearchMatches = useMemo(() => {
+    const query = mapSearch.trim().toLowerCase();
+    if (showStays || query.length < 2) return [];
+    return dayScopedPlaces
+      .filter((place) => (
+        place.name.toLowerCase().includes(query)
+        || (place.description ?? '').toLowerCase().includes(query)
+        || (place.locationLabel ?? '').toLowerCase().includes(query)
+      ))
+      .slice(0, 5);
+  }, [dayScopedPlaces, mapSearch, showStays]);
   const aiMapCandidates = useMemo(() => {
     if (showStays) return [];
     return (state.data.aiPlanDraft?.candidates ?? state.data.aiSuggestions?.candidates ?? [])
       .filter((candidate) => candidate.verification.latitude !== null && candidate.verification.longitude !== null);
   }, [showStays, state.data.aiPlanDraft?.candidates, state.data.aiSuggestions?.candidates]);
+  const visibleDiscoveries = useMemo(() => {
+    if (showStays) return [];
+    if (!selectedDiscovery) return state.discoveries;
+    if (state.discoveries.some((item) => item.externalId === selectedDiscovery.externalId)) return state.discoveries;
+    return [...state.discoveries, selectedDiscovery];
+  }, [selectedDiscovery, showStays, state.discoveries]);
+  const searchCenter = mapCenter ?? state.selectedPlace ?? dayScopedPlaces[0] ?? state.data.places[0];
+  const showMapSearchResults = !showStays && mapSearch.trim().length >= 2;
+
+  useEffect(() => {
+    const query = mapSearch.trim();
+    if (showStays || query.length < 2) {
+      setMapSearchResults([]);
+      setMapSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      setMapSearchLoading(true);
+      actions.searchLocations(query, {
+        latitude: searchCenter?.latitude,
+        longitude: searchCenter?.longitude,
+        fallbackText: state.selectedTrip?.destination,
+      })
+        .then((items) => {
+          if (!cancelled) setMapSearchResults(items);
+        })
+        .catch(() => {
+          if (!cancelled) setMapSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setMapSearchLoading(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [mapSearch, searchCenter?.latitude, searchCenter?.longitude, showStays, state.selectedTrip?.destination]);
 
   function selectPlace(placeId: string) {
     actions.setSelectedPlaceId(placeId);
@@ -450,10 +521,55 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
     setDetailOpen(false);
   }
 
+  function focusMapLocation(point: { latitude: number; longitude: number }, zoom = 14) {
+    const next = {
+      latitude: point.latitude,
+      longitude: point.longitude,
+      zoom,
+      key: `${Date.now()}:${point.latitude}:${point.longitude}:${zoom}`,
+    };
+    setMapSearchFocus(next);
+    setMapCenter({ latitude: point.latitude, longitude: point.longitude, zoom });
+  }
+
+  function selectMapSearchPlace(place: Place) {
+    setMapSearch(place.name);
+    setMapSearchResults([]);
+    setMapSearchArea(null);
+    focusMapLocation(place, 15);
+    selectPlace(place.id);
+  }
+
+  function selectMapSearchLocation(location: LocationResult) {
+    const discovery = locationToDiscovery(location, activeDiscoveryCategory);
+    setMapSearch(location.label);
+    setMapSearchResults([]);
+    setMapSearchArea({ latitude: location.latitude, longitude: location.longitude, label: location.label });
+    focusMapLocation(location, 14);
+    actions.setSelectedPlaceId('');
+    actions.setSelectedAccommodationId('');
+    setSelectedDiscovery(discovery);
+    setSelectedAiCandidate(null);
+    void loadDiscoveryDetail(discovery);
+    setSnap('half');
+    setDetailOpen(false);
+  }
+
+  function clearMapSearch() {
+    setMapSearch('');
+    setMapSearchResults([]);
+    setMapSearchArea(null);
+  }
+
   function saveAiCandidate(candidate: AiSuggestionCandidate) {
     const discovery = candidateToDiscovery(candidate);
     if (!discovery) return;
     void actions.saveDiscoveryPlace(discovery).then(() => setSelectedAiCandidate(null));
+  }
+
+  function clearAiMapDrafts() {
+    setSelectedAiCandidate(null);
+    actions.clearTripAiDrafts();
   }
 
   function setMapFilter(next: string) {
@@ -468,7 +584,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   }
 
   function discoverAroundMap() {
-    const center = mapCenter ?? state.selectedPlace ?? dayScopedPlaces[0] ?? state.data.places[0];
+    const center = mapSearchArea ?? mapCenter ?? state.selectedPlace ?? dayScopedPlaces[0] ?? state.data.places[0];
     if (!center) {
       return;
     }
@@ -481,7 +597,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   }
 
   function aiMapFocus() {
-    const center = mapCenter ?? state.selectedPlace ?? dayScopedPlaces[0] ?? state.data.places[0];
+    const center = mapSearchArea ?? mapCenter ?? state.selectedPlace ?? dayScopedPlaces[0] ?? state.data.places[0];
     if (!center) return undefined;
     const radiusMeters = mapCenter?.zoom
       ? Math.max(1800, Math.min(20000, Math.round(60000 / Math.max(1, mapCenter.zoom - 7))))
@@ -492,7 +608,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
       latitude: center.latitude,
       longitude: center.longitude,
       radiusMeters,
-      label: selectedMapDay ? `Mapa: ${selectedMapDay.title || selectedMapDay.date}` : 'Aktuální oblast mapy',
+      label: mapSearchArea ? `Mapa: ${mapSearchArea.label}` : selectedMapDay ? `Mapa: ${selectedMapDay.title || selectedMapDay.date}` : 'Aktuální oblast mapy',
     };
   }
 
@@ -517,16 +633,148 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const selectedStatusMeta = placeStatusMeta[selectedStatus];
   const activeDiscoveryCategory = discoveryCategoryForContext(filter);
   const discoverButtonLabel = selectedMapDay ? 'Objevit u dne' : 'Objevit v mapě';
-  const canChangeSelectedStatus = state.selectedPlace
-    ? state.selectedPlace.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN'
-    : false;
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
+  const canChangeSelectedStatus = state.selectedPlace ? canManagePlanning : false;
+  const desktopAside = showStays ? (
+    state.selectedAccommodation ? (
+      <AccommodationDetailPanel planner={planner} />
+    ) : (
+      <div className="scroll px18" style={{ flex: 1, paddingTop: 14, paddingBottom: 18 }}>
+        <div className="row between mb10">
+          <span className="t-h2">Ubytování v mapě</span>
+          <span className="badge muted">{state.accommodations.length}</span>
+        </div>
+        <Button className="w-full mb12" type="button" onClick={() => void actions.searchStays(undefined, mapCenter ?? undefined)} disabled={state.searchingStay}>
+          <ArrowUpDown />{state.searchingStay ? 'Hledám' : 'Hledat v této oblasti'}
+        </Button>
+        <div className="col">
+          {state.accommodations.length === 0 && (
+            <Card className="p-[14px]">
+              <div className="center muted t-sm">Vyber oblast na mapě a spusť hledání ubytování.</div>
+            </Card>
+          )}
+          {state.accommodations.map((stay, index) => (
+            <div key={stay.externalId}>
+              {index > 0 && <hr className="sep" />}
+              <button className="map-list-row" type="button" onClick={() => selectStay(stay.externalId)}>
+                <AccommodationPhoto stay={stay} />
+                <div className="col flex1" style={{ minWidth: 0 }}>
+                  <span className="t-h3 ellipsis">{stay.name}</span>
+                  <span className="muted t-xs mt4 row g6 wrap">
+                    {accommodationTypeLabel(stay)}
+                    <span className="dotsep" />
+                    <AccommodationRatingBadge compact reviewScore={stay.reviewScore} rating={stay.rating} reviewCount={stay.reviewCount} />
+                  </span>
+                  <span className="t-h3 tnum mt4">{accommodationPriceLabel(stay)}</span>
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  ) : selectedDiscovery ? (
+    <div className="scroll px18" style={{ flex: 1, paddingTop: 14, paddingBottom: 18 }}>
+      <DiscoveryDetailCard
+        discovery={selectedDiscovery}
+        summary={selectedDiscoveryDetail}
+        loading={selectedDiscoveryLoading}
+        onSave={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}
+        onClose={() => setSelectedDiscovery(null)}
+      />
+    </div>
+  ) : selectedAiCandidate ? (
+    <div className="scroll px18" style={{ flex: 1, paddingTop: 14, paddingBottom: 18 }}>
+      <AiCandidateDetailCard
+        candidate={selectedAiCandidate}
+        onSave={() => saveAiCandidate(selectedAiCandidate)}
+        onClose={() => setSelectedAiCandidate(null)}
+      />
+    </div>
+  ) : state.selectedPlace ? (
+    <PlaceDetailPanel planner={planner} compact />
+  ) : (
+    <div className="desktop-map-side-scroll p14">
+      <Card className="p-[12px] shadow-[var(--sh-sm)]">
+        <div className="row between mb8">
+          <span className="t-h3">AI návrhy</span>
+          <div className="row g6">
+            <span className="badge muted">{aiMapCandidates.length}</span>
+            {(state.data.aiSuggestions || state.data.aiPlanDraft) && (
+              <Button size="icon" variant="ghost" type="button" title="Skrýt AI návrhy" onClick={clearAiMapDrafts}><X /></Button>
+            )}
+          </div>
+        </div>
+        {aiMapCandidates.length > 0 ? (
+          <div className="col">
+            {aiMapCandidates.slice(0, 5).map((candidate, index) => (
+              <div key={candidate.id}>
+                {index > 0 && <hr className="sep" />}
+                <button
+                  className="row pressable w-full text-left"
+                  type="button"
+                  style={{ padding: '9px 0' }}
+                  onClick={() => selectAiCandidate(candidate)}
+                >
+                  <div className="col flex1" style={{ minWidth: 0 }}>
+                    <span className="t-sm semib ellipsis">{candidate.name}</span>
+                    <span className="muted t-xs mt2">{candidateTypeLabel(candidate.type)} · {candidate.verification.status === 'VERIFIED' ? 'ověřeno' : 'částečně ověřeno'}</span>
+                  </div>
+                  <span className="badge muted">Detail</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <p className="muted t-sm mt4">Zatím tu nejsou AI návrhy s ověřenou pozicí na mapě.</p>
+            <div className="row g8 mt10 wrap">
+              <Button size="sm" type="button" onClick={() => void actions.generateTripSuggestions(aiMapFocus())} disabled={state.generatingSuggestions}>
+                <Search />{state.generatingSuggestions ? 'Hledám' : 'Navrhnout místa'}
+              </Button>
+              <Button size="sm" variant="outline" type="button" onClick={() => void actions.generateTripPlanDraft(aiMapFocus())} disabled={state.generatingPlanDraft}>
+                <CalendarDays />{state.generatingPlanDraft ? 'Skládám' : 'Navrhnout plán'}
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
+      <Card className="p-[12px] shadow-[var(--sh-sm)]">
+        <div className="row between mb10">
+          <span className="t-h3">{selectedMapDay ? 'Místa v dni' : 'Místa na mapě'}</span>
+          <span className="badge muted">{placeList.length}</span>
+        </div>
+        <div className="col g10">
+          {placeList.length === 0 && (
+            <div className="center muted t-sm" style={{ padding: '12px 0' }}>
+              Žádná místa neodpovídají filtru.
+            </div>
+          )}
+          {placeList.map((place) => (
+            <PlaceRow
+              key={place.id}
+              place={place}
+              selected={state.selectedPlaceId === place.id}
+              onSelect={() => selectPlace(place.id)}
+              onAdd={canManagePlanning ? () => void actions.addPlaceToItinerary(place.id) : undefined}
+              onMore={() => {
+                actions.setSelectedPlaceId(place.id);
+                setDetailOpen(true);
+              }}
+            />
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
 
   return (
-    <div className={desktop ? 'desktop-map-host' : 'screen'}>
-      <MapCanvas
+    <div className={desktop ? 'desk-body' : 'screen'}>
+      <div className={desktop ? 'desktop-map-host' : 'map-mobile-host'}>
+        <MapCanvas
         places={placeList}
         accommodations={state.accommodations}
-        discoveries={showStays ? [] : state.discoveries}
+        discoveries={visibleDiscoveries}
         aiCandidates={aiMapCandidates}
         liveLocations={state.data.liveLocations}
         routes={state.data.routes}
@@ -540,6 +788,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
         onViewportChange={setMapCenter}
         showStays={showStays}
         fitKey={showStays ? `stays:${filter}` : `places:${mapDayId}:${filter}:ai:${aiMapCandidates.map((candidate) => candidate.id).join(',')}`}
+        focusLocation={mapSearchFocus}
       >
         <div className="float-top">
           <div className="searchbar">
@@ -552,13 +801,76 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 className="flex1"
                 style={{ border: 0, outline: 0, background: 'transparent', font: 'inherit', minWidth: 0 }}
                 value={mapSearch}
-                onChange={(event) => setMapSearch(event.target.value)}
+                onChange={(event) => {
+                  setMapSearch(event.target.value);
+                  setMapSearchArea(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (localMapSearchMatches[0]) {
+                      selectMapSearchPlace(localMapSearchMatches[0]);
+                    } else if (mapSearchResults[0]) {
+                      selectMapSearchLocation(mapSearchResults[0]);
+                    }
+                  }
+                  if (event.key === 'Escape') {
+                    clearMapSearch();
+                  }
+                }}
                 placeholder={selectedMapDay ? 'Hledat místa v tomhle dni...' : `Hledat místa v destinaci ${state.selectedTrip?.destination ?? 'tomto výletu'}...`}
               />
             )}
+            {!showStays && mapSearch && (
+              <Button size="icon" variant="ghost" type="button" className="searchbar-clear" aria-label="Vymazat hledání" onClick={clearMapSearch}>
+                <X />
+              </Button>
+            )}
             <AvatarRow names={(state.selectedTrip?.members ?? []).map((member) => member.user.name)} />
           </div>
+          {showMapSearchResults && (
+            <Card className="map-search-results">
+              {localMapSearchMatches.length > 0 && (
+                <>
+                  <div className="map-search-section-label">Uložená místa</div>
+                  {localMapSearchMatches.map((place) => (
+                    <button key={place.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectMapSearchPlace(place)}>
+                      <MapPin />
+                      <span className="col flex1" style={{ minWidth: 0 }}>
+                        <span className="t-sm semib ellipsis">{place.name}</span>
+                        <span className="muted t-xs ellipsis">{place.locationLabel ?? placeStatusMeta[normalizePlaceStatus(place.status)].label}</span>
+                      </span>
+                    </button>
+                  ))}
+                </>
+              )}
+              {(mapSearchResults.length > 0 || mapSearchLoading) && (
+                <>
+                  <div className="map-search-section-label">Lokace</div>
+                  {mapSearchResults.map((location) => (
+                    <button key={location.externalId} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => selectMapSearchLocation(location)}>
+                      <Search />
+                      <span className="col flex1" style={{ minWidth: 0 }}>
+                        <span className="t-sm semib ellipsis">{location.label}</span>
+                        <span className="muted t-xs">{location.type ?? location.countryCode ?? 'Mapa'}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {mapSearchLoading && <div className="map-search-loading">Hledám lokace...</div>}
+                </>
+              )}
+              {!mapSearchLoading && localMapSearchMatches.length === 0 && mapSearchResults.length === 0 && (
+                <div className="map-search-loading">Nic nenalezeno.</div>
+              )}
+            </Card>
+          )}
           <ChipGroup value={filter} options={filters.map((item) => ({ value: item.key, label: item.label }))} onValueChange={setMapFilter} className="map-filter-chips mt10" />
+          {mapSearchArea && !showStays && (
+            <div className="row g8 mt10 wrap">
+              <span className="badge muted"><MapPin />{mapSearchArea.label}</span>
+              <Button size="sm" variant="ghost" type="button" onClick={clearMapSearch}>Zrušit oblast</Button>
+            </div>
+          )}
           {!showStays && dayFilterOptions.length > 1 && (
             <div className="row g8 mt10 wrap">
               <Select
@@ -607,72 +919,6 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
           <LocateFixed />
         </Button>
 
-        {desktop && selectedDiscovery && (
-          <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 20, width: 390, maxWidth: 'calc(100% - 32px)' }}>
-            <DiscoveryDetailCard
-              discovery={selectedDiscovery}
-              summary={selectedDiscoveryDetail}
-              loading={selectedDiscoveryLoading}
-              onSave={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}
-              onClose={() => setSelectedDiscovery(null)}
-            />
-          </div>
-        )}
-
-        {desktop && selectedAiCandidate && (
-          <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 20, width: 420, maxWidth: 'calc(100% - 32px)' }}>
-            <AiCandidateDetailCard
-              candidate={selectedAiCandidate}
-              onSave={() => saveAiCandidate(selectedAiCandidate)}
-              onClose={() => setSelectedAiCandidate(null)}
-            />
-          </div>
-        )}
-
-        {desktop && !showStays && !selectedDiscovery && !selectedAiCandidate && (
-          <div className="desktop-map-side-panel">
-            <Card className="p-[12px] shadow-[var(--sh-sm)]">
-              <div className="row between mb8">
-                <span className="t-h3">AI návrhy</span>
-                <span className="badge muted">{aiMapCandidates.length}</span>
-              </div>
-              {aiMapCandidates.length > 0 ? (
-                <div className="col">
-                  {aiMapCandidates.slice(0, 5).map((candidate, index) => (
-                    <div key={candidate.id}>
-                      {index > 0 && <hr className="sep" />}
-                      <button
-                        className="row pressable w-full text-left"
-                        type="button"
-                        style={{ padding: '9px 0' }}
-                        onClick={() => selectAiCandidate(candidate)}
-                      >
-                        <div className="col flex1" style={{ minWidth: 0 }}>
-                          <span className="t-sm semib ellipsis">{candidate.name}</span>
-                          <span className="muted t-xs mt2">{candidateTypeLabel(candidate.type)} · {candidate.verification.status === 'VERIFIED' ? 'ověřeno' : 'částečně ověřeno'}</span>
-                        </div>
-                        <span className="badge muted">Detail</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <p className="muted t-sm mt4">Zatím tu nejsou AI návrhy s ověřenou pozicí na mapě.</p>
-                  <div className="row g8 mt10 wrap">
-                    <Button size="sm" type="button" onClick={() => void actions.generateTripSuggestions(aiMapFocus())} disabled={state.generatingSuggestions}>
-                      <Search />{state.generatingSuggestions ? 'Hledám' : 'Navrhnout místa'}
-                    </Button>
-                    <Button size="sm" variant="outline" type="button" onClick={() => void actions.generateTripPlanDraft(aiMapFocus())} disabled={state.generatingPlanDraft}>
-                      <CalendarDays />{state.generatingPlanDraft ? 'Skládám' : 'Navrhnout plán'}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </Card>
-          </div>
-        )}
-
         {!desktop && (
           <DockedSheet snap={snap} onSnapChange={setSnap}>
             {snap === 'peek' && (
@@ -702,7 +948,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                       }
                       void actions.saveAccommodation(state.selectedAccommodation!);
                     }}><Bookmark />{selectedAccommodationPlace ? 'Užší výběr' : 'Uložit ubytování'}</StatusActionButton>
-                    {selectedAccommodationPlace && (
+                    {selectedAccommodationPlace && canManagePlanning && (
                       <StatusActionButton active={selectedAccommodationStatus === 'SELECTED' || selectedAccommodationStatus === 'BOOKED'} tone="green" type="button" onClick={() => void actions.updateAccommodationStatus(selectedAccommodationPlace.id, 'SELECTED')}><Check />Vybrat</StatusActionButton>
                     )}
                   </div>
@@ -726,6 +972,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   compact
                   candidate={selectedAiCandidate}
                   onSave={() => saveAiCandidate(selectedAiCandidate)}
+                  onClose={() => setSelectedAiCandidate(null)}
                 />
               ) : selectedDiscovery ? (
                 <DiscoveryDetailCard
@@ -734,6 +981,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   summary={selectedDiscoveryDetail}
                   loading={selectedDiscoveryLoading}
                   onSave={() => void actions.saveDiscoveryPlace(selectedDiscovery).then(() => setSelectedDiscovery(null))}
+                  onClose={() => setSelectedDiscovery(null)}
                 />
               ) : state.selectedPlace ? (
                 <>
@@ -812,7 +1060,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <div className="px18" style={{ flex: '0 0 auto' }}>
                   <div className="row between" style={{ padding: '2px 0 12px' }}>
                     <span className="t-h2">{selectedMapDay ? `${placeList.length} míst v dni` : `${placeList.length} míst`}</span>
-                    <Button variant="ghost" size="sm" type="button" onClick={() => void actions.optimizeRoute()}><ArrowUpDown />Trasa</Button>
+                    {canManagePlanning && <Button variant="ghost" size="sm" type="button" onClick={() => void actions.optimizeRoute()}><ArrowUpDown />Trasa</Button>}
                   </div>
                 </div>
                 <div className="scroll px18" style={{ flex: 1, paddingBottom: 18 }}>
@@ -850,10 +1098,12 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                     loading={state.generatingInsights}
                     loadingSuggestions={state.generatingSuggestions}
                     loadingPlanDraft={state.generatingPlanDraft}
+                    compactDetails={false}
                     onGenerate={() => void actions.generateTripInsights()}
                     onGenerateSuggestions={() => void actions.generateTripSuggestions(aiMapFocus())}
                     onGeneratePlanDraft={() => void actions.generateTripPlanDraft(aiMapFocus())}
                     onNavigate={actions.setActiveTab}
+                    onDismiss={clearAiMapDrafts}
                   />
                   <Card className="p-[12px] shadow-[var(--sh-sm)] mb12">
                     <div className="row between mb8">
@@ -1043,21 +1293,27 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                   <Input className="pl-9 bg-muted border-transparent" placeholder="Přidat komentář..." value={commentText} onChange={(event) => setCommentText(event.target.value)} />
                 </div>
               </div>
-              <div className="row g8 p16" style={{ borderTop: '1px solid var(--border)', flex: '0 0 auto' }}>
-                <Button className="flex1" type="button" onClick={() => {
-                  if (hasCommentDraft) {
-                    void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''));
-                    return;
-                  }
-                  setDetailOpen(false);
-                  void actions.addPlaceToItinerary(state.selectedPlace!.id);
-                }}>{hasCommentDraft ? 'Přidat komentář' : 'Přidat do itineráře'}</Button>
-                <Button variant="outline" size="icon" type="button" onClick={() => void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''))} disabled={!hasCommentDraft}><MessageCircle /></Button>
-              </div>
+              {(hasCommentDraft || canManagePlanning) && (
+                <div className="row g8 p16" style={{ borderTop: '1px solid var(--border)', flex: '0 0 auto' }}>
+                  <Button className="flex1" type="button" onClick={() => {
+                    if (hasCommentDraft) {
+                      void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''));
+                      return;
+                    }
+                    setDetailOpen(false);
+                    void actions.addPlaceToItinerary(state.selectedPlace!.id);
+                  }}>{hasCommentDraft ? 'Přidat komentář' : 'Přidat do itineráře'}</Button>
+                  {canManagePlanning && (
+                    <Button variant="outline" size="icon" type="button" onClick={() => void actions.commentOnPlace(state.selectedPlace!.id, commentText).then(() => setCommentText(''))} disabled={!hasCommentDraft}><MessageCircle /></Button>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
       </MapCanvas>
+      </div>
+      {desktop && <aside className="desk-panel">{desktopAside}</aside>}
     </div>
   );
 }

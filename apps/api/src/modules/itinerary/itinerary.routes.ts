@@ -258,7 +258,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     const body = createItineraryStopSchema.parse(request.body);
     const day = await getDayForMutation(dayId);
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(day.tripId, actorUserId);
+    await requireTripRole(day.tripId, actorUserId, 'ADMIN');
     await assertPlaceBelongsToTrip(day.tripId, body.placeId);
     const participantIds = body.tripMemberIds ?? (await prisma.tripMember.findMany({
       where: { tripId: day.tripId },
@@ -297,7 +297,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     const existing = await prisma.itineraryStop.findUniqueOrThrow({ where: { id: stopId }, include: { day: true, participants: true } });
     if (existing.day.locked) throw httpError(409, 'Itinerary day is locked');
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(existing.day.tripId, actorUserId);
+    await requireTripRole(existing.day.tripId, actorUserId, 'ADMIN');
     if (body.placeId) await assertPlaceBelongsToTrip(existing.day.tripId, body.placeId);
     if (body.tripMemberIds) await requireTripMembersByIds(existing.day.tripId, body.tripMemberIds);
     await assertParticipantsAvailableForStop(
@@ -368,7 +368,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     const body = reorderItineraryStopsSchema.parse(request.body);
     const day = await getDayForMutation(dayId);
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(day.tripId, actorUserId);
+    await requireTripRole(day.tripId, actorUserId, 'ADMIN');
 
     const stops = await prisma.itineraryStop.findMany({ where: { dayId, id: { in: body.stopIds } } });
     if (stops.length !== new Set(body.stopIds).size) throw httpError(400, 'All reordered stops must belong to the day');
@@ -407,7 +407,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     const stop = await prisma.itineraryStop.findUniqueOrThrow({ where: { id: stopId }, include: { day: true } });
     if (stop.day.locked) throw httpError(409, 'Itinerary day is locked');
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(stop.day.tripId, actorUserId);
+    await requireTripRole(stop.day.tripId, actorUserId, 'ADMIN');
     await prisma.itineraryStop.delete({ where: { id: stopId } });
     return reply.code(204).send(null);
   });

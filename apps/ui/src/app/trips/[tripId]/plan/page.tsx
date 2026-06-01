@@ -8,6 +8,7 @@ import { PlanScreen } from '@/features/trips/components/plan-screen';
 import { useModal } from '@/features/trips/context/modal-context';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
 import type { TripPlannerController } from '@/features/trips/hooks/use-trip-planner';
+import { canManageTrip } from '@/features/trips/lib/permissions';
 
 function stopDayId(planner: TripPlannerController, stopId: string) {
   return planner.state.data.itinerary.find((day) => (day.stops ?? []).some((stop) => stop.id === stopId))?.id;
@@ -16,8 +17,10 @@ function stopDayId(planner: TripPlannerController, stopId: string) {
 function DesktopPlanPage({ planner }: { planner: TripPlannerController }) {
   const { state, actions } = planner;
   const { openModal } = useModal();
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
 
   async function handleDragEnd(event: DragEndEvent) {
+    if (!canManagePlanning) return;
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : '';
     if (!overId) return;
@@ -49,7 +52,8 @@ function DesktopPlanPage({ planner }: { planner: TripPlannerController }) {
             selectedPlaceId={state.selectedPlaceId}
             onSelect={actions.setSelectedPlaceId}
             onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
-            onStatusChange={(placeId, status) => void actions.updatePlaceStatus(placeId, status)}
+            onStatusChange={canManagePlanning ? (placeId, status) => void actions.updatePlaceStatus(placeId, status) : undefined}
+            onAddPlaceToItinerary={canManagePlanning ? (placeId) => void actions.addPlaceToItinerary(placeId) : undefined}
             onEditPlace={(placeId) => {
               actions.setSelectedPlaceId(placeId);
               openModal('addPlace', true);
@@ -62,11 +66,12 @@ function DesktopPlanPage({ planner }: { planner: TripPlannerController }) {
             weather={state.data.weather}
             routeCapabilities={state.data.routeCapabilities}
             onOpenPlace={actions.setSelectedPlaceId}
-            onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
-            onSearchLocations={actions.searchLocations}
-            onCreatePlace={actions.addPlace}
+            onUpdateDay={canManagePlanning ? (dayId, input) => void actions.updateItineraryDay(dayId, input) : undefined}
+            onSearchLocations={canManagePlanning ? actions.searchLocations : undefined}
+            onCreatePlace={canManagePlanning ? actions.addPlace : undefined}
             onOptimize={() => void actions.optimizeRoute()}
             places={state.data.places}
+            canManagePlanning={canManagePlanning}
           />
         </aside>
       </div>

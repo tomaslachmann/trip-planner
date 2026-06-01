@@ -112,11 +112,20 @@ export function ItineraryStopSheet({
           <div className="row g12">
             <div className="flex1">
               <Label htmlFor="stopStartsAt">Čas začátku</Label>
-              <Input id="stopStartsAt" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} required />
+              <Input id="stopStartsAt" name="startsAtTime" type="time" value={startsAtTime} max={endsAtTime || undefined} onChange={(event) => setStartsAtTime(event.target.value)} required />
             </div>
             <div className="flex1">
               <Label htmlFor="stopEndsAt">Konec</Label>
-              <Input id="stopEndsAt" name="endsAtTime" type="time" value={endsAtTime} onChange={(event) => setEndsAtTime(event.target.value)} />
+              <Input
+                id="stopEndsAt"
+                name="endsAtTime"
+                type="time"
+                value={endsAtTime}
+                min={startsAtTime || undefined}
+                data-after-field="startsAtTime"
+                data-after-message="Čas konce zastávky nemůže být před začátkem."
+                onChange={(event) => setEndsAtTime(event.target.value)}
+              />
             </div>
           </div>
           <div className="row g8 mt8 wrap">

@@ -11,11 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ValidatedForm } from '@/components/ui/validated-form';
 import type { Poll, TripMember } from '../types';
+import { canManageTrip } from '../lib/permissions';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
 
 function PollCard({
   poll,
   actorUserId,
+  actorRole,
   members,
   onVote,
   onUnvote,
@@ -24,6 +26,7 @@ function PollCard({
 }: {
   poll: Poll;
   actorUserId: string;
+  actorRole?: string;
   members: TripMember[];
   onVote: (optionId: string) => void;
   onUnvote: (optionId: string) => void;
@@ -33,6 +36,7 @@ function PollCard({
   const total = Math.max(1, (poll.options ?? []).reduce((sum, option) => sum + (option.votes?.length ?? 0), 0));
   const votedUserIds = new Set((poll.options ?? []).flatMap((option) => (option.votes ?? []).map((vote) => vote.userId)));
   const missingVoters = members.filter((member) => !votedUserIds.has(member.userId));
+  const canManagePoll = canManageTrip(actorRole) || poll.createdById === actorUserId;
   return (
     <Card className="p-[14px] mb12 shadow-[var(--sh-sm)]">
       <div className="row between mb12">
@@ -40,12 +44,14 @@ function PollCard({
           <span className="t-h3">{poll.question}</span>
           <span className="faint t-xs mt4">{poll.multiChoice ? 'Více možností' : 'Jedna možnost'} · {poll.status === 'OPEN' ? 'otevřeno' : 'uzavřeno'}</span>
         </div>
-        <div className="row g6">
-          <Button variant="ghost" size="sm" type="button" onClick={() => onStatusChange(poll.id, poll.status === 'OPEN' ? 'CLOSED' : 'OPEN')}>
-            <Lock size={14} />{poll.status === 'OPEN' ? 'Zavřít' : 'Otevřít'}
-          </Button>
-          <ConfirmDestructiveAction iconOnly label="Smazat anketu" size="icon" onConfirm={() => onDelete(poll.id)} />
-        </div>
+        {canManagePoll && (
+          <div className="row g6">
+            <Button variant="ghost" size="sm" type="button" onClick={() => onStatusChange(poll.id, poll.status === 'OPEN' ? 'CLOSED' : 'OPEN')}>
+              <Lock size={14} />{poll.status === 'OPEN' ? 'Zavřít' : 'Otevřít'}
+            </Button>
+            <ConfirmDestructiveAction iconOnly label="Smazat anketu" size="icon" onConfirm={() => onDelete(poll.id)} />
+          </div>
+        )}
       </div>
       <div className="row g8 wrap mb12">
         <span className="badge muted">{votedUserIds.size}/{members.length || votedUserIds.size} hlasovalo</span>
@@ -126,6 +132,7 @@ function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: 
 export function PollsPanel({
   polls,
   actorUserId,
+  actorRole,
   members = [],
   onCreate,
   onVote,
@@ -137,6 +144,7 @@ export function PollsPanel({
 }: {
   polls: Poll[];
   actorUserId: string;
+  actorRole?: string;
   members?: TripMember[];
   onCreate: (input: { question: string; options: string[]; multiChoice?: boolean }) => void;
   onVote: (optionId: string) => void;
@@ -158,6 +166,7 @@ export function PollsPanel({
       {polls.map((poll) => (
         <PollCard
           actorUserId={actorUserId}
+          actorRole={actorRole}
           members={members}
           key={poll.id}
           poll={poll}

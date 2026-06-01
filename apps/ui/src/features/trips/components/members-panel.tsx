@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { ValidatedForm } from '@/components/ui/validated-form';
 import { Avatar } from './avatar';
+import { roleLabel } from '../lib/format';
 import type { Trip, TripMember } from '../types';
 
 type RoleValue = 'ADMIN' | 'MEMBER' | 'GUEST';
@@ -41,13 +42,6 @@ function noteLabel(note?: string | null) {
   if (note === 'Full trip') return 'Celý výlet';
   if (note === 'Joins after the weekend') return 'Přijíždí po víkendu';
   return note;
-}
-
-function roleLabel(role?: string) {
-  if (role === 'OWNER') return 'Vlastník';
-  if (role === 'ADMIN') return 'Admin';
-  if (role === 'GUEST') return 'Host';
-  return 'Člen';
 }
 
 function budgetLabel(value?: string) {
@@ -87,6 +81,11 @@ function AvailabilityForm({
   availability?: AvailabilityWindow;
   onSubmit: (data: FormData) => void;
 }) {
+  const tripStart = toDateInputValue(trip?.startsAt);
+  const tripEnd = toDateInputValue(trip?.endsAt);
+  const [startDate, setStartDate] = useState(toDateInputValue(availability?.startsAt ?? trip?.startsAt));
+  const [endDate, setEndDate] = useState(toDateInputValue(availability?.endsAt ?? trip?.endsAt));
+
   return (
     <ValidatedForm
       className="mt12 rounded-[var(--r-lg)] border border-border p-3"
@@ -94,17 +93,41 @@ function AvailabilityForm({
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(new FormData(event.currentTarget));
-        if (!availability) event.currentTarget.reset();
+        if (!availability) {
+          setStartDate(tripStart);
+          setEndDate(tripEnd);
+          event.currentTarget.reset();
+        }
       }}
     >
       <div className="grid2 g8">
         <div>
           <Label htmlFor={`startsAt-${availability?.id ?? member.id}`}>Od data</Label>
-          <Input id={`startsAt-${availability?.id ?? member.id}`} name="startsAtDate" type="date" defaultValue={toDateInputValue(availability?.startsAt ?? trip?.startsAt)} required />
+          <Input
+            id={`startsAt-${availability?.id ?? member.id}`}
+            name="startsAtDate"
+            type="date"
+            value={startDate}
+            min={tripStart || undefined}
+            max={endDate || tripEnd || undefined}
+            onChange={(event) => setStartDate(event.target.value)}
+            required
+          />
         </div>
         <div>
           <Label htmlFor={`endsAt-${availability?.id ?? member.id}`}>Do data</Label>
-          <Input id={`endsAt-${availability?.id ?? member.id}`} name="endsAtDate" type="date" defaultValue={toDateInputValue(availability?.endsAt ?? trip?.endsAt)} required />
+          <Input
+            id={`endsAt-${availability?.id ?? member.id}`}
+            name="endsAtDate"
+            type="date"
+            value={endDate}
+            min={startDate || tripStart || undefined}
+            max={tripEnd || undefined}
+            data-after-field="startsAtDate"
+            data-after-message="Datum konce dostupnosti nemůže být před začátkem."
+            onChange={(event) => setEndDate(event.target.value)}
+            required
+          />
         </div>
       </div>
       <Label className="mt10" htmlFor={`note-${availability?.id ?? member.id}`}>Poznámka</Label>
@@ -174,7 +197,7 @@ function MemberCard({
             <Select value={member.role} onValueChange={(role) => onUpdateRole(member.id, role as RoleValue)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="ADMIN">Správce</SelectItem>
                 <SelectItem value="MEMBER">Člen</SelectItem>
                 <SelectItem value="GUEST">Host</SelectItem>
               </SelectContent>

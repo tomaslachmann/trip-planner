@@ -1,0 +1,89 @@
+services:
+  traefik:
+    image: traefik:v3.4
+    restart: always
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - ui
+      - api
+
+  ui:
+    image: ${UI_IMAGE}
+    restart: always
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.trip-ui.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.trip-ui.entrypoints=web"
+      - "traefik.http.routers.trip-ui.priority=1"
+      - "traefik.http.services.trip-ui.loadbalancer.server.port=3000"
+    depends_on:
+      - api
+
+  api:
+    image: ${API_IMAGE}
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-}
+      UPLOAD_DIR: uploads
+      BOOKING_PROVIDER: ${BOOKING_PROVIDER:-rapidapi}
+      BOOKING_API_BASE_URL: ${BOOKING_API_BASE_URL:-https://demandapi-sandbox.booking.com/3.1}
+      BOOKING_AFFILIATE_ID: ${BOOKING_AFFILIATE_ID:-}
+      BOOKING_API_TOKEN: ${BOOKING_API_TOKEN:-}
+      BOOKING_RAPIDAPI_BASE_URL: ${BOOKING_RAPIDAPI_BASE_URL:-https://booking-com15.p.rapidapi.com}
+      BOOKING_RAPIDAPI_HOST: ${BOOKING_RAPIDAPI_HOST:-booking-com15.p.rapidapi.com}
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY:-}
+      REQUEST_TIMEOUT_MS: ${REQUEST_TIMEOUT_MS:-120000}
+      ROUTING_OSRM_BASE_URL: ${ROUTING_OSRM_BASE_URL:-https://router.project-osrm.org}
+      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-osrm}
+      TRANSIT_PROVIDER: ${TRANSIT_PROVIDER:-none}
+      TRANSIT_OTP_BASE_URL: ${TRANSIT_OTP_BASE_URL:-}
+      NOMINATIM_BASE_URL: ${NOMINATIM_BASE_URL:-https://nominatim.openstreetmap.org}
+      NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT}
+      WIKIMEDIA_USER_AGENT: ${WIKIMEDIA_USER_AGENT}
+      WIKIMEDIA_RATE_LIMIT_PER_MINUTE: ${WIKIMEDIA_RATE_LIMIT_PER_MINUTE:-200}
+      OVERPASS_BASE_URL: ${OVERPASS_BASE_URL:-https://overpass-api.de/api/interpreter}
+      OVERPASS_TIMEOUT_MS: ${OVERPASS_TIMEOUT_MS:-120000}
+      OPEN_METEO_BASE_URL: ${OPEN_METEO_BASE_URL:-https://api.open-meteo.com/v1/forecast}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+    volumes:
+      - ./uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.trip-api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.trip-api.entrypoints=web"
+      - "traefik.http.routers.trip-api.priority=100"
+      - "traefik.http.routers.trip-api.middlewares=trip-api-strip"
+      - "traefik.http.middlewares.trip-api-strip.stripprefix.prefixes=/api"
+      - "traefik.http.services.trip-api.loadbalancer.server.port=3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

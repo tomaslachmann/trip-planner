@@ -44,6 +44,7 @@ export async function placeRoutes(app: FastifyInstance) {
     const body = createPlaceSchema.parse(request.body);
     const actorUserId = getActorUserId(request);
     await requireTripMember(body.tripId, actorUserId);
+    if (body.status !== 'PROPOSED') await requireTripRole(body.tripId, actorUserId, 'ADMIN');
 
     const place = await prisma.place.create({ data: { ...body, createdById: actorUserId } });
     return reply.code(201).send(place);
@@ -63,7 +64,9 @@ export async function placeRoutes(app: FastifyInstance) {
     const body = updatePlaceSchema.parse(request.body);
     const actorUserId = getActorUserId(request, body);
     const place = await prisma.place.findUniqueOrThrow({ where: { id } });
-    if (place.createdById !== actorUserId) await requireTripRole(place.tripId, actorUserId, 'ADMIN');
+    const updatesSharedDecision = body.status !== undefined || body.accommodationStatus !== undefined;
+    if (updatesSharedDecision) await requireTripRole(place.tripId, actorUserId, 'ADMIN');
+    else if (place.createdById !== actorUserId) await requireTripRole(place.tripId, actorUserId, 'ADMIN');
     if (body.accommodationStatus !== undefined && place.type !== 'ACCOMMODATION') throw httpError(400, 'Only accommodation places can have accommodation status');
 
     const updated = await prisma.place.update({ where: { id }, data: body });

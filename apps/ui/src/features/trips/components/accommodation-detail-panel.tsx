@@ -7,6 +7,7 @@ import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { accommodationStatusMeta, getAccommodationSummary } from '../lib/accommodation-scoring';
 import { bookingDetailUrl } from '../lib/booking-links';
 import { externalMapUrl } from '../lib/map-links';
+import { canManageTrip } from '../lib/permissions';
 import { AccommodationPhoto, AccommodationRatingBadge, accommodationPriceLabel, accommodationTypeLabel } from './accommodation-display';
 import { StatusActionButton } from './status-action-button';
 
@@ -32,6 +33,7 @@ export function AccommodationDetailPanel({ planner }: { planner: TripPlannerCont
   const statusMeta = accommodationStatusMeta[status];
   const mapUrl = externalMapUrl(currentStay);
   const bookingUrl = bookingDetailUrl(currentStay, state.selectedTrip);
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
 
   function saveOrShortlist() {
     if (!savedPlace) {
@@ -109,9 +111,11 @@ export function AccommodationDetailPanel({ planner }: { planner: TripPlannerCont
         </StatusActionButton>
         {savedPlace && (
           <>
-            <StatusActionButton active={status === 'SELECTED' || status === 'BOOKED'} tone="green" type="button" onClick={() => void actions.updateAccommodationStatus(savedPlace.id, 'SELECTED')}>
-              <Check />Vybrat
-            </StatusActionButton>
+            {canManagePlanning && (
+              <StatusActionButton active={status === 'SELECTED' || status === 'BOOKED'} tone="green" type="button" onClick={() => void actions.updateAccommodationStatus(savedPlace.id, 'SELECTED')}>
+                <Check />Vybrat
+              </StatusActionButton>
+            )}
             <StatusActionButton active={stats?.myVote === 'DOWN' || status === 'REJECTED'} tone="red" variant="ghost" type="button" onClick={() => void actions.voteForPlace(savedPlace.id, 'DOWN')} aria-label="Proti">
               <ThumbsDown />
             </StatusActionButton>

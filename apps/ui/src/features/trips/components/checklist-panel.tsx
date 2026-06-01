@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { ValidatedForm } from '@/components/ui/validated-form';
 import type { ChecklistItem, TripMember } from '../types';
+import { canManageTrip } from '../lib/permissions';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
 
 type ChecklistFilter = 'all' | 'mine' | 'open';
@@ -43,6 +44,7 @@ function ChecklistItemSheet({
   onCreate,
   onUpdate,
   onDelete,
+  canDelete = true,
 }: {
   open: boolean;
   item?: ChecklistItem | null;
@@ -51,6 +53,7 @@ function ChecklistItemSheet({
   onCreate: (input: ChecklistInput) => void;
   onUpdate: (itemId: string, input: ChecklistInput) => void;
   onDelete: (itemId: string) => void;
+  canDelete?: boolean;
 }) {
   const [scope, setScope] = useState<ChecklistInput['scope']>(item?.scope ?? 'SHARED');
   const [assigned, setAssigned] = useState<Record<string, boolean>>(() => {
@@ -91,7 +94,7 @@ function ChecklistItemSheet({
           <Input id="checklistNote" name="note" defaultValue={item?.note ?? ''} placeholder="Detail nebo termín" />
           <div className="row g12 mt14">
             <div className="flex1">
-              <Label>Scope</Label>
+              <Label>Typ úkolu</Label>
               <Select value={scope} onValueChange={(value) => setScope(value as ChecklistInput['scope'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -118,7 +121,7 @@ function ChecklistItemSheet({
               </ChipButton>
             ))}
           </div>
-          {item?.id && (
+          {item?.id && canDelete && (
             <ConfirmDestructiveAction className="mt16 w-full" label="Smazat úkol" confirmLabel="Smazat úkol" onConfirm={() => { onDelete(item.id); onClose(); }} />
           )}
           <Button className="mt12 w-full" type="submit"><Plus />{item ? 'Uložit změny' : 'Přidat úkol'}</Button>
@@ -131,6 +134,7 @@ function ChecklistItemSheet({
 export function ChecklistPanel({
   items,
   actorUserId,
+  actorRole,
   members = [],
   onBack,
   onCreate,
@@ -141,6 +145,7 @@ export function ChecklistPanel({
 }: {
   items: ChecklistItem[];
   actorUserId: string;
+  actorRole?: string;
   members?: TripMember[];
   onBack?: () => void;
   onCreate: (input: ChecklistInput) => void;
@@ -199,10 +204,12 @@ export function ChecklistPanel({
       )}
       {filtered.map((item) => {
         const done = item.completions?.some((c) => c.userId === actorUserId) ?? false;
+        const assignedToMe = item.assignments?.length ? item.assignments.some((assignment) => assignment.userId === actorUserId) : true;
+        const canManageItem = canManageTrip(actorRole) || item.createdById === actorUserId;
         return (
           <Card className="p-[14px] mb10 shadow-[var(--sh-sm)]" key={item.id}>
             <div className="row aic">
-              <Checkbox checked={done} onCheckedChange={(checked) => onComplete(item.id, checked === true)} />
+              <Checkbox checked={done} disabled={!assignedToMe} onCheckedChange={(checked) => onComplete(item.id, checked === true)} />
               <div className="col flex1" style={{ minWidth: 0 }}>
                 <span className={done ? 't-h3 muted' : 't-h3'}>{item.title}</span>
                 <span className="muted t-xs mt4">
@@ -212,9 +219,11 @@ export function ChecklistPanel({
                 </span>
               </div>
               <span className={done ? 'badge green' : 'badge muted'}>{done ? 'hotovo' : 'čeká'}</span>
-              <Button variant="ghost" size="icon" type="button" onClick={() => { setEditing(item); setOpen(true); }} aria-label="Upravit úkol">
-                <Edit3 />
-              </Button>
+              {canManageItem && (
+                <Button variant="ghost" size="icon" type="button" onClick={() => { setEditing(item); setOpen(true); }} aria-label="Upravit úkol">
+                  <Edit3 />
+                </Button>
+              )}
             </div>
           </Card>
         );
@@ -235,7 +244,7 @@ export function ChecklistPanel({
         <div className="t-h2 mb12">Seznam úkolů</div>
         {filterControl}
         {itemsList}
-        <ChecklistItemSheet key={editing?.id ?? 'new'} open={open} item={editing} members={members} onClose={() => { setOpen(false); setEditing(null); }} onCreate={onCreate} onUpdate={onUpdate} onDelete={onDelete} />
+        <ChecklistItemSheet key={editing?.id ?? 'new'} open={open} item={editing} members={members} onClose={() => { setOpen(false); setEditing(null); }} onCreate={onCreate} onUpdate={onUpdate} onDelete={onDelete} canDelete={!editing || canManageTrip(actorRole) || editing.createdById === actorUserId} />
       </div>
     );
   }
@@ -251,7 +260,7 @@ export function ChecklistPanel({
         {filterControl}
         {itemsList}
       </div>
-      <ChecklistItemSheet key={editing?.id ?? 'new'} open={open} item={editing} members={members} onClose={() => { setOpen(false); setEditing(null); }} onCreate={onCreate} onUpdate={onUpdate} onDelete={onDelete} />
+      <ChecklistItemSheet key={editing?.id ?? 'new'} open={open} item={editing} members={members} onClose={() => { setOpen(false); setEditing(null); }} onCreate={onCreate} onUpdate={onUpdate} onDelete={onDelete} canDelete={!editing || canManageTrip(actorRole) || editing.createdById === actorUserId} />
     </div>
   );
 }

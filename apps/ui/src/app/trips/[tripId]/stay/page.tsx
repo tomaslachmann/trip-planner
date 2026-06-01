@@ -5,10 +5,12 @@ import { TripBar } from '@/features/trips/components/trip-bar';
 import { useModal } from '@/features/trips/context/modal-context';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
 import type { TripPlannerController } from '@/features/trips/hooks/use-trip-planner';
+import { canManageTrip } from '@/features/trips/lib/permissions';
 
 function StayPageContent({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
   const { openModal } = useModal();
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
   return (
     <StayPanel
       layout={desktop ? 'desktop' : 'panel'}
@@ -27,7 +29,7 @@ function StayPageContent({ planner, desktop = false }: { planner: TripPlannerCon
       onSelectSaved={actions.setSelectedPlaceId}
       onSave={(stay) => void actions.saveAccommodation(stay)}
       onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
-      onStatusChange={(placeId, status) => void actions.updateAccommodationStatus(placeId, status)}
+      onStatusChange={canManagePlanning ? (placeId, status) => void actions.updateAccommodationStatus(placeId, status) : undefined}
     />
   );
 }

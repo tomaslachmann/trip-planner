@@ -114,7 +114,7 @@ export async function routeRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const body = createRoutePlanSchema.parse(request.body);
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(body.tripId, actorUserId);
+    await requireTripRole(body.tripId, actorUserId, 'ADMIN');
     const places = await getPlacesForRoute(body.tripId, body.placeIds);
     const legs = await buildLegs(places, body.mode);
 
@@ -143,7 +143,7 @@ export async function routeRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const body = optimizeRoutePlanSchema.parse(request.body);
     const actorUserId = getActorUserId(request, body);
-    await requireTripMember(body.tripId, actorUserId);
+    await requireTripRole(body.tripId, actorUserId, 'ADMIN');
     await assertParticipantsAvailable(body.tripId, body.participantUserIds, body.startsAt, body.endsAt);
 
     const places = await getPlacesForRoute(body.tripId, body.placeIds);

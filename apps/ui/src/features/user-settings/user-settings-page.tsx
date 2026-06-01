@@ -15,6 +15,7 @@ import { Avatar } from '@/features/trips/components/avatar';
 import {
   clearAccessToken,
   getSessionUser,
+  registerRequest,
   readAccessToken,
   signInRequest,
   signOutRequest,
@@ -250,16 +251,30 @@ export function UserSettingsContent({ mobileAppBar = false }: { mobileAppBar?: b
         message={message}
         onSignIn={(formData) => {
           const email = String(formData.get('email') ?? '').trim().toLowerCase();
-          const name = String(formData.get('name') ?? '').trim() || email.split('@')[0] || 'Cestovatel';
+          const name = String(formData.get('name') ?? '').trim();
+          const password = String(formData.get('password') ?? '');
+          const passwordConfirm = String(formData.get('passwordConfirm') ?? '');
+          const authMode = String(formData.get('authMode') ?? 'sign-in') === 'register' ? 'register' : 'sign-in';
+          if (password.length < 8) {
+            setMessage('Heslo musí mít alespoň 8 znaků.');
+            return;
+          }
+          if (authMode === 'register' && password !== passwordConfirm) {
+            setMessage('Hesla se neshodují.');
+            return;
+          }
           setLoading(true);
-          signInRequest({ email, name })
+          const request = authMode === 'register'
+            ? registerRequest({ email, name, password })
+            : signInRequest({ email, password });
+          request
             .then((session) => {
               writeAccessToken(session.accessToken);
               setAccessToken(session.accessToken);
               setUser(session.user);
               setMessage(null);
             })
-            .catch(() => setMessage('Přihlášení se nepodařilo.'))
+            .catch(() => setMessage(authMode === 'register' ? 'Registrace se nepodařila.' : 'Přihlášení se nepodařilo.'))
             .finally(() => setLoading(false));
         }}
       />

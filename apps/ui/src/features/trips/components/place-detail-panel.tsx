@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { normalizePlaceStatus, placeStatusMeta, type PlaceStatus } from '../lib/decision';
 import { externalMapUrl } from '../lib/map-links';
+import { canManageTrip } from '../lib/permissions';
 import type { Place } from '../types';
 import { useModal } from '../context/modal-context';
 import { Avatar } from './avatar';
@@ -65,7 +66,8 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
   const missingVoters = members.filter((member) => !votedUserIds.has(member.userId));
   const status = normalizePlaceStatus(place.status);
   const statusMeta = placeStatusMeta[status];
-  const canChangeStatus = place.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN';
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
+  const canChangeStatus = canManagePlanning;
   const isShortlisted = status === 'SHORTLISTED';
   const statusActions: Array<{ status: PlaceStatus; label: string; tone: StatusTone }> = [
     { status: 'SHORTLISTED', label: 'Užší výběr', tone: 'amber' },
@@ -195,24 +197,25 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
           />
         </div>
       </div>
-      <div className="row g8 p16" style={{ borderTop: '1px solid var(--border)', flex: '0 0 auto' }}>
-        <Button className="flex1" type="button" onClick={() => void actions.addPlaceToItinerary(place.id)}>
-          <CalendarPlus />Přidat do itineráře
-        </Button>
-        <StatusActionButton
-          active={isShortlisted}
-          tone="amber"
-          variant="outline"
-          size="icon"
-          type="button"
-          disabled={!canChangeStatus}
-          onClick={() => void actions.updatePlaceStatus(place.id, 'SHORTLISTED')}
-          aria-label="Přidat do užšího výběru"
-          title={canChangeStatus ? 'Přidat do shortlistu' : 'Stav může měnit autor nebo admin'}
-        >
-          <Bookmark />
-        </StatusActionButton>
-      </div>
+      {canManagePlanning && (
+        <div className="row g8 p16" style={{ borderTop: '1px solid var(--border)', flex: '0 0 auto' }}>
+          <Button className="flex1" type="button" onClick={() => void actions.addPlaceToItinerary(place.id)}>
+            <CalendarPlus />Přidat do itineráře
+          </Button>
+          <StatusActionButton
+            active={isShortlisted}
+            tone="amber"
+            variant="outline"
+            size="icon"
+            type="button"
+            onClick={() => void actions.updatePlaceStatus(place.id, 'SHORTLISTED')}
+            aria-label="Přidat do užšího výběru"
+            title="Přidat do shortlistu"
+          >
+            <Bookmark />
+          </StatusActionButton>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { TripBar } from './trip-bar';
 import { ItineraryStopSheet, type EditingItineraryStop } from './itinerary-stop-sheet';
 import { useModal } from '../context/modal-context';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
+import { canManageTrip } from '../lib/permissions';
 
 type PlanView = 'places' | 'itinerary' | 'stay';
 
@@ -23,8 +24,10 @@ export function PlanScreen({ planner }: { planner: TripPlannerController }) {
   const { openModal } = useModal();
   const [planView, setPlanView] = useState<PlanView>('places');
   const [editingStop, setEditingStop] = useState<EditingItineraryStop | null>(null);
+  const canManagePlanning = canManageTrip(state.actorMember?.role);
 
   async function handleDragEnd(event: DragEndEvent) {
+    if (!canManagePlanning) return;
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : '';
     if (!overId) return;
@@ -75,7 +78,8 @@ export function PlanScreen({ planner }: { planner: TripPlannerController }) {
               selectedPlaceId={state.selectedPlaceId}
               onSelect={actions.setSelectedPlaceId}
               onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
-              onStatusChange={(placeId, status) => void actions.updatePlaceStatus(placeId, status)}
+              onStatusChange={canManagePlanning ? (placeId, status) => void actions.updatePlaceStatus(placeId, status) : undefined}
+              onAddPlaceToItinerary={canManagePlanning ? (placeId) => void actions.addPlaceToItinerary(placeId) : undefined}
               onEditPlace={(placeId) => {
                 actions.setSelectedPlaceId(placeId);
                 openModal('addPlace', true);
@@ -87,13 +91,14 @@ export function PlanScreen({ planner }: { planner: TripPlannerController }) {
               days={state.data.itinerary}
               weather={state.data.weather}
               onOpenPlace={actions.setSelectedPlaceId}
-              onEditStop={(day, stop) => setEditingStop({ day, stop })}
-              onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
-              onSearchLocations={actions.searchLocations}
-              onCreatePlace={actions.addPlace}
+              onEditStop={canManagePlanning ? (day, stop) => setEditingStop({ day, stop }) : undefined}
+              onUpdateDay={canManagePlanning ? (dayId, input) => void actions.updateItineraryDay(dayId, input) : undefined}
+              onSearchLocations={canManagePlanning ? actions.searchLocations : undefined}
+              onCreatePlace={canManagePlanning ? actions.addPlace : undefined}
               onOptimize={() => void actions.optimizeRoute()}
               routeCapabilities={state.data.routeCapabilities}
               places={state.data.places}
+              canManagePlanning={canManagePlanning}
             />
           )}
           {planView === 'stay' && (
@@ -112,12 +117,12 @@ export function PlanScreen({ planner }: { planner: TripPlannerController }) {
               onSelectSaved={actions.setSelectedPlaceId}
               onSave={(stay) => void actions.saveAccommodation(stay)}
               onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
-              onStatusChange={(placeId, status) => void actions.updateAccommodationStatus(placeId, status)}
+              onStatusChange={canManagePlanning ? (placeId, status) => void actions.updateAccommodationStatus(placeId, status) : undefined}
             />
           )}
         </div>
       </DndContext>
-      {editingStop && (
+      {canManagePlanning && editingStop && (
         <ItineraryStopSheet
           key={editingStop.stop.id}
           editing={editingStop}

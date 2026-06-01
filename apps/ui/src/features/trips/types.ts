@@ -328,6 +328,7 @@ export type LiveLocation = {
 export type Poll = {
   id: string;
   tripId: string;
+  createdById?: string;
   question: string;
   status: 'OPEN' | 'CLOSED';
   multiChoice: boolean;
@@ -346,6 +347,7 @@ export type Poll = {
 export type ChecklistItem = {
   id: string;
   tripId: string;
+  createdById?: string;
   title: string;
   note?: string | null;
   scope: 'PERSONAL' | 'SHARED' | 'EVERYONE';

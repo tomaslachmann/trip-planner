@@ -119,3 +119,9 @@ For quick local DB:
 ```bash
 docker compose up -d
 ```
+
+## Rosti deployment
+
+Production stack files for Rosti hosting live in [docs/rosti-deploy.md](docs/rosti-deploy.md).
+The deployment uses GHCR images, `docker-compose.rosti.yml`, Traefik on the only
+public port `80`, Next.js on `/`, and the API under `/api`.

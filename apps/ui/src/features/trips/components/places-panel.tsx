@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import type { Place, TripMember } from '../types';
 import { PlaceRow } from './place-row';
 import { normalizePlaceStatus, placeRecommendationScore, topPlaces } from '../lib/decision';
+import { canManageTrip } from '../lib/permissions';
 import { PlaceScoreBadge } from './place-score-badge';
 import { statusActionClass, type StatusTone } from './status-action-button';
 
@@ -37,6 +38,7 @@ function DraggablePlace({
   onShortlist,
   onAdd,
   onMore,
+  canDrag = true,
 }: {
   place: Place;
   onSelect: () => void;
@@ -45,9 +47,10 @@ function DraggablePlace({
   onShortlist?: () => void;
   onAdd?: () => void;
   onMore: () => void;
+  canDrag?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `place:${place.id}` });
-  const dragHandleProps = { ...attributes, ...(listeners ?? {}) } as ButtonHTMLAttributes<HTMLButtonElement>;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `place:${place.id}`, disabled: !canDrag });
+  const dragHandleProps = canDrag ? { ...attributes, ...(listeners ?? {}) } as ButtonHTMLAttributes<HTMLButtonElement> : undefined;
   return (
     <div
       ref={setNodeRef}
@@ -72,7 +75,6 @@ function DraggablePlace({
 export function PlacesPanel({
   places,
   members = [],
-  actorUserId,
   actorRole,
   selectedPlaceId,
   onSelect,
@@ -107,7 +109,8 @@ export function PlacesPanel({
     return [...list].sort((a, b) => placeRecommendationScore(b, members) - placeRecommendationScore(a, members));
   }, [filter, members, places, search, sortVotes]);
   const recommended = topPlaces(places, members, 3);
-  const canChangeStatus = (place: Place) => !!onStatusChange && (place.createdById === actorUserId || actorRole === 'OWNER' || actorRole === 'ADMIN');
+  const canManagePlanning = canManageTrip(actorRole);
+  const canChangeStatus = (_place: Place) => !!onStatusChange && canManagePlanning;
 
   return (
     <div className="col flex1" style={{ minHeight: 0 }}>
@@ -173,7 +176,7 @@ export function PlacesPanel({
                 place={place}
                 selected={selectedPlaceId === place.id}
                 onSelect={() => onSelect(place.id)}
-                onAdd={onAddPlaceToItinerary ? () => onAddPlaceToItinerary(place.id) : undefined}
+                onAdd={canManagePlanning && onAddPlaceToItinerary ? () => onAddPlaceToItinerary(place.id) : undefined}
                 onApprove={canChangeStatus(place) ? () => {
                   onStatusChange?.(place.id, 'APPROVED');
                   onVotePlace(place.id, 'MUST_HAVE');
@@ -183,6 +186,7 @@ export function PlacesPanel({
                   onVotePlace(place.id, 'UP');
                 } : undefined}
                 onMore={() => onEditPlace(place.id)}
+                canDrag={canManagePlanning}
               />
             </div>
           ))}

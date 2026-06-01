@@ -85,7 +85,8 @@ export type WikipediaSummaryResult = {
 };
 
 const cache = new Map<string, { expiresAt: number; value: unknown }>();
-const overpassTimeoutMs = 45000;
+const overpassTimeoutMs = env.OVERPASS_TIMEOUT_MS;
+const overpassQueryTimeoutSeconds = Math.max(60, Math.min(180, Math.floor(overpassTimeoutMs / 1000) - 5));
 const wikipediaTimeoutMs = 20000;
 let wikimediaWindowStartedAt = 0;
 let wikimediaRequestCount = 0;
@@ -253,6 +254,14 @@ function normalizeDiscovery(element: OverpassElement, category: DiscoveryCategor
   };
 }
 
+function cleanOverpassError(text: string) {
+  return text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+}
+
 async function overpassQuery(query: string) {
   const cacheKey = `overpass:${query}`;
   const cached = readCache<unknown>(cacheKey);
@@ -269,7 +278,7 @@ async function overpassQuery(query: string) {
   }, overpassTimeoutMs);
   if (!response.ok) {
     const text = await response.text();
-    throw httpError(response.status, `Map discovery failed: ${text.slice(0, 500)}`);
+    throw httpError(response.status, `Map discovery failed: ${cleanOverpassError(text)}`);
   }
   const payload = await response.json() as unknown;
   writeCache(cacheKey, payload);
@@ -280,27 +289,44 @@ export async function discoverLocations(input: { latitude: number; longitude: nu
   const filter = overpassFilter(input.category);
   const radiusMeters = input.category === 'ACTIVITY' ? Math.min(input.radiusMeters, 1800) : input.radiusMeters;
   const limit = input.category === 'ACTIVITY' ? Math.min(input.limit, 18) : input.limit;
-  const around = `(around:${radiusMeters},${input.latitude},${input.longitude})`;
-  const relationQuery = input.category === 'ACTIVITY' || input.category === 'OUTDOOR' ? '' : `relation${around}${filter};`;
-  const outdoorExtras = input.category === 'OUTDOOR'
-    ? `
-      node${around}["tourism"~"^(viewpoint|alpine_hut|wilderness_hut|picnic_site|camp_site)$"];
-      way${around}["tourism"~"^(viewpoint|alpine_hut|wilderness_hut|picnic_site|camp_site)$"];
-      node${around}["leisure"~"^(nature_reserve|park)$"];
-      way${around}["leisure"~"^(nature_reserve|park)$"];
-    `
-    : '';
-  const query = `
-    [out:json][timeout:35];
-    (
-      node${around}${filter};
-      way${around}${filter};
-      ${outdoorExtras}
-      ${relationQuery}
-    );
-    out center tags ${limit};
-  `;
-  const payload = await overpassQuery(query);
+  const buildQuery = (radius: number, options: { includeWays: boolean; includeRelations: boolean }) => {
+    const around = `(around:${radius},${input.latitude},${input.longitude})`;
+    const relationQuery = options.includeRelations && input.category !== 'ACTIVITY' && input.category !== 'OUTDOOR' ? `relation${around}${filter};` : '';
+    const outdoorExtras = input.category === 'OUTDOOR'
+      ? `
+        node${around}["tourism"~"^(viewpoint|alpine_hut|wilderness_hut|picnic_site|camp_site)$"];
+        ${options.includeWays ? `way${around}["tourism"~"^(viewpoint|alpine_hut|wilderness_hut|picnic_site|camp_site)$"];` : ''}
+        node${around}["leisure"~"^(nature_reserve|park)$"];
+        ${options.includeWays ? `way${around}["leisure"~"^(nature_reserve|park)$"];` : ''}
+      `
+      : '';
+    return `
+      [out:json][timeout:${overpassQueryTimeoutSeconds}];
+      (
+        node${around}${filter};
+        ${options.includeWays ? `way${around}${filter};` : ''}
+        ${outdoorExtras}
+        ${relationQuery}
+      );
+      out center tags ${limit};
+    `;
+  };
+  const queries = [
+    buildQuery(radiusMeters, { includeWays: true, includeRelations: radiusMeters <= 3000 }),
+    buildQuery(Math.min(radiusMeters, 5000), { includeWays: true, includeRelations: false }),
+    buildQuery(Math.min(radiusMeters, 3000), { includeWays: false, includeRelations: false }),
+  ];
+  let payload: unknown = null;
+  let lastError: unknown = null;
+  for (const query of queries) {
+    try {
+      payload = await overpassQuery(query);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!payload) throw lastError;
   const elements = (payload as { elements?: unknown[] }).elements ?? [];
   const seen = new Set<string>();
   return elements
