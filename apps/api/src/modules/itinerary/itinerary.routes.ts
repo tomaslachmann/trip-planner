@@ -29,24 +29,30 @@ async function getDayForMutation(dayId: string) {
   return day;
 }
 
-async function assertParticipantsAvailableForStop(tripId: string, tripMemberIds: string[] | undefined, startsAt?: string | null, endsAt?: string | null) {
-  if (!tripMemberIds?.length || !startsAt || !endsAt) return;
+function dateKey(value: Date | string) {
+  return new Date(value).toISOString().slice(0, 10);
+}
 
-  const start = new Date(startsAt);
-  const end = new Date(endsAt);
-  const availableMembers = await prisma.tripMember.findMany({
+function memberCoversDate(member: { availabilityWindows: Array<{ startsAt: Date; endsAt: Date }> }, date: Date) {
+  const windows = member.availabilityWindows ?? [];
+  if (windows.length === 0) return true;
+
+  const day = dateKey(date);
+  return windows.some((window) => dateKey(window.startsAt) <= day && dateKey(window.endsAt) >= day);
+}
+
+async function assertParticipantsAvailableForStop(tripId: string, tripMemberIds: string[] | undefined, itineraryDate: Date) {
+  if (!tripMemberIds?.length) return;
+
+  const members = await prisma.tripMember.findMany({
     where: {
       tripId,
       id: { in: tripMemberIds },
-      OR: [
-        { availabilityWindows: { none: {} } },
-        { availabilityWindows: { some: { startsAt: { lte: start }, endsAt: { gte: end } } } },
-      ],
     },
-    select: { id: true },
+    include: { availabilityWindows: true },
   });
 
-  if (availableMembers.length !== new Set(tripMemberIds).size) {
+  if (members.filter((member) => memberCoversDate(member, itineraryDate)).length !== new Set(tripMemberIds).size) {
     throw httpError(400, 'All itinerary participants must be available for the selected stop time');
   }
 }
@@ -259,7 +265,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
       select: { id: true },
     })).map((member) => member.id);
     await requireTripMembersByIds(day.tripId, participantIds);
-    await assertParticipantsAvailableForStop(day.tripId, participantIds, body.startsAt, body.endsAt);
+    await assertParticipantsAvailableForStop(day.tripId, participantIds, day.date);
 
     const stop = await prisma.itineraryStop.create({
       data: {
@@ -297,8 +303,7 @@ export async function itineraryRoutes(app: FastifyInstance) {
     await assertParticipantsAvailableForStop(
       existing.day.tripId,
       body.tripMemberIds ?? existing.participants.map((participant) => participant.tripMemberId),
-      body.startsAt === undefined ? existing.startsAt?.toISOString() : body.startsAt,
-      body.endsAt === undefined ? existing.endsAt?.toISOString() : body.endsAt,
+      existing.day.date,
     );
 
     return prisma.$transaction(async (tx) => {

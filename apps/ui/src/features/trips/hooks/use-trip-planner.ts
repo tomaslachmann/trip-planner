@@ -1121,17 +1121,23 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 
   async function optimizeRoute() {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
-    const placeIds = data.places.slice(0, 8).map((place) => place.id);
+    const plannedStops = data.itinerary
+      .flatMap((day) => (day.stops ?? []).map((stop) => ({ day, stop })))
+      .filter(({ stop }) => stop.placeId);
+    const uniquePlannedPlaceIds = Array.from(new Set(plannedStops.map(({ stop }) => stop.placeId).filter((placeId): placeId is string => Boolean(placeId))));
+    const placeIds = (uniquePlannedPlaceIds.length >= 2 ? uniquePlannedPlaceIds : data.places.map((place) => place.id)).slice(0, 8);
     if (placeIds.length < 2) return setMessage('Pro optimalizaci trasy přidej aspoň dvě místa.');
+    const timedStops = plannedStops.filter(({ stop }) => placeIds.includes(stop.placeId ?? '') && stop.startsAt && stop.endsAt);
+    const routeStartsAt = timedStops.length ? timedStops.map(({ stop }) => stop.startsAt as string).sort()[0] : undefined;
+    const routeEndsAt = timedStops.length ? timedStops.map(({ stop }) => stop.endsAt as string).sort().at(-1) : undefined;
     const { error } = await api.POST('/routes/optimize', {
       body: {
         tripId: selectedTrip.id,
         name: 'Návrh nejlepší trasy',
         mode: 'DRIVE',
-        startsAt: selectedTrip.startsAt ?? undefined,
-        endsAt: selectedTrip.endsAt ?? undefined,
+        startsAt: routeStartsAt,
+        endsAt: routeEndsAt,
         placeIds,
-        participantUserIds: (selectedTrip.members ?? []).map((member) => member.userId),
       },
     });
     if (error) return setMessage('Trasu se nepodařilo optimalizovat.');

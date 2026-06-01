@@ -1,22 +1,23 @@
 import type { TripMember } from '../types';
 
-function parseTime(value?: string | null) {
+function dateKey(value?: string | null) {
   if (!value) return null;
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
 }
 
 export function isMemberAvailableForRange(member: Pick<TripMember, 'availabilityWindows'>, startsAt?: string | null, endsAt?: string | null) {
-  const start = parseTime(startsAt);
-  const end = parseTime(endsAt);
+  const start = dateKey(startsAt);
+  const end = dateKey(endsAt);
   if (start === null || end === null) return true;
 
   const windows = member.availabilityWindows ?? [];
   if (windows.length === 0) return true;
 
   return windows.some((window) => {
-    const windowStart = parseTime(window.startsAt);
-    const windowEnd = parseTime(window.endsAt);
+    const windowStart = dateKey(window.startsAt);
+    const windowEnd = dateKey(window.endsAt);
     if (windowStart === null || windowEnd === null) return false;
     return windowStart <= start && windowEnd >= end;
   });

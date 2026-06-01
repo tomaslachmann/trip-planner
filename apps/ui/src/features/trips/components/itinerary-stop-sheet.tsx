@@ -50,11 +50,9 @@ export function ItineraryStopSheet({
   const [attendance, setAttendance] = useState<Record<string, AttendanceChoice>>(initialAttendance);
   const [startsAtTime, setStartsAtTime] = useState(toTimeInput(editing.stop.startsAt));
   const [endsAtTime, setEndsAtTime] = useState(toTimeInput(editing.stop.endsAt));
-  const computedStartsAt = useMemo(() => dayTimeToIso(editing.day, startsAtTime), [editing.day, startsAtTime]);
-  const computedEndsAt = useMemo(() => dayTimeToIso(editing.day, endsAtTime), [editing.day, endsAtTime]);
   const participantAvailability = useMemo<Record<string, boolean>>(
-    () => Object.fromEntries(members.map((member) => [member.id, isMemberAvailableForRange(member, computedStartsAt, computedEndsAt)])),
-    [computedEndsAt, computedStartsAt, members],
+    () => Object.fromEntries(members.map((member) => [member.id, isMemberAvailableForRange(member, editing.day.date, editing.day.date)])),
+    [editing.day.date, members],
   );
   const selectedParticipantIds = members.filter((member) => participantAvailability[member.id] !== false && attendance[member.id] !== 'OUT').map((member) => member.id);
   const hasParticipants = members.length === 0 || selectedParticipantIds.length > 0;

@@ -41,17 +41,21 @@ async function assertParticipantsAvailable(tripId: string, participantUserIds: s
 
   const start = new Date(startsAt);
   const end = new Date(endsAt);
-  const availableMembers = await prisma.tripMember.findMany({
+  const startDay = start.toISOString().slice(0, 10);
+  const endDay = end.toISOString().slice(0, 10);
+  const members = await prisma.tripMember.findMany({
     where: {
       tripId,
       userId: { in: participantUserIds },
-      OR: [
-        { availabilityWindows: { none: {} } },
-        { availabilityWindows: { some: { startsAt: { lte: start }, endsAt: { gte: end } } } },
-      ],
     },
+    include: { availabilityWindows: true },
   });
-  if (availableMembers.length !== new Set(participantUserIds).size) {
+  const availableCount = members.filter((member) => {
+    const windows = member.availabilityWindows ?? [];
+    if (windows.length === 0) return true;
+    return windows.some((window) => window.startsAt.toISOString().slice(0, 10) <= startDay && window.endsAt.toISOString().slice(0, 10) >= endDay);
+  }).length;
+  if (availableCount !== new Set(participantUserIds).size) {
     throw httpError(400, 'All route participants must be available for the selected route time');
   }
 }

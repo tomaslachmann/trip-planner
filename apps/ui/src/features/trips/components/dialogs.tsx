@@ -34,18 +34,6 @@ function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
   );
 }
 
-function dayTimeToIso(dayDate: string, value?: string) {
-  if (!value) return undefined;
-  return new Date(`${dayDate.slice(0, 10)}T${value}:00`).toISOString();
-}
-
-function isoPlusMinutes(value: string | undefined, minutes?: number | null) {
-  if (!value || !minutes) return undefined;
-  const date = new Date(value);
-  date.setMinutes(date.getMinutes() + minutes);
-  return date.toISOString();
-}
-
 /* ── inline delete confirm ── */
 function DeleteInline({ label, onConfirm }: { label: string; onConfirm: () => void }) {
   const [armed, setArmed] = useState(false);
@@ -337,13 +325,10 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
   const [endsAtTime, setEndsAtTime] = useState('');
   const [participants, setParticipants] = useState<Record<string, boolean>>(() => Object.fromEntries(members.map((member) => [member.id, true])));
   const selectedDay = state.data.itinerary.find((day) => day.id === dayId);
-  const selectedPlace = approved.find((place) => place.id === pick);
   const selectedDayDate = selectedDay?.date ?? state.selectedTrip?.startsAt ?? new Date().toISOString();
-  const computedStartsAt = useMemo(() => dayTimeToIso(selectedDayDate, startsAtTime), [selectedDayDate, startsAtTime]);
-  const computedEndsAt = useMemo(() => dayTimeToIso(selectedDayDate, endsAtTime) ?? isoPlusMinutes(computedStartsAt, selectedPlace?.durationMin), [computedStartsAt, endsAtTime, selectedDayDate, selectedPlace?.durationMin]);
   const participantAvailability = useMemo<Record<string, boolean>>(
-    () => Object.fromEntries(members.map((member) => [member.id, isMemberAvailableForRange(member, computedStartsAt, computedEndsAt)])),
-    [computedEndsAt, computedStartsAt, members],
+    () => Object.fromEntries(members.map((member) => [member.id, isMemberAvailableForRange(member, selectedDayDate, selectedDayDate)])),
+    [members, selectedDayDate],
   );
   const selectedParticipantIds = members.filter((member) => participantAvailability[member.id] !== false && participants[member.id]).map((member) => member.id);
   const hasParticipants = members.length === 0 || selectedParticipantIds.length > 0;
