@@ -1,15 +1,37 @@
 'use client';
 
 import { Plus } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AccessScreen } from '../components/access-screen';
-import { TripPickerScreen } from '../components/trip-picker-screen';
-import { useTripPlanner, type TripPlannerController } from '../hooks/use-trip-planner';
-import type { TabKey } from '../types';
+import { AccessScreen } from '@/features/trips/components/access-screen';
+import { TripPickerScreen } from '@/features/trips/components/trip-picker-screen';
+import { TripPlannerProvider } from '@/features/trips/context/trip-planner-context';
+import { useTripPlanner } from '@/features/trips/hooks/use-trip-planner';
+import { DesktopRouteShell, MobileRouteShell } from '@/features/trips/components/trip-shell';
+import type { TabKey } from '@/features/trips/types';
+
+const routeBySegment: Record<string, TabKey> = {
+  map: 'map',
+  plan: 'plan',
+  places: 'places',
+  itinerary: 'itinerary',
+  stay: 'stay',
+  costs: 'costs',
+  settle: 'settle',
+  members: 'members',
+  checklist: 'checklist',
+  polls: 'polls',
+  more: 'more',
+};
+
+function viewFromPath(pathname: string): TabKey {
+  const segment = pathname.split('/').filter(Boolean).at(-1) ?? 'map';
+  return routeBySegment[segment] ?? 'map';
+}
 
 function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
   return (
@@ -36,18 +58,21 @@ function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
   );
 }
 
-export function TripRouteRuntime({
-  tripId,
-  view,
-  children,
-}: {
-  tripId: string;
-  view: TabKey;
-  children: (planner: TripPlannerController) => ReactNode;
-}) {
-  const planner = useTripPlanner({ routeTripId: tripId, routeView: view });
+export function TripLayoutClient({ tripId, children }: { tripId: string; children: ReactNode }) {
+  const pathname = usePathname();
+  const routeView = useMemo(() => viewFromPath(pathname), [pathname]);
+  const planner = useTripPlanner({ routeTripId: tripId, routeView });
   const { state, actions } = planner;
   const [creatingTrip, setCreatingTrip] = useState(false);
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 980px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   if (state.loading && !state.selectedTrip) {
     return (
@@ -84,5 +109,13 @@ export function TripRouteRuntime({
     );
   }
 
-  return <>{children(planner)}</>;
+  if (isDesktop === null) return null;
+
+  return (
+    <TripPlannerProvider planner={planner} isDesktop={isDesktop}>
+      {isDesktop
+        ? <DesktopRouteShell planner={planner}>{children}</DesktopRouteShell>
+        : <MobileRouteShell planner={planner}>{children}</MobileRouteShell>}
+    </TripPlannerProvider>
+  );
 }

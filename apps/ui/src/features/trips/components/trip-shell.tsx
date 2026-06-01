@@ -3,20 +3,19 @@
 import { ArrowLeftRight, BedDouble, LayoutGrid, ListChecks, Landmark, Map, Plus, Route, Settings, UserPlus, Users, Vote, Wallet } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Avatar } from '../components/avatar';
-import { BottomNav } from '../components/bottom-nav';
-import { AddMenu } from '../components/add-menu';
-import { CommandPalette } from '../components/command-palette';
-import { AddExpenseSheet, AddPlaceSheet, AddAccommodationSheet, AddItinerarySheet, AddNoteSheet, TripSettingsSheet, CreatePollDialog } from '../components/dialogs';
-import { TripBar } from '../components/trip-bar';
+import { useState, type ElementType, type ReactNode } from 'react';
+import { Avatar } from './avatar';
+import { BottomNav } from './bottom-nav';
+import { AddMenu } from './add-menu';
+import { CommandPalette } from './command-palette';
+import { AddExpenseSheet, AddPlaceSheet, AddAccommodationSheet, AddItinerarySheet, AddNoteSheet, TripSettingsSheet, CreatePollDialog } from './dialogs';
 import { ModalProvider, useModal } from '../context/modal-context';
 import { formatTripRange } from '../lib/format';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import type { TabKey } from '../types';
 import { cn } from '@/lib/utils';
 
-type NavItem = { key: string; label: string; icon: React.ElementType; href: (tripId: string) => string; pathMatch: string };
+type NavItem = { key: string; label: string; icon: ElementType; href: (tripId: string) => string; pathMatch: string };
 const desktopNav: NavItem[] = [
   { key: 'map',       label: 'Mapa',        icon: Map,            href: (id) => `/trips/${id}/map`,       pathMatch: '/map' },
   { key: 'places',    label: 'Místa',       icon: Landmark,       href: (id) => `/trips/${id}/places`,    pathMatch: '/places' },
@@ -36,10 +35,10 @@ function MobileShellInner({ planner, children }: { planner: TripPlannerControlle
   const { modal, openModal, closeModal } = useModal();
   const active = state.activeTab === 'settle'
     ? 'costs'
-    : state.activeTab === 'stay' || state.activeTab === 'itinerary'
+    : state.activeTab === 'stay' || state.activeTab === 'itinerary' || state.activeTab === 'places'
       ? 'plan'
       : state.activeTab;
-  const showBottomNav = ['map', 'plan', 'stay', 'itinerary', 'costs', 'settle', 'more'].includes(state.activeTab);
+  const showBottomNav = ['map', 'plan', 'places', 'stay', 'itinerary', 'costs', 'settle', 'more'].includes(state.activeTab);
 
   function pickAdd(target: 'place' | 'stay' | 'expense' | 'note') {
     setAddOpen(false);
@@ -210,32 +209,5 @@ export function DesktopRouteShell({ planner, children }: { planner: TripPlannerC
     <ModalProvider>
       <DesktopShellInner planner={planner}>{children}</DesktopShellInner>
     </ModalProvider>
-  );
-}
-
-export function RoutePair({
-  planner,
-  mobile,
-  desktop,
-}: {
-  planner: TripPlannerController;
-  mobile: ReactNode;
-  desktop: ReactNode;
-}) {
-  const [desktopReady, setDesktopReady] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 980px)');
-    const update = () => setDesktopReady(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-
-  if (desktopReady === null) return null;
-  return (
-    desktopReady
-      ? <DesktopRouteShell planner={planner}>{desktop}</DesktopRouteShell>
-      : <MobileRouteShell planner={planner}>{mobile}</MobileRouteShell>
   );
 }

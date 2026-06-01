@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { closestCenter, DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { CostsPanel } from './costs-panel';
 import { ItineraryPanel } from './itinerary-panel';
-import { MembersPanel } from './members-panel';
 import { PlacesPanel } from './places-panel';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { StayPanel } from './stay-panel';
@@ -13,7 +11,6 @@ import { TripBar } from './trip-bar';
 import { ItineraryStopSheet, type EditingItineraryStop } from './itinerary-stop-sheet';
 import { useModal } from '../context/modal-context';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
-import type { TabKey } from '../types';
 
 type PlanView = 'places' | 'itinerary' | 'stay';
 
@@ -21,17 +18,11 @@ function stopDayId(planner: TripPlannerController, stopId: string) {
   return planner.state.data.itinerary.find((day) => (day.stops ?? []).some((stop) => stop.id === stopId))?.id;
 }
 
-export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: TripPlannerController; forcedTab?: TabKey; mobile?: boolean }) {
+export function PlanScreen({ planner }: { planner: TripPlannerController }) {
   const { state, actions } = planner;
   const { openModal } = useModal();
   const [planView, setPlanView] = useState<PlanView>('places');
   const [editingStop, setEditingStop] = useState<EditingItineraryStop | null>(null);
-
-  useEffect(() => {
-    if (forcedTab === 'stay') setPlanView('stay');
-    if (forcedTab === 'itinerary') setPlanView('itinerary');
-    if (forcedTab === 'plan' || forcedTab === 'places') setPlanView('places');
-  }, [forcedTab]);
 
   async function handleDragEnd(event: DragEndEvent) {
     const activeId = String(event.active.id);
@@ -57,44 +48,6 @@ export function PlanScreen({ planner, forcedTab, mobile = false }: { planner: Tr
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
       await actions.reorderStops(day.id, arrayMove(stops, oldIndex, newIndex).map((stop) => stop.id));
     }
-  }
-
-  if (forcedTab === 'costs') {
-    return (
-      <div className="screen">
-        <TripBar trip={state.selectedTrip} refreshing={state.loading} onRefresh={() => void actions.loadTrips()} />
-        <CostsPanel
-          trip={state.selectedTrip}
-          expenses={state.data.expenses}
-          settlements={state.data.settlements}
-          onAddExpense={(data) => void actions.addExpense(data)}
-          onUpdateSettlementStatus={(settlement, status) => void actions.updateSettlementStatus(settlement, status)}
-          onEditExpense={(expenseId) => {
-            actions.setSelectedExpenseId(expenseId);
-            openModal('addExpense', true);
-          }}
-          mobile={mobile}
-        />
-      </div>
-    );
-  }
-
-  if (forcedTab === 'members') {
-    return (
-      <div className="screen">
-        <TripBar trip={state.selectedTrip} refreshing={state.loading} onRefresh={() => void actions.loadTrips()} />
-        <MembersPanel
-          trip={state.selectedTrip}
-          actorUserId={state.actorUserId}
-          actorRole={state.actorMember?.role}
-          onAddAvailability={(memberId, data) => void actions.addAvailability(memberId, data)}
-          onUpdateAvailability={(availabilityId, data) => void actions.updateAvailability(availabilityId, data)}
-          onDeleteAvailability={(availabilityId) => void actions.deleteAvailability(availabilityId)}
-          onUpdateRole={(memberId, role) => void actions.updateTripMemberRole(memberId, role)}
-          onUpdatePlanning={(memberId, input) => void actions.updateMemberPlanning(memberId, input)}
-        />
-      </div>
-    );
   }
 
   return (
