@@ -1,15 +1,16 @@
 'use client';
 
-import { Banknote, Clock, MapPin, MessageCircle, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowLeft, Banknote, Bookmark, CalendarPlus, Check, Clock, ExternalLink, MapPin, MessageCircle, Pencil, Star, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { normalizePlaceStatus, placeStatusMeta, type PlaceStatus } from '../lib/decision';
+import { externalMapUrl } from '../lib/map-links';
 import type { Place } from '../types';
+import { useModal } from '../context/modal-context';
+import { Avatar } from './avatar';
 import { CategoryBadge } from './category';
-import { PlaceCommentCard } from './place-comment-card';
+import { PlaceImage } from './place-image';
 import { PlaceScoreBadge } from './place-score-badge';
 import { StatusActionButton, type StatusTone } from './status-action-button';
 
@@ -23,8 +24,27 @@ function voteCounts(place: Place) {
   };
 }
 
+function formatPlaceCost(value: Place['estimatedCost'], currency?: string) {
+  if (value === null || value === undefined || value === '') return 'Zdarma';
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric <= 0) return 'Zdarma';
+  return `${value} ${currency ?? ''}`.trim();
+}
+
+function formatCommentTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return date.toLocaleString('cs-CZ', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function commentAuthorName(comment: NonNullable<Place['comments']>[number]) {
+  return comment.user?.name || comment.user?.email || comment.userId || 'Neznámý autor';
+}
+
 export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPlannerController; compact?: boolean }) {
   const { state, actions } = planner;
+  const { openModal } = useModal();
   const place = state.selectedPlace;
   const [commentText, setCommentText] = useState('');
 
@@ -36,6 +56,7 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
     );
   }
 
+  const currentPlace = place;
   const counts = voteCounts(place);
   const myVote = place.votes?.find((vote) => vote.userId === state.actorUserId)?.value;
   const hasCommentDraft = commentText.trim().length > 0;
@@ -45,34 +66,64 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
   const status = normalizePlaceStatus(place.status);
   const statusMeta = placeStatusMeta[status];
   const canChangeStatus = place.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN';
+  const isShortlisted = status === 'SHORTLISTED';
   const statusActions: Array<{ status: PlaceStatus; label: string; tone: StatusTone }> = [
-    { status: 'SHORTLISTED', label: 'Shortlist', tone: 'amber' },
+    { status: 'SHORTLISTED', label: 'Užší výběr', tone: 'amber' },
     { status: 'APPROVED', label: 'Schválit', tone: 'green' },
     { status: 'REJECTED', label: 'Zamítnout', tone: 'red' },
   ];
+  const costLabel = formatPlaceCost(place.estimatedCost, state.selectedTrip?.currency);
+  const mapUrl = externalMapUrl(place);
+
+  function submitComment() {
+    if (!hasCommentDraft) return;
+    void actions.commentOnPlace(currentPlace.id, commentText).then(() => setCommentText(''));
+  }
 
   return (
     <div className="col" style={{ height: '100%', minHeight: 0 }}>
-      <div className="scroll p18" style={{ flex: 1 }}>
-        <div className="receipt center flex justify-center" style={{ height: compact ? 118 : 156, borderRadius: 14, border: '1px solid var(--border)' }}>
-          <span className="row g6 t-xs mono muted"><MapPin />foto místa</span>
-        </div>
+      <div className="appbar">
+        <button className="iconbtn plain" type="button" onClick={() => actions.setSelectedPlaceId('')} aria-label="Zpět na mapu">
+          <ArrowLeft />
+        </button>
+        <span className="t-h3 flex1">Detail místa</span>
+        <button className="iconbtn" type="button" onClick={() => openModal('addPlace', true)} aria-label="Upravit místo">
+          <Pencil size={17} />
+        </button>
+      </div>
+
+      <div className="scroll px18" style={{ flex: 1, paddingTop: 6 }}>
+        <PlaceImage place={place} height={compact ? 168 : 188} />
         <div className="row between g8 mt16">
-          <CategoryBadge type={place.type} />
-          <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
-            <span className={`badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+          <div className="row g8 wrap">
+            <CategoryBadge type={place.type} />
             <PlaceScoreBadge place={place} />
-            <span className="badge muted">{place.votes?.length ?? 0} hlasů</span>
           </div>
+          <span className={`badge ${statusMeta.cls}`}>{statusMeta.label}</span>
         </div>
-        <h2 className={compact ? 't-h2 mt12' : 't-title mt12'}>{place.name}</h2>
+        <h2 className="t-title mt10">{place.name}</h2>
         <div className="row g10 mt8 muted t-sm wrap">
-          <span className="row g4"><Clock />{place.durationMin ?? 90} min</span>
-          <span className="row g4"><Banknote />{place.estimatedCost ?? 'Zdarma'}</span>
-          <span className="row g4"><MapPin />{state.selectedTrip?.destination ?? 'Destinace'}</span>
+          <span className="row g4"><Clock size={14} />{place.durationMin ?? 90} min</span>
+          <span className="row g4"><Banknote size={14} />{costLabel}</span>
+          <span className="row g4"><MapPin size={14} />{place.locationLabel ?? state.selectedTrip?.destination ?? 'Destinace'}</span>
         </div>
-        {place.description && <p className="t-body mt14" style={{ color: '#3f3f46' }}>{place.description}</p>}
-        {place.sourceUrl && <p className="t-xs mt8 ellipsis"><a href={place.sourceUrl} target="_blank" rel="noreferrer">{place.sourceUrl}</a></p>}
+        <p className="t-body mt14" style={{ color: '#3f3f46' }}>
+          {place.description || 'Zatím bez popisu. Přidej poznámku k místu, aby skupina věděla, proč stojí za zvážení.'}
+        </p>
+        {(mapUrl || place.sourceUrl) && (
+          <div className="row g8 mt12 wrap">
+            {mapUrl && (
+              <Button asChild variant="outline" size="sm">
+                <a href={mapUrl} target="_blank" rel="noreferrer"><MapPin />Mapa</a>
+              </Button>
+            )}
+            {place.sourceUrl && (
+              <Button asChild variant="ghost" size="sm">
+                <a href={place.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Zdroj</a>
+              </Button>
+            )}
+          </div>
+        )}
 
         <hr className="sep mt20" />
         <div className="row between mt16 mb10">
@@ -91,36 +142,76 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
           <button className={`votebtn ${myVote === 'DOWN' ? 'on' : ''}`} type="button" onClick={() => void actions.voteForPlace(place.id, 'DOWN')}><span className="vn tnum">{counts.down}</span><span className="row g4"><ThumbsDown />Ne</span></button>
         </div>
         {canChangeStatus && (
-          <div className="row g8 mt12 wrap">
-            {statusActions.map((item) => (
-              <StatusActionButton key={item.status} active={status === item.status} tone={item.tone} size="sm" type="button" onClick={() => void actions.updatePlaceStatus(place.id, item.status)}>
-                {item.label}
-              </StatusActionButton>
-            ))}
+          <div className="row g6 mt12 wrap">
+            {statusActions.map((item) => {
+              const Icon = item.status === 'SHORTLISTED' ? Bookmark : item.status === 'APPROVED' ? Check : X;
+              return (
+                <StatusActionButton
+                  key={item.status}
+                  active={status === item.status}
+                  tone={item.tone}
+                  size="sm"
+                  type="button"
+                  onClick={() => void actions.updatePlaceStatus(place.id, item.status)}
+                >
+                  <Icon />{item.label}
+                </StatusActionButton>
+              );
+            })}
           </div>
         )}
 
         <hr className="sep mt20" />
         <div className="row between mt16 mb12"><span className="t-h3">Komentáře</span><span className="badge muted">{place.comments?.length ?? 0}</span></div>
         <div className="col g12">
-          {(place.comments ?? []).map((comment) => (
-            <PlaceCommentCard comment={comment} key={comment.id ?? `${comment.userId}-${comment.body}`} />
-          ))}
+          {(place.comments ?? []).length === 0 && <span className="muted t-sm">Zatím bez komentářů.</span>}
+          {(place.comments ?? []).map((comment) => {
+            const authorName = commentAuthorName(comment);
+            return (
+              <div className="row g10" style={{ alignItems: 'flex-start' }} key={comment.id ?? `${comment.userId}-${comment.body}`}>
+                <Avatar size="sm" name={authorName} />
+                <div className="col flex1" style={{ minWidth: 0 }}>
+                  <div className="row g6">
+                    <span className="semib t-sm">{authorName}</span>
+                    {comment.createdAt && <span className="faint t-xs">{formatCommentTime(comment.createdAt)}</span>}
+                  </div>
+                  <span className="t-sm" style={{ color: '#3f3f46' }}>{comment.body}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <div className="relative mt8" style={{ marginBottom: 18 }}>
-          <MessageCircle className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9 bg-muted border-transparent" placeholder="Přidat komentář..." value={commentText} onChange={(event) => setCommentText(event.target.value)} />
+        <div className="input muted-bg mt14" style={{ marginBottom: 8 }}>
+          <MessageCircle />
+          <input
+            placeholder="Přidat komentář..."
+            value={commentText}
+            onChange={(event) => setCommentText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              submitComment();
+            }}
+          />
         </div>
       </div>
       <div className="row g8 p16" style={{ borderTop: '1px solid var(--border)', flex: '0 0 auto' }}>
-        <Button className="flex1" type="button" onClick={() => {
-          if (hasCommentDraft) {
-            void actions.commentOnPlace(place.id, commentText).then(() => setCommentText(''));
-            return;
-          }
-          void actions.addPlaceToItinerary(place.id);
-        }}>{hasCommentDraft ? 'Přidat komentář' : 'Přidat do itineráře'}</Button>
-        <Button variant="outline" size="icon" type="button" onClick={() => void actions.commentOnPlace(place.id, commentText).then(() => setCommentText(''))} disabled={!hasCommentDraft}><MessageCircle /></Button>
+        <Button className="flex1" type="button" onClick={() => void actions.addPlaceToItinerary(place.id)}>
+          <CalendarPlus />Přidat do itineráře
+        </Button>
+        <StatusActionButton
+          active={isShortlisted}
+          tone="amber"
+          variant="outline"
+          size="icon"
+          type="button"
+          disabled={!canChangeStatus}
+          onClick={() => void actions.updatePlaceStatus(place.id, 'SHORTLISTED')}
+          aria-label="Přidat do užšího výběru"
+          title={canChangeStatus ? 'Přidat do shortlistu' : 'Stav může měnit autor nebo admin'}
+        >
+          <Bookmark />
+        </StatusActionButton>
       </div>
     </div>
   );

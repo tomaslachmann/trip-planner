@@ -11,9 +11,9 @@ export default function NotFoundPage() {
           <MapPin size={18} />
         </div>
         <h1 className="t-title">Stránka nenalezena</h1>
-        <p className="muted t-sm mt8 mb16">Tenhle odkaz nevede na existující část trip planneru.</p>
+        <p className="muted t-sm mt8 mb16">Tenhle odkaz nevede na existující část plánovače výletů.</p>
         <Button asChild>
-          <Link href="/trips">Zpět na tripy</Link>
+          <Link href="/trips">Zpět na výlety</Link>
         </Button>
       </Card>
     </div>

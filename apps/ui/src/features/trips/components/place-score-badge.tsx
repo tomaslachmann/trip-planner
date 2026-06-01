@@ -7,7 +7,7 @@ import type { Place } from '../types';
 
 function scoreBadgeMeta(score: number) {
   if (score <= 0) return { mood: 'Bez skóre', cls: 'muted' };
-  if (score >= 78) return { mood: 'Top', cls: 'green' };
+  if (score >= 78) return { mood: 'Nejlepší', cls: 'green' };
   if (score >= 62) return { mood: 'Silné', cls: 'green' };
   if (score >= 40) return { mood: 'Smíšené', cls: 'amber' };
   return { mood: 'Slabé', cls: 'red' };

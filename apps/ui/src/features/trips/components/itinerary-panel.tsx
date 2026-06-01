@@ -1,15 +1,15 @@
 import { CalendarPlus, CloudRain, Edit3, Gauge, GripVertical, Lock, Route, TimerReset } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { ItineraryDay, ItineraryStop, RouteCapabilities, TripWeather } from '../types';
+import type { ItineraryDay, ItineraryStop, LocationResult, Place, RouteCapabilities, TripWeather } from '../types';
 import { categoryLabel } from './category';
+import { ItineraryDaySettingsSheet, type ItineraryDaySettingsInput } from './itinerary-day-settings-sheet';
 
 type DayIntensity = 'CALM' | 'NORMAL' | 'INTENSE';
 
@@ -70,20 +70,15 @@ function attendanceCounts(stop: ItineraryStop) {
 
 function SortableStop({
   stop,
-  actorTripMemberId,
   onOpen,
   onEdit,
-  onAttendance,
 }: {
   stop: ItineraryStop;
-  actorTripMemberId?: string;
   onOpen?: (placeId: string) => void;
   onEdit?: () => void;
-  onAttendance?: (stopId: string, status: 'GOING' | 'MAYBE' | 'NO') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `stop:${stop.id}` });
   const counts = attendanceCounts(stop);
-  const myAttendance = stop.participants?.find((participant) => participant.tripMemberId === actorTripMemberId)?.status ?? 'GOING';
   return (
     <Card
       ref={setNodeRef}
@@ -106,21 +101,6 @@ function SortableStop({
         <span className="badge green">Jde {counts.going}</span>
         <span className="badge muted">Možná {counts.maybe}</span>
         <span className="badge red">Ne {counts.no}</span>
-        {onAttendance && (
-          <div className="row g4">
-            {(['GOING', 'MAYBE', 'NO'] as const).map((status) => (
-              <Button
-                key={status}
-                size="sm"
-                variant={myAttendance === status ? 'default' : 'outline'}
-                type="button"
-                onClick={() => onAttendance(stop.id, status)}
-              >
-                {status === 'GOING' ? 'Jdu' : status === 'MAYBE' ? 'Možná' : 'Nejdu'}
-              </Button>
-            ))}
-          </div>
-        )}
       </div>
       {stop.note && <div className="muted t-xs mt8" style={{ paddingLeft: 48 }}>{stop.note}</div>}
     </Card>
@@ -141,22 +121,25 @@ export function ItineraryPanel({
   weather,
   onOpenPlace,
   onEditStop,
-  actorTripMemberId,
-  onAttendance,
   onUpdateDay,
+  onSearchLocations,
+  onCreatePlace,
   onOptimize,
   routeCapabilities,
+  places = [],
 }: {
   days: ItineraryDay[];
   weather?: TripWeather | null;
   onOpenPlace: (placeId: string) => void;
   onEditStop?: (day: ItineraryDay, stop: ItineraryStop) => void;
-  actorTripMemberId?: string;
-  onAttendance?: (stopId: string, status: 'GOING' | 'MAYBE' | 'NO') => void;
-  onUpdateDay?: (dayId: string, input: { intensity?: DayIntensity; rainPlan?: string | null; bufferMinutes?: number; locked?: boolean }) => void;
+  onUpdateDay?: (dayId: string, input: ItineraryDaySettingsInput) => void;
+  onSearchLocations?: (query: string) => Promise<LocationResult[]>;
+  onCreatePlace?: (formData: FormData) => Promise<Place | void>;
   onOptimize: () => void;
   routeCapabilities?: RouteCapabilities | null;
+  places?: Place[];
 }) {
+  const [editingDay, setEditingDay] = useState<ItineraryDay | null>(null);
   const transitAvailable = routeCapabilities?.modes.TRANSIT === true;
   return (
     <div className="scroll px18" style={{ flex: 1, paddingTop: 10, paddingBottom: 18 }}>
@@ -194,59 +177,32 @@ export function ItineraryPanel({
                 <span className="t-h3">{day.title ?? new Date(day.date).toLocaleDateString()}</span>
                 <span className="muted t-xs mt4">{new Date(day.date).toLocaleDateString('cs-CZ')} · {stops.length} zastávek</span>
               </div>
-              <span className={`badge ${day.locked ? 'solid' : 'muted'}`}>{day.locked && <Lock />}{day.locked ? 'Zamčeno' : 'Návrh'}</span>
+              <div className="row g6">
+                <span className={`badge ${day.locked ? 'solid' : 'muted'}`}>{day.locked && <Lock />}{day.locked ? 'Zamčeno' : 'Návrh'}</span>
+                {onUpdateDay && (
+                  <Button size="icon" variant="ghost" type="button" onClick={() => setEditingDay(day)} aria-label="Upravit den">
+                    <Edit3 />
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="row g8 wrap mb12">
+              {day.basePlace && <span className="badge muted">Místo dne: {day.basePlace.name}</span>}
               <span className="badge muted"><Gauge />{intensityOptions.find((option) => option.value === intensity)?.label ?? 'Normál'}</span>
-              <span className="badge muted"><TimerReset />buffer {summary.bufferMinutes} min</span>
+              <span className="badge muted"><TimerReset />rezerva {summary.bufferMinutes} min</span>
               <span className="badge muted">{hoursLabel(summary.plannedMinutes + summary.bufferTotal)} celkem</span>
               {forecast && <span className={`badge ${forecast.rain >= 60 ? 'amber' : 'muted'}`}>{forecast.temperature ?? 'Počasí'} · déšť {forecast.rain}%</span>}
               {summary.missingTimes > 0 && <span className="badge amber">{summary.missingTimes} bez času</span>}
-              {day.rainPlan && <span className="badge blue"><CloudRain />rain plan</span>}
+              {day.rainPlan && <span className="badge blue"><CloudRain />plán do deště</span>}
             </div>
-            {onUpdateDay && (
-              <div className="col g8 mb12">
-                <div className="chips">
-                  {intensityOptions.map((option) => (
-                    <button
-                      className={`chip ${intensity === option.value ? 'on' : ''}`}
-                      key={option.value}
-                      type="button"
-                      onClick={() => onUpdateDay(day.id, { intensity: option.value })}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="chips">
-                  {[15, 30, 45, 60].map((minutes) => (
-                    <button
-                      className={`chip ${(day.bufferMinutes ?? 30) === minutes ? 'on' : ''}`}
-                      key={minutes}
-                      type="button"
-                      onClick={() => onUpdateDay(day.id, { bufferMinutes: minutes })}
-                    >
-                      {minutes} min buffer
-                    </button>
-                  ))}
-                </div>
-                <Input
-                  defaultValue={day.rainPlan ?? ''}
-                  placeholder="Rain plan / backup varianta pro špatné počasí"
-                  onBlur={(event) => onUpdateDay(day.id, { rainPlan: event.currentTarget.value.trim() || null })}
-                />
-              </div>
-            )}
             <SortableContext items={stops.map((stop) => `stop:${stop.id}`)} strategy={verticalListSortingStrategy}>
               <div className="col g8">
                 {stops.map((stop) => (
                   <SortableStop
                     key={stop.id}
                     stop={stop}
-                    actorTripMemberId={actorTripMemberId}
                     onOpen={onOpenPlace}
                     onEdit={onEditStop ? () => onEditStop(day, stop) : undefined}
-                    onAttendance={onAttendance}
                   />
                 ))}
               </div>
@@ -255,6 +211,16 @@ export function ItineraryPanel({
           </DropDay>
         );
       })}
+      {editingDay && onUpdateDay && (
+        <ItineraryDaySettingsSheet
+          day={editingDay}
+          places={places}
+          onSearchLocations={onSearchLocations}
+          onCreatePlace={onCreatePlace}
+          onClose={() => setEditingDay(null)}
+          onUpdate={(dayId, input) => onUpdateDay(dayId, input)}
+        />
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ValidatedForm } from '@/components/ui/validated-form';
 
 export function AccessScreen({
   message,
@@ -24,7 +25,7 @@ export function AccessScreen({
           </div>
         </div>
 
-        <form
+        <ValidatedForm
           onSubmit={(event) => {
             event.preventDefault();
             onSignIn(new FormData(event.currentTarget));
@@ -33,16 +34,16 @@ export function AccessScreen({
           <Label htmlFor="name">Jméno</Label>
           <div className="relative mb-3">
             <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" id="name" name="name" placeholder="Tomas" autoComplete="name" />
+            <Input className="pl-9" id="name" name="name" placeholder="Tomas" autoComplete="name" required />
           </div>
           <Label htmlFor="email">E-mail člena</Label>
           <div className="relative mb-3">
             <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" id="email" name="email" type="email" placeholder="tomas@example.com" autoComplete="email" />
+            <Input className="pl-9" id="email" name="email" type="email" placeholder="tomas@example.com" autoComplete="email" required />
           </div>
           {message && <div className="badge red mb12" style={{ justifyContent: 'center', width: '100%' }}>{message}</div>}
           <Button className="w-full" type="submit"><LogIn />Pokračovat</Button>
-        </form>
+        </ValidatedForm>
 
         <p className="muted t-xs mt16">Použij e-mail, pod kterým chceš spravovat svoje tripy.</p>
       </Card>

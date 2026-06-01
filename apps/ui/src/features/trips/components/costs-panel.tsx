@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { StatsCard } from '@/components/ui/stats-card';
-import { SettlementParticipants, SettlementPaymentSheet } from './settlement-payment';
+import { ValidatedForm } from '@/components/ui/validated-form';
+import { SettlementParticipants, SettlementPaymentSheet, settlementReceiptExpenses } from './settlement-payment';
 import type { Expense, Settlement, Trip } from '../types';
 
 const expenseCategories = [
@@ -21,6 +22,17 @@ const expenseCategories = [
   { value: 'OTHER', label: 'Ostatní' },
 ];
 
+const expenseCurrencies = [
+  { value: 'CZK', label: 'CZK' },
+  { value: 'EUR', label: 'EUR' },
+] as const;
+
+type ExpenseCurrency = (typeof expenseCurrencies)[number]['value'];
+
+function normalizeExpenseCurrency(value?: string | null): ExpenseCurrency {
+  return value === 'EUR' ? 'EUR' : 'CZK';
+}
+
 function expenseIcon(category?: string | null) {
   if (category === 'FOOD') return ForkKnife;
   if (category === 'STAY') return BedDouble;
@@ -30,15 +42,20 @@ function expenseIcon(category?: string | null) {
   return Banknote;
 }
 
-function ExpenseFields({ idPrefix, members }: { idPrefix: string; members: Trip['members'] }) {
+function ExpenseFields({ idPrefix, members, tripCurrency }: { idPrefix: string; members: Trip['members']; tripCurrency?: string }) {
   const [splitScope, setSplitScope] = useState<'all' | 'selected'>('all');
   const [category, setCategory] = useState('OTHER');
+  const initialCurrency = normalizeExpenseCurrency(tripCurrency);
+  const [currency, setCurrency] = useState<ExpenseCurrency>(initialCurrency);
+  const [originalCurrency, setOriginalCurrency] = useState<ExpenseCurrency>(initialCurrency === 'CZK' ? 'EUR' : 'CZK');
   const [selected, setSelected] = useState<Record<string, boolean>>(() => Object.fromEntries((members ?? []).map((member) => [member.userId, true])));
 
   return (
     <>
       <input type="hidden" name="splitScope" value={splitScope} />
       <input type="hidden" name="category" value={category} />
+      <input type="hidden" name="currency" value={currency} />
+      <input type="hidden" name="originalCurrency" value={originalCurrency} />
       <div className="row between mb12">
         <span className="t-h3">Přidat náklad</span>
         <span className="badge"><Receipt />Rovný split</span>
@@ -46,15 +63,14 @@ function ExpenseFields({ idPrefix, members }: { idPrefix: string; members: Trip[
       <Label htmlFor={`${idPrefix}-title`}>Název</Label>
       <div className="relative mb10">
         <Receipt className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-9" id={`${idPrefix}-title`} name="expenseTitle" placeholder="Večeře, půjčení auta..." />
+        <Input className="pl-9" id={`${idPrefix}-title`} name="expenseTitle" placeholder="Večeře, půjčení auta..." required />
       </div>
-      <div className="row g8">
-        <Input name="amount" type="number" min="0" step="0.01" placeholder="Částka" aria-label="Částka" />
-        <Select value={splitScope} onValueChange={(value) => setSplitScope(value as 'all' | 'selected')}>
-          <SelectTrigger aria-label="Rozsah splitu"><SelectValue /></SelectTrigger>
+      <div className="row g8" style={{ alignItems: 'flex-start' }}>
+        <Input name="amount" type="number" min="0.01" step="0.01" placeholder="Částka" aria-label="Částka" required />
+        <Select value={currency} onValueChange={(value) => setCurrency(value as ExpenseCurrency)}>
+          <SelectTrigger className="w-[96px]" aria-label="Měna"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Všichni</SelectItem>
-            <SelectItem value="selected">Vybraní</SelectItem>
+            {expenseCurrencies.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -67,12 +83,25 @@ function ExpenseFields({ idPrefix, members }: { idPrefix: string; members: Trip[
         </Select>
         <Input name="spentAtDate" type="date" aria-label="Datum výdaje" />
       </div>
-      <Input className="mt8" name="receiptUrl" type="url" placeholder="Odkaz na účtenku" aria-label="Odkaz na účtenku" />
-      <div className="row g8 mt8">
+      <Select value={splitScope} onValueChange={(value) => setSplitScope(value as 'all' | 'selected')}>
+        <SelectTrigger className="mt8" aria-label="Rozsah splitu"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Všichni účastníci</SelectItem>
+          <SelectItem value="selected">Vybraní účastníci</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input className="mt8" name="receiptFile" type="file" accept="image/*,application/pdf" aria-label="Nahrát účtenku" />
+      <Input className="mt8" name="receiptUrl" type="url" placeholder="nebo odkaz na účtenku" aria-label="Odkaz na účtenku" />
+      <div className="row g8 mt8" style={{ alignItems: 'flex-start' }}>
         <Input name="originalAmount" type="number" min="0" step="0.01" placeholder="Původní částka" aria-label="Původní částka" />
-        <Input name="originalCurrency" placeholder="Původní měna" aria-label="Původní měna" />
-        <Input name="exchangeRate" type="number" min="0" step="0.0001" placeholder="Kurz" aria-label="Kurz" />
+        <Select value={originalCurrency} onValueChange={(value) => setOriginalCurrency(value as ExpenseCurrency)}>
+          <SelectTrigger className="w-[96px]" aria-label="Původní měna"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {expenseCurrencies.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
+      <Input className="mt8" name="exchangeRate" type="number" min="0" step="0.0001" placeholder="Kurz" aria-label="Kurz" />
       <div className="mt10">
         <span className="field-label">Vybraní účastníci</span>
         <div className="chips">
@@ -186,9 +215,9 @@ export function CostsPanel({
 
       {!mobile && (
         <Card className="p-[14px] shadow-[var(--sh-sm)] mb16">
-          <form onSubmit={handleSubmit}>
-            <ExpenseFields idPrefix="desktop" members={members} />
-          </form>
+          <ValidatedForm onSubmit={handleSubmit}>
+            <ExpenseFields idPrefix="desktop" members={members} tripCurrency={trip?.currency} />
+          </ValidatedForm>
         </Card>
       )}
 
@@ -247,46 +276,52 @@ export function CostsPanel({
             </Card>
           )}
           {settlements.map((settlement, index) => (
-            <Card
-              className="p-[14px] shadow-[var(--sh-sm)] mb8 pressable"
-              key={`${settlement.fromUserId}-${settlement.toUserId}-${index}`}
-              onClick={() => (onOpenSettlement ?? setSelectedSettlement)(settlement)}
-            >
-              <div className="row between">
-                <div className="col flex1" style={{ minWidth: 0 }}>
-                  <SettlementParticipants settlement={settlement} members={members} />
-                  <span className="faint t-xs mt4">{settlement.status === 'CONFIRMED' ? 'Platba potvrzená' : settlement.status === 'PAID' ? 'Čeká na potvrzení příjemcem' : settlement.qrPayload ? 'QR platba připravená' : 'Chybí platební údaje příjemce'}</span>
-                </div>
-                <div className="col" style={{ alignItems: 'flex-end' }}>
-                  <span className="t-h3 tnum">{settlement.amount.toFixed(2)} {settlement.currency}</span>
-                  {settlement.status && settlement.status !== 'OPEN' && <span className={`badge ${settlement.status === 'CONFIRMED' ? 'green' : 'amber'} mt4`}>{settlement.status === 'CONFIRMED' ? 'Potvrzeno' : 'Zaplaceno'}</span>}
-                </div>
-              </div>
-              <div className="row g8 mt12">
-                <Button
-                  className="flex1"
-                  size="sm"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    (onOpenSettlement ?? setSelectedSettlement)(settlement);
-                  }}
+            (() => {
+              const receiptCount = settlementReceiptExpenses(settlement, expenses).length;
+              return (
+                <Card
+                  className="p-[14px] shadow-[var(--sh-sm)] mb8 pressable"
+                  key={`${settlement.fromUserId}-${settlement.toUserId}-${index}`}
+                  onClick={() => (onOpenSettlement ?? setSelectedSettlement)(settlement)}
                 >
-                  {settlement.qrPayload ? <QrCode /> : <AlertTriangle />}Detail platby
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void navigator.clipboard.writeText(settlement.qrPayload ?? `${settlement.fromUserId} -> ${settlement.toUserId}: ${settlement.amount.toFixed(2)} ${settlement.currency}`);
-                  }}
-                >
-                  Zkopírovat
-                </Button>
-              </div>
-            </Card>
+                  <div className="row between">
+                    <div className="col flex1" style={{ minWidth: 0 }}>
+                      <SettlementParticipants settlement={settlement} members={members} />
+                      <span className="faint t-xs mt4">{settlement.status === 'CONFIRMED' ? 'Platba potvrzená' : settlement.status === 'PAID' ? 'Čeká na potvrzení příjemcem' : settlement.qrPayload ? 'QR platba připravená' : 'Chybí platební údaje příjemce'}</span>
+                    </div>
+                    <div className="col" style={{ alignItems: 'flex-end' }}>
+                      <span className="t-h3 tnum">{settlement.amount.toFixed(2)} {settlement.currency}</span>
+                      {receiptCount > 0 && <span className="badge muted mt4"><Receipt size={13} />{receiptCount}</span>}
+                      {settlement.status && settlement.status !== 'OPEN' && <span className={`badge ${settlement.status === 'CONFIRMED' ? 'green' : 'amber'} mt4`}>{settlement.status === 'CONFIRMED' ? 'Potvrzeno' : 'Zaplaceno'}</span>}
+                    </div>
+                  </div>
+                  <div className="row g8 mt12">
+                    <Button
+                      className="flex1"
+                      size="sm"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        (onOpenSettlement ?? setSelectedSettlement)(settlement);
+                      }}
+                    >
+                      {settlement.qrPayload ? <QrCode /> : <AlertTriangle />}Detail platby
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void navigator.clipboard.writeText(settlement.qrPayload ?? `${settlement.fromUserId} -> ${settlement.toUserId}: ${settlement.amount.toFixed(2)} ${settlement.currency}`);
+                      }}
+                    >
+                      Zkopírovat
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })()
           ))}
         </>
       )}
@@ -302,15 +337,15 @@ export function CostsPanel({
                   <SheetTitle className="t-h3">Nový náklad</SheetTitle>
                   <Button variant="ghost" size="sm" type="button" onClick={() => setFormOpen(false)}>Zavřít</Button>
                 </div>
-                <form className="px18" style={{ paddingBottom: 18 }} onSubmit={handleSubmit}>
-                  <ExpenseFields idPrefix="sheet" members={members} />
-                </form>
+                <ValidatedForm className="px18" style={{ paddingBottom: 18 }} onSubmit={handleSubmit}>
+                  <ExpenseFields idPrefix="sheet" members={members} tripCurrency={trip?.currency} />
+                </ValidatedForm>
               </SheetContent>
             </Sheet>
           )}
         </>
       )}
-      {mobile && <SettlementPaymentSheet settlement={selectedSettlement} members={members} onClose={() => setSelectedSettlement(null)} onStatusChange={onUpdateSettlementStatus} />}
+      {mobile && <SettlementPaymentSheet settlement={selectedSettlement} members={members} expenses={expenses} onClose={() => setSelectedSettlement(null)} onStatusChange={onUpdateSettlementStatus} />}
     </div>
   );
 }

@@ -8,6 +8,33 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
+  travelBudgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM';
+  foodNotes?: string | null;
+  accessibilityNotes?: string | null;
+  defaultCurrency?: string;
+  accounts?: Array<{
+    id?: string;
+    label?: string;
+    iban?: string | null;
+    domesticAccount?: string | null;
+    bankCode?: string | null;
+    recipientName?: string | null;
+  }>;
+};
+
+export type UpdateSessionUserRequest = {
+  name?: string;
+  email?: string;
+  travelBudgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM';
+  foodNotes?: string | null;
+  accessibilityNotes?: string | null;
+  defaultCurrency?: 'CZK' | 'EUR' | 'USD' | 'GBP';
+  paymentAccount?: {
+    recipientName?: string | null;
+    iban?: string | null;
+    domesticAccount?: string | null;
+    bankCode?: string | null;
+  };
 };
 
 export type SignInResponse = {
@@ -64,6 +91,10 @@ export function signInRequest(body: { email: string; name: string }) {
 
 export function getSessionUser(accessToken?: string) {
   return apiFetch<{ user: SessionUser }>('/auth/me', { method: 'GET' }, accessToken);
+}
+
+export function updateSessionUser(body: UpdateSessionUserRequest, accessToken?: string) {
+  return apiFetch<{ user: SessionUser }>('/auth/me', { method: 'PATCH', body: JSON.stringify(body) }, accessToken);
 }
 
 export function signOutRequest(accessToken?: string) {

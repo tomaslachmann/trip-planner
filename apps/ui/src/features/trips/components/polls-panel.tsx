@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import type { Poll, TripMember } from '../types';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
 
@@ -89,7 +90,7 @@ function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: 
           <SheetTitle className="t-h3">Nová anketa</SheetTitle>
           <Button variant="ghost" size="sm" type="button" onClick={onClose}>Zavřít</Button>
         </div>
-        <form
+        <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
           onSubmit={(event) => {
@@ -104,11 +105,11 @@ function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: 
           }}
         >
           <label className="field-label" htmlFor="pollQuestion">Otázka</label>
-          <Input id="pollQuestion" name="question" placeholder="Kam pojedeme druhý den?" />
+          <Input id="pollQuestion" name="question" placeholder="Kam pojedeme druhý den?" required />
           <label className="field-label mt14" htmlFor="pollOption1">Možnosti</label>
 	          <div className="col g8">
-	            <Input id="pollOption1" name="option1" placeholder="Možnost 1" />
-	            <Input name="option2" placeholder="Možnost 2" />
+	            <Input id="pollOption1" name="option1" placeholder="Možnost 1" required />
+	            <Input name="option2" placeholder="Možnost 2" required />
 	            <Input name="option3" placeholder="Možnost 3" />
 	          </div>
 	          <label className="row g8 mt14 pressable" style={{ justifyContent: 'flex-start' }}>
@@ -116,7 +117,7 @@ function CreatePollSheet({ open, onClose, onCreate }: { open: boolean; onClose: 
 	            <Label>Umožnit více odpovědí</Label>
 	          </label>
 	          <Button className="mt16 w-full" type="submit">Vytvořit anketu</Button>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );

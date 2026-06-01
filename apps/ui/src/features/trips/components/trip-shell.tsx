@@ -24,7 +24,7 @@ const desktopNav: NavItem[] = [
   { key: 'costs',     label: 'Výdaje',      icon: Wallet,         href: (id) => `/trips/${id}/costs`,     pathMatch: '/costs' },
   { key: 'settle',    label: 'Vyrovnání',   icon: ArrowLeftRight, href: (id) => `/trips/${id}/settle`,    pathMatch: '/settle' },
   { key: 'members',   label: 'Členové',     icon: Users,          href: (id) => `/trips/${id}/members`,   pathMatch: '/members' },
-  { key: 'checklist', label: 'Checklist',   icon: ListChecks,     href: (id) => `/trips/${id}/checklist`, pathMatch: '/checklist' },
+  { key: 'checklist', label: 'Seznam úkolů', icon: ListChecks,    href: (id) => `/trips/${id}/checklist`, pathMatch: '/checklist' },
   { key: 'polls',     label: 'Hlasování',   icon: Vote,           href: (id) => `/trips/${id}/polls`,     pathMatch: '/polls' },
   { key: 'more',      label: 'Přehled',     icon: LayoutGrid,     href: (id) => `/trips/${id}/more`,      pathMatch: '/more' },
 ];
@@ -111,7 +111,7 @@ function DesktopShellInner({ planner, children }: { planner: TripPlannerControll
               </svg>
             </div>
             <div className="col flex1" style={{ minWidth: 0 }}>
-              <span className="t-sm semib" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.selectedTrip?.name ?? 'Žádný trip'}</span>
+              <span className="t-sm semib" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.selectedTrip?.name ?? 'Žádný výlet'}</span>
               <span className="faint t-xs">{formatTripRange(state.selectedTrip)}</span>
             </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint-fg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
@@ -130,7 +130,7 @@ function DesktopShellInner({ planner, children }: { planner: TripPlannerControll
                   href={href}
                   scroll={false}
                 >
-                  <Icon size={19} />{item.label}
+                  <Icon size={14} />{item.label}
                 </Link>
               );
             })}
@@ -139,14 +139,14 @@ function DesktopShellInner({ planner, children }: { planner: TripPlannerControll
           <div className="spacer" />
 
           {/* User */}
-          <div className="desk-user">
+          <Link className="desk-user" href={tripId ? `/trips/${tripId}/settings` : '/trips'} scroll={false} style={{ color: 'inherit', textDecoration: 'none' }}>
             <Avatar name={state.actorMember?.user.name ?? 'Ty'} />
             <div className="col flex1" style={{ minWidth: 0 }}>
               <span className="t-sm semib">{state.actorMember?.user.name ?? 'Ty'}</span>
               <span className="faint t-xs" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.viewerEmail}</span>
             </div>
             <Settings size={18} color="var(--faint-fg)" />
-          </div>
+          </Link>
         </aside>
 
         {/* Main */}

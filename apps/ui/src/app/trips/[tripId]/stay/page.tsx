@@ -2,11 +2,13 @@
 
 import { StayPanel } from '@/features/trips/components/stay-panel';
 import { TripBar } from '@/features/trips/components/trip-bar';
+import { useModal } from '@/features/trips/context/modal-context';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
 import type { TripPlannerController } from '@/features/trips/hooks/use-trip-planner';
 
 function StayPageContent({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
+  const { openModal } = useModal();
   return (
     <StayPanel
       layout={desktop ? 'desktop' : 'panel'}
@@ -16,8 +18,11 @@ function StayPageContent({ planner, desktop = false }: { planner: TripPlannerCon
       allPlaces={state.data.places}
       actorUserId={state.actorUserId}
       selectedId={state.selectedAccommodationId}
+      hasSearched={state.accommodationSearchDone}
       searching={state.searchingStay}
       onSearch={(data) => void actions.searchStays(data)}
+      onSearchLocations={actions.searchLocations}
+      onManualAdd={() => openModal('addStay')}
       onSelect={actions.setSelectedAccommodationId}
       onSelectSaved={actions.setSelectedPlaceId}
       onSave={(stay) => void actions.saveAccommodation(stay)}

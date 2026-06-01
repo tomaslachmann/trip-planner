@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, clearAccessToken, createTripPlannerClient, getSessionUser, readAccessToken, signInRequest, signOutRequest, writeAccessToken } from '@/lib/api';
-import type { Accommodation, ActivityEvent, ChecklistItem, DiscoveryPlace, Expense, ItineraryDay, LiveLocation, LocationResult, Place, PlaceType, Poll, RouteCapabilities, TabKey, Trip, TripAiInsights, TripData, TripWeather } from '../types';
+import type { Accommodation, ActivityEvent, ChecklistItem, DiscoveryPlace, Expense, ItineraryDay, LiveLocation, LocationResult, Place, PlaceType, Poll, RouteCapabilities, TabKey, Trip, TripAiInsights, TripAiPlanDraft, TripAiSuggestions, TripData, TripWeather } from '../types';
 
-const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], routeCapabilities: null, settlements: [], polls: [], checklist: [], activity: [], liveLocations: [], weather: null, aiInsights: null };
-const routeTabs: TabKey[] = ['map', 'plan', 'places', 'stay', 'costs', 'settle', 'members', 'more', 'checklist', 'polls', 'itinerary'];
+const emptyData: TripData = { places: [], itinerary: [], expenses: [], routes: [], routeCapabilities: null, settlements: [], polls: [], checklist: [], activity: [], liveLocations: [], weather: null, aiInsights: null, aiSuggestions: null, aiPlanDraft: null };
+const routeTabs: TabKey[] = ['map', 'plan', 'places', 'stay', 'costs', 'settle', 'members', 'more', 'checklist', 'polls', 'itinerary', 'settings'];
 
 function uniqueById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
@@ -23,11 +23,29 @@ function parseDurationMinutes(value: string) {
   return total > 0 ? Math.round(total) : undefined;
 }
 
+function normalizeExpenseCurrency(value?: string | null) {
+  return value === 'EUR' ? 'EUR' : 'CZK';
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('Receipt file could not be read'));
+    });
+    reader.addEventListener('error', () => reject(reader.error ?? new Error('Receipt file could not be read')));
+    reader.readAsDataURL(file);
+  });
+}
+
 type PlannerRoute = {
   routeTripId?: string;
   routeView?: TabKey;
   redirectAfterSignIn?: boolean;
 };
+
+type AiMapFocus = { latitude: number; longitude: number; radiusMeters?: number; label?: string };
 
 async function optionalFetch<T>(label: string, request: Promise<T>, errors: string[]) {
   try {
@@ -53,12 +71,15 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   const [selectedExpenseId, setSelectedExpenseId] = useState('');
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [selectedAccommodationId, setSelectedAccommodationId] = useState('');
+  const [accommodationSearchDone, setAccommodationSearchDone] = useState(false);
   const [discoveries, setDiscoveries] = useState<DiscoveryPlace[]>([]);
   const [discovering, setDiscovering] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchingStay, setSearchingStay] = useState(false);
   const [sharingLiveLocation, setSharingLiveLocation] = useState(false);
   const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
+  const [generatingPlanDraft, setGeneratingPlanDraft] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const restoreStartedRef = useRef(false);
   const loadingDetailKeyRef = useRef('');
@@ -164,13 +185,13 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         client.GET('/settlements/trip/{tripId}', { params: { path: { tripId: trip.id } } }),
         optionalFetch('možnosti tras', apiFetch<RouteCapabilities>('/routes/capabilities', {}, token), optionalErrors),
         optionalFetch('hlasování', apiFetch<Poll[]>(`/polls/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
-        optionalFetch('checklist', apiFetch<ChecklistItem[]>(`/checklist/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
+        optionalFetch('seznam úkolů', apiFetch<ChecklistItem[]>(`/checklist/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
         optionalFetch('aktivita', apiFetch<ActivityEvent[]>(`/activity/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
-        optionalFetch('live poloha', apiFetch<LiveLocation[]>(`/locations/live/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
+        optionalFetch('sdílená poloha', apiFetch<LiveLocation[]>(`/locations/live/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
         optionalFetch('počasí', apiFetch<TripWeather>(`/weather/trip/${encodeURIComponent(trip.id)}`, {}, token), optionalErrors),
       ]);
       if (tripDetail.error || places.error || itinerary.error || expenses.error || routes.error || settlements.error) {
-        setMessage('Nepodařilo se načíst hlavní data tripu.');
+        setMessage('Nepodařilo se načíst hlavní data výletu.');
         return;
       }
       if (tripDetail.data) {
@@ -247,11 +268,11 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   useEffect(() => {
     if (!routeTripId || !actorUserId || loading) return;
     const trip = trips.find((item) => item.id === routeTripId);
-    if (!trip) return setMessage('Trip z URL neexistuje.');
+    if (!trip) return setMessage('Výlet z URL neexistuje.');
     const member = trip.members?.find((item) => item.userId === actorUserId);
     if (!member) {
       setActorUserId('');
-      return setMessage('K tomuhle tripu nemáš přístup. Připoj se nebo změň účet.');
+      return setMessage('K tomuhle výletu nemáš přístup. Připoj se nebo změň účet.');
     }
     setSelectedTripId(trip.id);
     setMessage(null);
@@ -314,7 +335,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const trip = trips.find((item) => item.id === tripId);
     if (!trip || !actorUserId) return setMessage('Nejdřív se přihlaš.');
     const member = trip.members?.find((item) => item.userId === actorUserId);
-    if (!member) return setMessage('Nejdřív se k tomuhle tripu připoj.');
+    if (!member) return setMessage('Nejdřív se k tomuhle výletu připoj.');
     setSelectedTripId(trip.id);
     setActiveTab('map');
     router.push(tripHref('map', trip.id), { scroll: false });
@@ -328,7 +349,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const { data: member, error } = await api.POST('/trips/join', {
       body: { inviteCode: trip.inviteCode, user: { email: viewerEmail, name: viewerName || viewerEmail.split('@')[0] || 'Cestovatel' } },
     });
-    if (error) return setMessage('Nepodařilo se připojit k tripu.');
+    if (error) return setMessage('Nepodařilo se připojit k výletu.');
     await loadTrips(accessToken);
     setSelectedTripId(trip.id);
     setActiveTab('map');
@@ -342,7 +363,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const { data: member, error } = await api.POST('/trips/invite/{inviteCode}/join', {
       params: { path: { inviteCode } },
     });
-    if (error) return setMessage('Nepodařilo se připojit k tripu.');
+    if (error) return setMessage('Nepodařilo se připojit k výletu.');
     const tripId = (member as { tripId?: string } | undefined)?.tripId;
     const nextTrips = await loadTrips(accessToken);
     const trip = nextTrips.find((item) => item.id === tripId);
@@ -357,24 +378,24 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updateTrip(data: { name?: string; destination?: string; startsAt?: string | null; endsAt?: string | null; currency?: string }) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const { error } = await api.PATCH('/trips/{id}', {
       params: { path: { id: selectedTrip.id } },
-      body: data,
+      body: { ...data, currency: data.currency ? normalizeExpenseCurrency(data.currency) : undefined },
     });
-    if (error) return setMessage('Trip se nepodařilo aktualizovat.');
+    if (error) return setMessage('Výlet se nepodařilo aktualizovat.');
     const nextTrips = await loadTrips(accessToken);
     const nextTrip = nextTrips.find((trip) => trip.id === selectedTrip.id) ?? selectedTrip;
     await loadTripDetail(nextTrip, actorUserId, accessToken, { force: true });
   }
 
   async function deleteTrip() {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const { error } = await api.DELETE('/trips/{id}', {
       params: { path: { id: selectedTrip.id } },
       body: {},
     });
-    if (error) return setMessage('Trip se nepodařilo smazat.');
+    if (error) return setMessage('Výlet se nepodařilo smazat.');
     setSelectedTripId('');
     setData(emptyData);
     await loadTrips(accessToken);
@@ -385,13 +406,13 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     if (!accessToken || !viewerEmail) return setMessage('Nejdřív se přihlaš.');
     const name = String(formData.get('name') ?? '').trim();
     const destination = String(formData.get('destination') ?? '').trim();
-    const currency = String(formData.get('currency') ?? 'CZK').trim().toUpperCase() || 'CZK';
+    const currency = normalizeExpenseCurrency(String(formData.get('currency') ?? 'CZK').trim());
     const ownerName = viewerName || viewerEmail.split('@')[0] || 'Cestovatel';
-    if (!name) return setMessage('Název tripu je povinný.');
+    if (!name) return setMessage('Název výletu je povinný.');
     const { data: created, error } = await api.POST('/trips', {
       body: { name, destination: destination || undefined, currency, owner: { name: ownerName, email: viewerEmail } },
     });
-    if (error) return setMessage('Trip se nepodařilo vytvořit.');
+    if (error) return setMessage('Výlet se nepodařilo vytvořit.');
     const trip = created as Trip;
     setSelectedTripId(trip.id);
     setData(emptyData);
@@ -400,13 +421,15 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function addPlace(formData: FormData) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const name = String(formData.get('placeName') ?? '').trim();
     const type = String(formData.get('placeType') ?? 'PLACE') as PlaceType;
     const description = String(formData.get('notes') ?? '').trim();
     const durationText = String(formData.get('durationMin') ?? formData.get('duration') ?? '').trim();
     const priceText = String(formData.get('estimatedCost') ?? formData.get('price') ?? '').trim();
     const sourceUrl = String(formData.get('sourceUrl') ?? '').trim();
+    const imageUrl = String(formData.get('imageUrl') ?? '').trim();
+    const locationLabel = String(formData.get('locationLabel') ?? '').trim();
     const weatherSuitability = String(formData.get('weatherSuitability') ?? 'MIXED').trim() as 'INDOOR' | 'OUTDOOR' | 'MIXED';
     const latitude = Number(formData.get('latitude') || Number.NaN);
     const longitude = Number(formData.get('longitude') || Number.NaN);
@@ -421,10 +444,12 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         name,
         latitude,
         longitude,
+        locationLabel: locationLabel || undefined,
         description: description || undefined,
         durationMin: durationMin && Number.isFinite(durationMin) ? durationMin : undefined,
         estimatedCost: estimatedCost !== undefined && Number.isFinite(estimatedCost) ? estimatedCost : undefined,
         sourceUrl: sourceUrl || undefined,
+        imageUrl: imageUrl || undefined,
         weatherSuitability,
       },
     });
@@ -441,6 +466,8 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const durationText = String(formData.get('durationMin') ?? formData.get('duration') ?? '').trim();
     const priceText = String(formData.get('estimatedCost') ?? formData.get('price') ?? '').trim();
     const sourceUrl = String(formData.get('sourceUrl') ?? '').trim();
+    const imageUrl = String(formData.get('imageUrl') ?? '').trim();
+    const locationLabel = String(formData.get('locationLabel') ?? '').trim();
     const weatherSuitability = String(formData.get('weatherSuitability') ?? '').trim() as 'INDOOR' | 'OUTDOOR' | 'MIXED' | '';
     const latitudeValue = String(formData.get('latitude') ?? '').trim();
     const longitudeValue = String(formData.get('longitude') ?? '').trim();
@@ -456,9 +483,11 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         description: description || null,
         latitude: latitude !== undefined && Number.isFinite(latitude) ? latitude : undefined,
         longitude: longitude !== undefined && Number.isFinite(longitude) ? longitude : undefined,
+        locationLabel: locationLabel || null,
         durationMin: durationMin !== undefined && Number.isFinite(durationMin) ? durationMin : null,
         estimatedCost: estimatedCost !== undefined && Number.isFinite(estimatedCost) ? estimatedCost : null,
         sourceUrl: sourceUrl || null,
+        imageUrl: imageUrl || null,
         weatherSuitability: weatherSuitability || undefined,
       },
     });
@@ -479,7 +508,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function createDefaultItineraryDay() {
-    if (!selectedTrip || !actorUserId) throw new Error('Chybí trip nebo uživatel');
+    if (!selectedTrip || !actorUserId) throw new Error('Chybí výlet nebo uživatel');
     const { data: day, error } = await api.POST('/itinerary/days', {
       body: { tripId: selectedTrip.id, date: selectedTrip.startsAt ?? new Date().toISOString(), title: 'Den 1' },
     });
@@ -500,7 +529,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function addPlaceToItinerary(placeId: string, dayId?: string, input: { startsAtTime?: string; endsAtTime?: string; note?: string; tripMemberIds?: string[] } = {}) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const day = dayId ? data.itinerary.find((item) => item.id === dayId) : data.itinerary[0] ?? await createDefaultItineraryDay();
     if (!day) return setMessage('Nejdřív vytvoř den itineráře.');
     const place = data.places.find((item) => item.id === placeId);
@@ -512,11 +541,11 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     });
     if (error) return setMessage('Místo se nepodařilo přidat do itineráře.');
     await loadTripDetail(undefined, undefined, undefined, { force: true });
-    setRoutedTab('plan');
+    setRoutedTab('itinerary');
   }
 
   async function voteForPlace(placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const previousData = data;
     patchPlaceVote(placeId, value);
     const { error } = await api.POST('/places/{id}/votes', {
@@ -531,7 +560,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updateAccommodationStatus(placeId: string, status: 'SAVED' | 'SHORTLISTED' | 'SELECTED' | 'BOOKED' | 'REJECTED') {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     const previousData = data;
     patchPlace(placeId, { accommodationStatus: status });
     try {
@@ -547,7 +576,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updatePlaceStatus(placeId: string, status: 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED') {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     const previousData = data;
     patchPlace(placeId, { status });
     try {
@@ -563,7 +592,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function voteForPlaceOnDay(dayId: string, placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch(`/itinerary/days/${encodeURIComponent(dayId)}/places/${encodeURIComponent(placeId)}/vote`, {
         method: 'PUT',
@@ -576,7 +605,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function commentOnPlace(placeId: string, body: string) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const text = body.trim();
     if (!text) return setMessage('Komentář nesmí být prázdný.');
     const { error } = await api.POST('/places/{id}/comments', {
@@ -588,7 +617,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function reorderStops(dayId: string, stopIds: string[]) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const { error } = await api.PATCH('/itinerary/days/{dayId}/stops/reorder', {
       params: { path: { dayId } },
       body: { stopIds },
@@ -637,20 +666,26 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function addExpense(formData: FormData) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
 	    const title = String(formData.get('expenseTitle') ?? '').trim();
 	    const category = String(formData.get('category') ?? 'OTHER').trim() || 'OTHER';
 	    const amount = Number(formData.get('amount') || 0);
+    const currency = normalizeExpenseCurrency(String(formData.get('currency') ?? selectedTrip.currency).trim());
 	    const originalAmount = Number(formData.get('originalAmount') || 0);
-	    const originalCurrency = String(formData.get('originalCurrency') ?? '').trim();
+    const originalCurrency = normalizeExpenseCurrency(String(formData.get('originalCurrency') ?? (currency === 'CZK' ? 'EUR' : 'CZK')).trim());
 	    const exchangeRate = Number(formData.get('exchangeRate') || 0);
 	    const spentAtDate = String(formData.get('spentAtDate') ?? '').trim();
-	    const receiptUrl = String(formData.get('receiptUrl') ?? '').trim();
+    let receiptUrl = String(formData.get('receiptUrl') ?? '').trim();
 	    const paidById = String(formData.get('paidById') ?? actorUserId).trim() || actorUserId;
     const splitScope = String(formData.get('splitScope') ?? 'all');
     const splitUserIds = formData.getAll('splitUserIds').map(String).filter(Boolean);
     if (!title || amount <= 0) return setMessage('Název nákladu a částka jsou povinné.');
     if (splitScope === 'selected' && splitUserIds.length === 0) return setMessage('Vyber aspoň jednoho účastníka splitu.');
+    try {
+      receiptUrl = await uploadReceiptFromForm(formData, selectedTrip.id, receiptUrl);
+    } catch {
+      return setMessage('Účtenku se nepodařilo nahrát.');
+    }
     const { error } = await api.POST('/expenses', {
       body: {
         tripId: selectedTrip.id,
@@ -658,9 +693,9 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 	        title,
 	        category,
 	        amount,
-        currency: selectedTrip.currency,
+        currency,
         originalAmount: originalAmount > 0 ? originalAmount : undefined,
-        originalCurrency: originalCurrency || undefined,
+        originalCurrency: originalAmount > 0 ? originalCurrency : undefined,
 	        exchangeRate: exchangeRate > 0 ? exchangeRate : undefined,
 	        spentAt: spentAtDate ? toApiDateTime(spentAtDate) : undefined,
 	        receiptUrl: receiptUrl || undefined,
@@ -677,22 +712,44 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 	    const title = String(formData.get('expenseTitle') ?? '').trim();
 	    const category = String(formData.get('category') ?? 'OTHER').trim() || 'OTHER';
 	    const amount = Number(formData.get('amount') || 0);
+    const currency = normalizeExpenseCurrency(String(formData.get('currency') ?? selectedTrip?.currency).trim());
     const originalAmount = Number(formData.get('originalAmount') || 0);
-    const originalCurrency = String(formData.get('originalCurrency') ?? '').trim();
+    const originalCurrency = normalizeExpenseCurrency(String(formData.get('originalCurrency') ?? (currency === 'CZK' ? 'EUR' : 'CZK')).trim());
 	    const exchangeRate = Number(formData.get('exchangeRate') || 0);
 	    const spentAtDate = String(formData.get('spentAtDate') ?? '').trim();
 	    const receiptUrl = String(formData.get('receiptUrl') ?? '').trim();
 	    const paidById = String(formData.get('paidById') ?? actorUserId).trim() || actorUserId;
     const splitScope = String(formData.get('splitScope') ?? 'all');
     const splitUserIds = formData.getAll('splitUserIds').map(String).filter(Boolean);
-	    return { title, category, amount, originalAmount, originalCurrency, exchangeRate, spentAtDate, receiptUrl, paidById, splitScope, splitUserIds };
+	    return { title, category, amount, currency, originalAmount, originalCurrency, exchangeRate, spentAtDate, receiptUrl, paidById, splitScope, splitUserIds };
+  }
+
+  async function uploadReceiptFromForm(formData: FormData, tripId: string, fallbackUrl: string) {
+    const receiptFile = formData.get('receiptFile');
+    if (!(receiptFile instanceof File) || receiptFile.size === 0) return fallbackUrl;
+    const uploaded = await apiFetch<{ url: string }>('/uploads/receipts', {
+      method: 'POST',
+      body: JSON.stringify({
+        tripId,
+        fileName: receiptFile.name,
+        contentType: receiptFile.type || undefined,
+        dataUrl: await readFileAsDataUrl(receiptFile),
+      }),
+    }, accessToken);
+    return uploaded.url;
   }
 
   async function updateExpense(expenseId: string, formData: FormData) {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     const payload = expensePayloadFromForm(formData);
     if (!payload.title || payload.amount <= 0) return setMessage('Název nákladu a částka jsou povinné.');
     if (payload.splitScope === 'selected' && payload.splitUserIds.length === 0) return setMessage('Vyber aspoň jednoho účastníka splitu.');
+    let receiptUrl = payload.receiptUrl;
+    try {
+      receiptUrl = await uploadReceiptFromForm(formData, selectedTrip.id, receiptUrl);
+    } catch {
+      return setMessage('Účtenku se nepodařilo nahrát.');
+    }
     try {
       await apiFetch<Expense>(`/expenses/${encodeURIComponent(expenseId)}`, {
         method: 'PATCH',
@@ -701,12 +758,12 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 	          title: payload.title,
 	          category: payload.category,
 	          amount: payload.amount,
-          currency: selectedTrip.currency,
+          currency: payload.currency,
           originalAmount: payload.originalAmount > 0 ? payload.originalAmount : null,
-          originalCurrency: payload.originalCurrency || null,
+	          originalCurrency: payload.originalAmount > 0 ? payload.originalCurrency : null,
 	          exchangeRate: payload.exchangeRate > 0 ? payload.exchangeRate : null,
 	          spentAt: payload.spentAtDate ? toApiDateTime(payload.spentAtDate) : null,
-	          receiptUrl: payload.receiptUrl || null,
+	          receiptUrl: receiptUrl || null,
 	          splitType: 'EQUAL',
           splitAllTripMembers: payload.splitScope === 'all',
           splitUserIds: payload.splitScope === 'selected' ? payload.splitUserIds : undefined,
@@ -733,7 +790,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updateSettlementStatus(settlement: { fromUserId: string; toUserId: string; amount: number; currency: string }, status: 'OPEN' | 'PAID' | 'CONFIRMED' | 'CANCELLED') {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch(`/settlements/trip/${encodeURIComponent(selectedTrip.id)}/status`, {
         method: 'PATCH',
@@ -746,10 +803,17 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function searchStays(formData?: FormData, centerOverride?: { latitude: number; longitude: number }) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     setSearchingStay(true);
-    const destination = String(formData?.get('stayDestination') ?? selectedTrip.destination ?? selectedTrip.name).trim();
-    const center = centerOverride ?? data.places[0];
+    const destination = String(formData?.get('stayDestination') ?? formData?.get('locationLabel') ?? selectedTrip.destination ?? selectedTrip.name).trim();
+    const pickedLatitude = Number(formData?.get('latitude') || NaN);
+    const pickedLongitude = Number(formData?.get('longitude') || NaN);
+    const pickedCenter = Number.isFinite(pickedLatitude) && Number.isFinite(pickedLongitude)
+      ? { latitude: pickedLatitude, longitude: pickedLongitude }
+      : undefined;
+    const center = centerOverride ?? pickedCenter ?? data.places[0];
+    const minPrice = Number(formData?.get('minPrice') || NaN);
+    const maxPrice = Number(formData?.get('maxPrice') || NaN);
     const { data: result, error } = await api.POST('/accommodations/search', {
       body: {
         tripId: selectedTrip.id,
@@ -762,6 +826,8 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         latitude: center?.latitude,
         longitude: center?.longitude,
         radiusKm: 15,
+        minPrice: Number.isFinite(minPrice) && minPrice >= 0 ? minPrice : undefined,
+        maxPrice: Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : undefined,
         limit: 18,
       },
     });
@@ -769,11 +835,12 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     if (error) return setMessage('Vyhledání ubytování selhalo.');
     const next = ((result as { results?: Accommodation[] } | undefined)?.results ?? []);
     setAccommodations(next);
+    setAccommodationSearchDone(true);
     setSelectedAccommodationId(next[0]?.externalId ?? '');
   }
 
   async function saveAccommodation(stay: Accommodation) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const { error } = await api.POST('/accommodations/save', {
       body: {
         tripId: selectedTrip.id,
@@ -788,6 +855,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         reviewCount: stay.reviewCount,
         sourceUrl: stay.sourceUrl,
         deepLinkUrl: stay.deepLinkUrl,
+        photoUrl: stay.photoUrl,
         provider: stay.provider,
       },
     });
@@ -803,7 +871,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function addAvailability(tripMemberId: string, formData: FormData) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const startsAt = String(formData.get('startsAtDate') ?? formData.get('startsAt') ?? '').trim();
     const endsAt = String(formData.get('endsAtDate') ?? formData.get('endsAt') ?? '').trim();
     const note = String(formData.get('note') ?? '').trim();
@@ -818,7 +886,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updateAvailability(availabilityId: string, formData: FormData) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const startsAt = String(formData.get('startsAtDate') ?? formData.get('startsAt') ?? '').trim();
     const endsAt = String(formData.get('endsAtDate') ?? formData.get('endsAt') ?? '').trim();
     const note = String(formData.get('note') ?? '').trim();
@@ -833,7 +901,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updateTripMemberRole(memberId: string, role: 'ADMIN' | 'MEMBER' | 'GUEST') {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch(`/trips/${encodeURIComponent(selectedTrip.id)}/members/${encodeURIComponent(memberId)}/role`, {
         method: 'PATCH',
@@ -848,7 +916,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function updateMemberPlanning(memberId: string, input: { budgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM'; budgetAmount?: number | null }) {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch(`/members/${encodeURIComponent(memberId)}/planning`, {
         method: 'PATCH',
@@ -858,12 +926,12 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
       const nextTrip = nextTrips.find((trip) => trip.id === selectedTrip.id) ?? selectedTrip;
       await loadTripDetail(nextTrip, actorUserId, accessToken, { force: true });
     } catch {
-      setMessage('Budget profil se nepodařilo uložit.');
+      setMessage('Rozpočtový profil se nepodařilo uložit.');
     }
   }
 
   async function syncItineraryDays() {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch(`/itinerary/trip/${encodeURIComponent(selectedTrip.id)}/sync-days`, {
         method: 'POST',
@@ -886,7 +954,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function createPoll(input: { question: string; options: string[]; multiChoice?: boolean; contextDayId?: string; contextPlaceId?: string }) {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch('/polls', {
         method: 'POST',
@@ -958,7 +1026,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function createChecklistItem(input: { title: string; note?: string | null; scope?: 'PERSONAL' | 'SHARED' | 'EVERYONE'; dueAt?: string | null; assignedUserIds?: string[] }) {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch('/checklist', {
         method: 'POST',
@@ -1005,7 +1073,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
-      setMessage('Checklist se nepodařilo uložit.');
+      setMessage('Seznam úkolů se nepodařilo uložit.');
     }
   }
 
@@ -1050,7 +1118,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function shareLiveLocation() {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     if (!navigator.geolocation) return setMessage('Prohlížeč neumí sdílet polohu.');
     if (liveLocationWatchRef.current !== null) return setMessage('Poloha už se sdílí.');
     setSharingLiveLocation(true);
@@ -1085,7 +1153,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function stopSharingLiveLocation() {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     try {
       await apiFetch(`/locations/live/trip/${encodeURIComponent(selectedTrip.id)}`, { method: 'DELETE' }, accessToken);
       if (liveLocationWatchRef.current !== null) {
@@ -1100,12 +1168,13 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   }
 
   async function generateTripInsights() {
-    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
     if (generatingInsights) return;
     setGeneratingInsights(true);
     try {
       const result = await apiFetch<TripAiInsights>(`/ai/trip/${encodeURIComponent(selectedTrip.id)}/insights`, {
         method: 'POST',
+        body: JSON.stringify({}),
       }, accessToken);
       setData((current) => ({ ...current, aiInsights: result }));
       setMessage(null);
@@ -1116,16 +1185,67 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     }
   }
 
+  async function generateTripSuggestions(focus?: AiMapFocus) {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
+    if (generatingSuggestions) return;
+    setGeneratingSuggestions(true);
+    try {
+      const result = await apiFetch<TripAiSuggestions>(`/ai/trip/${encodeURIComponent(selectedTrip.id)}/suggestions`, {
+        method: 'POST',
+        body: JSON.stringify(focus ? { focus } : {}),
+      }, accessToken);
+      setData((current) => ({ ...current, aiSuggestions: result }));
+      setMessage(null);
+    } catch {
+      setMessage('AI návrhy míst se nepodařilo spustit.');
+    } finally {
+      setGeneratingSuggestions(false);
+    }
+  }
+
+  async function generateTripPlanDraft(focus?: AiMapFocus) {
+    if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber výlet a uživatele.');
+    if (generatingPlanDraft) return;
+    setGeneratingPlanDraft(true);
+    try {
+      const result = await apiFetch<TripAiPlanDraft>(`/ai/trip/${encodeURIComponent(selectedTrip.id)}/plan-draft`, {
+        method: 'POST',
+        body: JSON.stringify(focus ? { focus } : {}),
+      }, accessToken);
+      setData((current) => ({ ...current, aiPlanDraft: result, aiSuggestions: current.aiSuggestions ?? { provider: result.provider, generatedAt: result.generatedAt, model: result.model, summary: 'Kandidáti z draftu plánu.', candidates: result.candidates } }));
+      setMessage(null);
+    } catch {
+      setMessage('AI draft plánu se nepodařilo spustit.');
+    } finally {
+      setGeneratingPlanDraft(false);
+    }
+  }
+
   async function saveDiscoveryPlace(discovery: DiscoveryPlace) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const type: PlaceType = discovery.category === 'FOOD'
       ? 'FOOD'
       : discovery.category === 'ACTIVITY'
         ? 'ACTIVITY'
         : discovery.category === 'TRANSPORT'
           ? 'TRANSPORT'
-          : 'PLACE';
+          : discovery.category === 'OUTDOOR'
+          ? 'DAY_TRIP'
+            : 'PLACE';
     const weatherSuitability = discovery.category === 'FOOD' ? 'MIXED' : 'OUTDOOR';
+    let locationLabel = discovery.name;
+    if (accessToken) {
+      try {
+        const reverse = await apiFetch<LocationResult>(
+          `/locations/reverse?latitude=${encodeURIComponent(discovery.latitude)}&longitude=${encodeURIComponent(discovery.longitude)}`,
+          {},
+          accessToken,
+        );
+        locationLabel = reverse.label || locationLabel;
+      } catch {
+        locationLabel = discovery.name;
+      }
+    }
     const { data: created, error } = await api.POST('/places', {
       body: {
         tripId: selectedTrip.id,
@@ -1133,20 +1253,27 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
         name: discovery.name,
         latitude: discovery.latitude,
         longitude: discovery.longitude,
+        locationLabel,
         description: discovery.description ?? discovery.type,
         sourceUrl: discovery.wikipediaUrl ?? discovery.sourceUrl,
+        imageUrl: discovery.imageUrl,
         weatherSuitability,
       },
     });
     if (error) return setMessage('Místo se nepodařilo uložit.');
+    const createdPlace = created as Place;
+    const routePlaceIds = Array.from(new Set([...data.places.map((place) => place.id), createdPlace.id])).slice(0, 8);
+    await createOptimizedRouteForPlaces(routePlaceIds, {
+      messageOnError: 'Místo je uložené, ale trasu se nepodařilo přepočítat.',
+    });
     setDiscoveries((current) => current.filter((item) => item.externalId !== discovery.externalId));
     await loadTripDetail(undefined, undefined, undefined, { force: true });
-    setSelectedPlaceId((created as Place).id);
-    return created as Place;
+    setSelectedPlaceId(createdPlace.id);
+    return createdPlace;
   }
 
   async function deleteAvailability(availabilityId: string) {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const { error } = await api.DELETE('/members/availability/{availabilityId}', {
       params: { path: { availabilityId } },
       body: {},
@@ -1156,8 +1283,29 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     await loadTripDetail(undefined, undefined, undefined, { force: true });
   }
 
+  async function createOptimizedRouteForPlaces(placeIds: string[], options: { startsAt?: string; endsAt?: string; messageOnError?: string } = {}) {
+    if (!selectedTrip) return false;
+    const uniquePlaceIds = Array.from(new Set(placeIds)).slice(0, 8);
+    if (uniquePlaceIds.length < 2) return true;
+    const { error } = await api.POST('/routes/optimize', {
+      body: {
+        tripId: selectedTrip.id,
+        name: 'Návrh nejlepší trasy',
+        mode: 'DRIVE',
+        startsAt: options.startsAt,
+        endsAt: options.endsAt,
+        placeIds: uniquePlaceIds,
+      },
+    });
+    if (error) {
+      if (options.messageOnError) setMessage(options.messageOnError);
+      return false;
+    }
+    return true;
+  }
+
   async function optimizeRoute() {
-    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber výlet a uživatele.');
     const plannedStops = data.itinerary
       .flatMap((day) => (day.stops ?? []).map((stop) => ({ day, stop })))
       .filter(({ stop }) => stop.placeId);
@@ -1167,23 +1315,18 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
     const timedStops = plannedStops.filter(({ stop }) => placeIds.includes(stop.placeId ?? '') && stop.startsAt && stop.endsAt);
     const routeStartsAt = timedStops.length ? timedStops.map(({ stop }) => stop.startsAt as string).sort()[0] : undefined;
     const routeEndsAt = timedStops.length ? timedStops.map(({ stop }) => stop.endsAt as string).sort().at(-1) : undefined;
-    const { error } = await api.POST('/routes/optimize', {
-      body: {
-        tripId: selectedTrip.id,
-        name: 'Návrh nejlepší trasy',
-        mode: 'DRIVE',
-        startsAt: routeStartsAt,
-        endsAt: routeEndsAt,
-        placeIds,
-      },
+    const created = await createOptimizedRouteForPlaces(placeIds, {
+      startsAt: routeStartsAt,
+      endsAt: routeEndsAt,
+      messageOnError: 'Trasu se nepodařilo optimalizovat.',
     });
-    if (error) return setMessage('Trasu se nepodařilo optimalizovat.');
+    if (!created) return;
     await loadTripDetail(undefined, undefined, undefined, { force: true });
   }
 
   return {
-    state: { trips, joinedTrips, availableTrips, selectedTrip, selectedTripId, viewerEmail, viewerName, actorUserId, actorMember, activeTab, data, selectedPlace, selectedPlaceId, selectedExpense, selectedExpenseId, accommodations, selectedAccommodation, selectedAccommodationId, discoveries, discovering, loading, searchingStay, sharingLiveLocation, generatingInsights, message },
-    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updatePlaceStatus, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, updateStopAttendance, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, updateMemberPlanning, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, discoverPlaces, discoverNearbyCurrentLocation, shareLiveLocation, stopSharingLiveLocation, generateTripInsights, saveDiscoveryPlace, optimizeRoute },
+    state: { trips, joinedTrips, availableTrips, selectedTrip, selectedTripId, viewerEmail, viewerName, actorUserId, actorMember, activeTab, data, selectedPlace, selectedPlaceId, selectedExpense, selectedExpenseId, accommodations, selectedAccommodation, selectedAccommodationId, accommodationSearchDone, discoveries, discovering, loading, searchingStay, sharingLiveLocation, generatingInsights, generatingSuggestions, generatingPlanDraft, message },
+    actions: { setSelectedTripId, setActorUserId, setActiveTab: setRoutedTab, tripHref, setSelectedPlaceId, setSelectedExpenseId, setSelectedAccommodationId, loadTrips, signIn, signOut, openTrip, joinTrip, joinTripByInviteCode, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, addPlaceToItinerary, voteForPlace, updatePlaceStatus, updateAccommodationStatus, voteForPlaceOnDay, commentOnPlace, reorderStops, updateItineraryStop, updateStopAttendance, deleteItineraryStop, addExpense, updateExpense, deleteExpense, updateSettlementStatus, searchStays, saveAccommodation, addAvailability, updateAvailability, deleteAvailability, updateTripMemberRole, updateMemberPlanning, syncItineraryDays, updateItineraryDay, createPoll, updatePoll, deletePoll, votePollOption, unvotePollOption, createChecklistItem, updateChecklistItem, deleteChecklistItem, completeChecklistItem, searchLocations, discoverPlaces, discoverNearbyCurrentLocation, shareLiveLocation, stopSharingLiveLocation, generateTripInsights, generateTripSuggestions, generateTripPlanDraft, saveDiscoveryPlace, optimizeRoute },
   };
 }
 

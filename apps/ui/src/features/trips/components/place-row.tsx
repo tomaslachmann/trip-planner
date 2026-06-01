@@ -89,13 +89,13 @@ export function PlaceRow({
             ) : (
               <>
                 {onApprove && (
-                  <Button variant="outline" size="sm" type="button" onClick={onApprove} disabled={dragging}>
+                  <StatusActionButton active={false} tone="green" size="sm" type="button" onClick={onApprove} disabled={dragging}>
                     <Check />Schválit
-                  </Button>
+                  </StatusActionButton>
                 )}
                 {onShortlist && (
-                  <StatusActionButton active={shortlisted} tone="amber" variant={shortlisted ? 'outline' : 'ghost'} size="sm" type="button" onClick={onShortlist} disabled={dragging}>
-                    <Bookmark />Shortlist
+                  <StatusActionButton active={shortlisted} tone="amber" size="sm" type="button" onClick={onShortlist} disabled={dragging}>
+                    <Bookmark />Užší výběr
                   </StatusActionButton>
                 )}
               </>

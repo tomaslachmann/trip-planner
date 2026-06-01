@@ -25,7 +25,7 @@ export function isMemberAvailableForRange(member: Pick<TripMember, 'availability
 
 export function memberAvailabilitySummary(member: Pick<TripMember, 'availabilityWindows'>) {
   const windows = member.availabilityWindows ?? [];
-  if (windows.length === 0) return 'Dostupný celý trip';
+  if (windows.length === 0) return 'Dostupný celý výlet';
 
   return windows
     .map((window) => {

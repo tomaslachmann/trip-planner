@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { Avatar } from '@/features/trips/components/avatar';
 import { CostsPanel } from '@/features/trips/components/costs-panel';
-import { SettlementPaymentContent } from '@/features/trips/components/settlement-payment';
+import { SettlementPaymentContent, settlementReceiptExpenses } from '@/features/trips/components/settlement-payment';
 import { TripBar } from '@/features/trips/components/trip-bar';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
 import type { TripPlannerController } from '@/features/trips/hooks/use-trip-planner';
@@ -16,6 +16,7 @@ import type { Settlement } from '@/features/trips/types';
 function DesktopSettlePage({ planner }: { planner: TripPlannerController }) {
   const { state, actions } = planner;
   const settlements = state.data.settlements;
+  const expenses = state.data.expenses;
   const members = state.selectedTrip?.members ?? [];
   const [selected, setSelected] = useState<Settlement | null>(settlements[0] ?? null);
   const currency = state.selectedTrip?.currency ?? 'EUR';
@@ -29,7 +30,7 @@ function DesktopSettlePage({ planner }: { planner: TripPlannerController }) {
 
   return (
     <div className="desk-body">
-      <div className="desk-scroll" style={{ maxWidth: 680 }}>
+      <div className="desk-scroll">
         <div className="row between mb16">
           <h1 className="desk-h">Vyrovnání</h1>
           {total > 0 && <span className="badge amber tnum">{Math.round(total)} {currency} nevyrovnáno</span>}
@@ -42,6 +43,7 @@ function DesktopSettlePage({ planner }: { planner: TripPlannerController }) {
             const from = members.find((member) => member.userId === settlement.fromUserId);
             const to = members.find((member) => member.userId === settlement.toUserId);
             const isSelected = selected?.fromUserId === settlement.fromUserId && selected?.toUserId === settlement.toUserId;
+            const receiptCount = settlementReceiptExpenses(settlement, expenses).length;
             return (
               <Card
                 key={`${settlement.fromUserId}-${settlement.toUserId}`}
@@ -60,7 +62,10 @@ function DesktopSettlePage({ planner }: { planner: TripPlannerController }) {
                       <b>{to?.user.name ?? settlement.toUserId.slice(0, 6)}</b>
                     </span>
                   </div>
-                  <span className="t-h2 tnum">{settlement.amount.toFixed(0)} {settlement.currency}</span>
+                  <div className="col" style={{ alignItems: 'flex-end' }}>
+                    <span className="t-h2 tnum">{settlement.amount.toFixed(0)} {settlement.currency}</span>
+                    {receiptCount > 0 && <span className="badge muted mt4">{receiptCount} účtenek</span>}
+                  </div>
                 </div>
               </Card>
             );
@@ -71,7 +76,7 @@ function DesktopSettlePage({ planner }: { planner: TripPlannerController }) {
       {selected && (
         <aside className="desk-panel">
           <div className="appbar"><span className="t-h3 flex1">QR platba</span></div>
-          <SettlementPaymentContent settlement={selected} members={members} onStatusChange={(settlement, status) => void actions.updateSettlementStatus(settlement, status)} />
+          <SettlementPaymentContent settlement={selected} members={members} expenses={expenses} onStatusChange={(settlement, status) => void actions.updateSettlementStatus(settlement, status)} />
         </aside>
       )}
     </div>

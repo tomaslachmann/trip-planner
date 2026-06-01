@@ -55,7 +55,7 @@ export function TripJoinPage({ inviteCode }: { inviteCode: string }) {
   }, [inviteCode]);
 
   if (!state.viewerEmail) {
-    return <AccessScreen message={state.message || 'Nejdřív se přihlas, potom tě připojíme k tripu.'} onSignIn={(data) => actions.signIn(data)} />;
+    return <AccessScreen message={state.message || 'Nejdřív se přihlas, potom tě připojíme k výletu.'} onSignIn={(data) => actions.signIn(data)} />;
   }
 
   return (
@@ -66,7 +66,7 @@ export function TripJoinPage({ inviteCode }: { inviteCode: string }) {
             <UserPlus size={18} />
           </div>
           <div className="col flex1" style={{ minWidth: 0 }}>
-            <span className="t-title">Připojit se k tripu</span>
+            <span className="t-title">Připojit se k výletu</span>
             <span className="muted t-sm mt4">{state.viewerEmail}</span>
           </div>
         </div>

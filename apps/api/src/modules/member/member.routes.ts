@@ -40,7 +40,7 @@ export async function memberRoutes(app: FastifyInstance) {
     await requireTripMember(tripId, actorUserId);
     return prisma.tripMember.findMany({
       where: { tripId },
-      include: { user: true, availabilityWindows: { include: { startPlace: true, endPlace: true } } },
+      include: { user: { include: { accounts: true } }, availabilityWindows: { include: { startPlace: true, endPlace: true } } },
     });
   });
 
@@ -94,7 +94,7 @@ export async function memberRoutes(app: FastifyInstance) {
         budgetPreference: body.budgetPreference,
         budgetAmount: body.budgetAmount,
       },
-      include: { user: true, availabilityWindows: { include: { startPlace: true, endPlace: true } } },
+      include: { user: { include: { accounts: true } }, availabilityWindows: { include: { startPlace: true, endPlace: true } } },
     });
   });
 

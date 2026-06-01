@@ -1,4 +1,4 @@
-export type TabKey = 'map' | 'plan' | 'places' | 'stay' | 'costs' | 'settle' | 'members' | 'more' | 'checklist' | 'polls' | 'itinerary';
+export type TabKey = 'map' | 'plan' | 'places' | 'stay' | 'costs' | 'settle' | 'members' | 'more' | 'checklist' | 'polls' | 'itinerary' | 'settings';
 
 export type TripMember = {
   id: string;
@@ -6,7 +6,18 @@ export type TripMember = {
   role: string;
   budgetPreference?: 'BUDGET' | 'NORMAL' | 'PREMIUM' | string;
   budgetAmount?: string | number | null;
-  user: { id: string; name: string; email: string };
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    accounts?: Array<{
+      id?: string;
+      iban?: string | null;
+      domesticAccount?: string | null;
+      bankCode?: string | null;
+      recipientName?: string | null;
+    }>;
+  };
   availabilityWindows?: Array<{
     id: string;
     startsAt: string;
@@ -40,9 +51,11 @@ export type Place = {
   description?: string | null;
   latitude: number;
   longitude: number;
+  locationLabel?: string | null;
   durationMin?: number | null;
   estimatedCost?: string | number | null;
   sourceUrl?: string | null;
+  imageUrl?: string | null;
   weatherSuitability?: 'INDOOR' | 'OUTDOOR' | 'MIXED' | string;
   accommodationProvider?: string | null;
   accommodationExternalId?: string | null;
@@ -106,6 +119,8 @@ export type RoutePlan = {
   mode: string;
   locked: boolean;
   legs?: Array<{
+    fromPlaceId?: string;
+    toPlaceId?: string;
     distanceMeters?: number | null;
     durationSeconds?: number | null;
     encodedPolyline?: string | null;
@@ -187,11 +202,69 @@ export type TripAiInsights = {
   insights: AiInsight[];
 };
 
+export type AiSuggestionCandidate = {
+  id: string;
+  name: string;
+  type: 'PLACE' | 'FOOD' | 'ACTIVITY' | 'DAY_TRIP' | 'TRANSPORT' | 'CUSTOM';
+  reason: string;
+  estimatedDurationMin: number | null;
+  estimatedCost: number | null;
+  weatherSuitability: 'INDOOR' | 'OUTDOOR' | 'MIXED';
+  confidence: number;
+  searchQuery: string;
+  verification: {
+    status: 'VERIFIED' | 'PARTIAL' | 'UNVERIFIED';
+    provider: string | null;
+    externalId: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    title: string | null;
+    description: string | null;
+    imageUrl: string | null;
+    sourceUrl: string | null;
+    wikipediaUrl: string | null;
+  };
+};
+
+export type TripAiSuggestions = {
+  provider: 'openai-agents';
+  generatedAt: string;
+  model: string;
+  summary: string;
+  candidates: AiSuggestionCandidate[];
+};
+
+export type AiPlanDraftItem = {
+  id: string;
+  kind: 'EXISTING_PLACE' | 'NEW_CANDIDATE' | 'NOTE';
+  title: string;
+  startsAt: string | null;
+  durationMin: number | null;
+  placeId: string | null;
+  candidateId: string | null;
+  reason: string;
+};
+
+export type TripAiPlanDraft = {
+  provider: 'openai-agents';
+  generatedAt: string;
+  model: string;
+  summary: string;
+  days: Array<{
+    date: string;
+    title: string;
+    theme: string;
+    items: AiPlanDraftItem[];
+  }>;
+  candidates: AiSuggestionCandidate[];
+};
+
 export type Accommodation = {
   provider: 'booking';
   externalId: string;
   name: string;
   type?: string;
+  photoUrl?: string;
   latitude: number;
   longitude: number;
   priceTotal?: number;
@@ -217,7 +290,7 @@ export type LocationResult = {
 export type DiscoveryPlace = {
   provider: 'overpass';
   externalId: string;
-  category: 'SIGHTS' | 'FOOD' | 'ACTIVITY' | 'TRANSPORT';
+  category: 'SIGHTS' | 'FOOD' | 'ACTIVITY' | 'TRANSPORT' | 'OUTDOOR';
   name: string;
   latitude: number;
   longitude: number;
@@ -294,4 +367,6 @@ export type TripData = {
   liveLocations: LiveLocation[];
   weather?: TripWeather | null;
   aiInsights?: TripAiInsights | null;
+  aiSuggestions?: TripAiSuggestions | null;
+  aiPlanDraft?: TripAiPlanDraft | null;
 };

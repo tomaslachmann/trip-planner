@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import type { ChecklistItem, TripMember } from '../types';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
 
@@ -65,7 +66,7 @@ function ChecklistItemSheet({
           <SheetTitle className="t-h3">{item ? 'Upravit úkol' : 'Nový úkol'}</SheetTitle>
           <Button variant="ghost" size="sm" type="button" onClick={onClose}>Zavřít</Button>
         </div>
-        <form
+        <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
           onSubmit={(event) => {
@@ -85,7 +86,7 @@ function ChecklistItemSheet({
           }}
         >
           <Label htmlFor="checklistTitle">Název</Label>
-          <Input id="checklistTitle" name="title" defaultValue={item?.title ?? ''} placeholder="Koupit cestovní pojištění" />
+          <Input id="checklistTitle" name="title" defaultValue={item?.title ?? ''} placeholder="Koupit cestovní pojištění" required />
           <Label className="mt14" htmlFor="checklistNote">Poznámka</Label>
           <Input id="checklistNote" name="note" defaultValue={item?.note ?? ''} placeholder="Detail nebo termín" />
           <div className="row g12 mt14">
@@ -121,7 +122,7 @@ function ChecklistItemSheet({
             <ConfirmDestructiveAction className="mt16 w-full" label="Smazat úkol" confirmLabel="Smazat úkol" onConfirm={() => { onDelete(item.id); onClose(); }} />
           )}
           <Button className="mt12 w-full" type="submit"><Plus />{item ? 'Uložit změny' : 'Přidat úkol'}</Button>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );
@@ -193,7 +194,7 @@ export function ChecklistPanel({
       </Card>
       {filtered.length === 0 && (
         <Card>
-          <EmptyState icon={<CheckSquare2 />} title="Checklist je prázdný." text="Přidej věci k vyřízení před cestou nebo během tripu." />
+          <EmptyState icon={<CheckSquare2 />} title="Seznam úkolů je prázdný." text="Přidej věci k vyřízení před cestou nebo během výletu." />
         </Card>
       )}
       {filtered.map((item) => {
@@ -231,7 +232,7 @@ export function ChecklistPanel({
           <div className="flex1" />
           <Button size="sm" type="button" onClick={() => { setEditing(null); setOpen(true); }}><Plus />Nový úkol</Button>
         </div>
-        <div className="t-h2 mb12">Checklist</div>
+        <div className="t-h2 mb12">Seznam úkolů</div>
         {filterControl}
         {itemsList}
         <ChecklistItemSheet key={editing?.id ?? 'new'} open={open} item={editing} members={members} onClose={() => { setOpen(false); setEditing(null); }} onCreate={onCreate} onUpdate={onUpdate} onDelete={onDelete} />
@@ -243,7 +244,7 @@ export function ChecklistPanel({
     <div className="screen">
       <div className="appbar">
         {onBack && <Button size="icon" variant="ghost" type="button" onClick={onBack}><ArrowLeft /></Button>}
-        <span className="t-h3 flex1">Checklist</span>
+        <span className="t-h3 flex1">Seznam úkolů</span>
         <Button size="sm" type="button" onClick={() => { setEditing(null); setOpen(true); }}><Plus />Nový úkol</Button>
       </div>
       <div className="scroll px18" style={{ flex: 1, paddingTop: 12, paddingBottom: 18 }}>

@@ -12,9 +12,11 @@ export const createPlaceSchema = z.object({
   description: z.string().optional(),
   latitude: latitudeSchema,
   longitude: longitudeSchema,
+  locationLabel: z.string().optional(),
   durationMin: z.number().int().positive().optional(),
   estimatedCost: z.number().nonnegative().optional(),
   sourceUrl: z.string().url().optional(),
+  imageUrl: z.string().url().optional(),
   weatherSuitability: weatherSuitabilitySchema.default('MIXED'),
 });
 
@@ -25,9 +27,11 @@ export const updatePlaceSchema = actorUserIdSchema.extend({
   description: z.string().nullable().optional(),
   latitude: latitudeSchema.optional(),
   longitude: longitudeSchema.optional(),
+  locationLabel: z.string().nullable().optional(),
   durationMin: z.number().int().positive().nullable().optional(),
   estimatedCost: z.number().nonnegative().nullable().optional(),
   sourceUrl: z.string().url().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
   weatherSuitability: weatherSuitabilitySchema.optional(),
   accommodationStatus: z.enum(['SAVED','SHORTLISTED','SELECTED','BOOKED','REJECTED']).nullable().optional(),
 });

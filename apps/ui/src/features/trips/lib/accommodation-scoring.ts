@@ -17,7 +17,7 @@ export type AccommodationVoteStats = {
 
 export const accommodationStatusMeta: Record<AccommodationStatus, { label: string; cls: string }> = {
   SAVED: { label: 'Uloženo', cls: 'muted' },
-  SHORTLISTED: { label: 'Shortlist', cls: 'amber' },
+  SHORTLISTED: { label: 'Užší výběr', cls: 'amber' },
   SELECTED: { label: 'Vybráno', cls: 'green' },
   BOOKED: { label: 'Rezervováno', cls: 'green' },
   REJECTED: { label: 'Proti', cls: 'red' },

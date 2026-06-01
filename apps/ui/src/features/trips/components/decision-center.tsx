@@ -84,7 +84,7 @@ export function DecisionCenter({ planner, compact = false }: { planner: TripPlan
           <div className={compact ? 'col g8 mt12' : 'grid2 mt12'} style={{ gap: 8 }}>
             {top.length > 0 && (
               <div className="col g6">
-                <span className="faint t-xs">Top místa</span>
+                <span className="faint t-xs">Nejlepší místa</span>
                 {top.map(({ place }) => (
                   <Button className="justify-start" key={place.id} size="sm" variant="outline" type="button" onClick={() => { actions.setSelectedPlaceId(place.id); actions.setActiveTab('places'); }}>
                     <MapPin />{place.name}<PlaceScoreBadge place={place} className="ml-auto" />

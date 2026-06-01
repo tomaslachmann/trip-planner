@@ -2,6 +2,7 @@
 
 import { Activity, CheckCircle2, ChevronRight, Link, ListChecks, Settings, Users, Vote } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { AvatarRow } from './avatar';
 import { AiInsightsPanel } from './ai-insights-panel';
@@ -15,22 +16,25 @@ import type { TripPlannerController } from '../hooks/use-trip-planner';
 type Section = 'menu' | 'polls' | 'checklist';
 
 const mobileItems = [
+  { key: 'usersettings', label: 'Nastavení účtu',  icon: Settings },
   { key: 'members',      label: 'Členové',         icon: Users },
-  { key: 'tripsettings', label: 'Nastavení tripu',  icon: Settings },
+  { key: 'tripsettings', label: 'Nastavení výletu', icon: Settings },
   { key: 'invite',       label: 'Odkaz na pozvánku',icon: Link },
   { key: 'polls',        label: 'Hlasování',        icon: Vote },
-  { key: 'checklist',    label: 'Checklist',        icon: ListChecks },
+  { key: 'checklist',    label: 'Seznam úkolů',     icon: ListChecks },
 ] as const;
 
 type DesktopSettingItem = { key: string; label: string; icon: string };
 const desktopSettings: DesktopSettingItem[] = [
+  { key: 'usersettings', label: 'Nastavení účtu',   icon: 'settings' },
   { key: 'invite',       label: 'Odkaz na pozvánku', icon: 'link' },
-  { key: 'tripsettings', label: 'Nastavení tripu',   icon: 'settings' },
+  { key: 'tripsettings', label: 'Nastavení výletu',  icon: 'settings' },
   { key: 'polls',        label: 'Hlasování',          icon: 'vote' },
 ];
 
 export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerController; desktop?: boolean }) {
   const { state, actions } = planner;
+  const router = useRouter();
   const [section, setSection] = useState<Section>('menu');
   const [inviteCopied, setInviteCopied] = useState(false);
 
@@ -41,6 +45,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
   const { openModal } = useModal();
 
   function handleNav(key: string) {
+    if (key === 'usersettings') router.push(state.selectedTripId ? `/trips/${state.selectedTripId}/settings` : '/trips', { scroll: false });
     if (key === 'members') actions.setActiveTab('members');
     if (key === 'polls') actions.setActiveTab('polls');
     if (key === 'checklist') actions.setActiveTab('checklist');
@@ -92,11 +97,11 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
       <div className="desk-body">
         <div className="desk-scroll">
           <div className="maxw" style={{ maxWidth: 820 }}>
-            <h1 className="desk-h mb16">Přehled tripu</h1>
+            <h1 className="desk-h mb16">Přehled výletu</h1>
             <div className="card sh pad mb16">
               <div className="row between">
                 <div className="col">
-                  <span className="t-h2">{state.selectedTrip?.name ?? 'Trip'}</span>
+                  <span className="t-h2">{state.selectedTrip?.name ?? 'Výlet'}</span>
                   <span className="muted t-sm mt4">{state.selectedTrip?.destination ?? '—'} · {formatTripRange(state.selectedTrip)}</span>
                 </div>
                 <AvatarRow names={(state.selectedTrip?.members ?? []).map((m) => m.user.name)} />
@@ -111,7 +116,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
             <DecisionCenter planner={planner} />
 
             <div className="mt16">
-              <AiInsightsPanel insights={state.data.aiInsights} loading={state.generatingInsights} onGenerate={() => void actions.generateTripInsights()} onNavigate={actions.setActiveTab} />
+              <AiInsightsPanel insights={state.data.aiInsights} suggestions={state.data.aiSuggestions} planDraft={state.data.aiPlanDraft} loading={state.generatingInsights} loadingSuggestions={state.generatingSuggestions} loadingPlanDraft={state.generatingPlanDraft} onGenerate={() => void actions.generateTripInsights()} onGenerateSuggestions={() => void actions.generateTripSuggestions()} onGeneratePlanDraft={() => void actions.generateTripPlanDraft()} onNavigate={actions.setActiveTab} />
             </div>
 
             <div className="card sh mt16" style={{ padding: '4px 16px' }}>
@@ -125,7 +130,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
                   >
                     <div className="lead-ic" style={{ width: 32, height: 32, borderRadius: 9 }}>
                       {item.key === 'invite' && <Link size={17} />}
-                      {item.key === 'tripsettings' && <Settings size={17} />}
+                      {(item.key === 'tripsettings' || item.key === 'usersettings') && <Settings size={17} />}
                       {item.key === 'polls' && <Vote size={17} />}
                     </div>
                     <span className="t-body flex1 medi">{item.key === 'invite' && inviteCopied ? 'Kód zkopírován' : item.label}</span>
@@ -150,7 +155,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
                       <span className="t-sm semib ellipsis">{event.label}</span>
                       <span className="faint t-xs mt2">{event.actor?.name ?? 'Systém'} · {new Date(event.createdAt).toLocaleString('cs-CZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <span className="badge muted">{event.entityType ?? 'trip'}</span>
+                    <span className="badge muted">{event.entityType ?? 'výlet'}</span>
                   </div>
                 </div>
               ))}
@@ -171,7 +176,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
         <div className="card sh pad">
           <div className="row between">
             <div className="col" style={{ minWidth: 0 }}>
-              <span className="t-h2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{state.selectedTrip?.name ?? 'Trip'}</span>
+              <span className="t-h2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{state.selectedTrip?.name ?? 'Výlet'}</span>
               <span className="muted t-xs mt4">{state.selectedTrip?.destination ?? '—'} · {formatTripRange(state.selectedTrip)}</span>
             </div>
             <AvatarRow names={(state.selectedTrip?.members ?? []).map((m) => m.user.name)} />
@@ -188,7 +193,7 @@ export function MoreScreen({ planner, desktop = false }: { planner: TripPlannerC
         </div>
 
         <div className="mt16">
-          <AiInsightsPanel insights={state.data.aiInsights} loading={state.generatingInsights} onGenerate={() => void actions.generateTripInsights()} onNavigate={actions.setActiveTab} />
+          <AiInsightsPanel insights={state.data.aiInsights} suggestions={state.data.aiSuggestions} planDraft={state.data.aiPlanDraft} loading={state.generatingInsights} loadingSuggestions={state.generatingSuggestions} loadingPlanDraft={state.generatingPlanDraft} onGenerate={() => void actions.generateTripInsights()} onGenerateSuggestions={() => void actions.generateTripSuggestions()} onGeneratePlanDraft={() => void actions.generateTripPlanDraft()} onNavigate={actions.setActiveTab} />
         </div>
 
         <div className="card mt16" style={{ overflow: 'hidden' }}>

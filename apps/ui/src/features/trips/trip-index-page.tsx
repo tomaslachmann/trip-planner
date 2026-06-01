@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import { AccessScreen } from './components/access-screen';
 import { TripPickerScreen } from './components/trip-picker-screen';
 import { useTripPlanner } from './hooks/use-trip-planner';
@@ -13,7 +15,7 @@ import { useTripPlanner } from './hooks/use-trip-planner';
 function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
   return (
     <div className="app-empty-stage">
-      <form
+      <ValidatedForm
         className="empty-trip-form"
         style={{ width: 420, maxWidth: 'calc(100vw - 32px)' }}
         onSubmit={(event) => {
@@ -22,17 +24,23 @@ function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
         }}
       >
         <Card className="p-[14px] shadow-[var(--sh-sm)]">
-          <div className="t-title mb8">Vytvořit trip</div>
+          <div className="t-title mb8">Vytvořit výlet</div>
           <p className="muted t-sm mb16">Zatím není co zobrazit.</p>
-          <Label htmlFor="name">Název tripu</Label>
-          <Input className="mb-3" id="name" name="name" placeholder="Barcelona 2026" />
+          <Label htmlFor="name">Název výletu</Label>
+          <Input className="mb-3" id="name" name="name" placeholder="Barcelona 2026" required />
           <Label htmlFor="destination">Destinace</Label>
-          <Input className="mb-3" id="destination" name="destination" placeholder="Barcelona" />
-          <Label htmlFor="currency">Měna</Label>
-          <Input className="mb-3 uppercase" id="currency" name="currency" defaultValue="CZK" maxLength={3} placeholder="CZK" />
+          <Input className="mb-3" id="destination" name="destination" placeholder="Barcelona" required />
+          <Label>Měna</Label>
+          <Select name="currency" defaultValue="CZK">
+            <SelectTrigger className="mb-3"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="CZK">CZK - Koruna</SelectItem>
+              <SelectItem value="EUR">EUR - Euro</SelectItem>
+            </SelectContent>
+          </Select>
           <Button className="w-full" type="submit"><Plus />Vytvořit</Button>
         </Card>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }
@@ -46,7 +54,7 @@ export function TripIndexPage() {
     return (
       <div className="app-empty-stage">
         <Card className="center p-[14px] shadow-[var(--sh-sm)]">
-          <div className="t-h2">Načítám tripy...</div>
+          <div className="t-h2">Načítám výlety...</div>
           <div className="muted t-sm mt8">Načítám data.</div>
         </Card>
       </div>

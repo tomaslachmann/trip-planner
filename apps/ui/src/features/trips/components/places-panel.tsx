@@ -18,7 +18,7 @@ type StatusFilter = 'all' | 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED'
 const statusFilters: Array<{ key: StatusFilter; label: string }> = [
   { key: 'all', label: 'Vše' },
   { key: 'PROPOSED', label: 'Návrhy' },
-  { key: 'SHORTLISTED', label: 'Shortlist' },
+  { key: 'SHORTLISTED', label: 'Užší výběr' },
   { key: 'APPROVED', label: 'Schválené' },
   { key: 'REJECTED', label: 'Zamítnuté' },
 ];
@@ -142,7 +142,7 @@ export function PlacesPanel({
         {recommended.length > 0 && (
           <Card className="p-[12px] shadow-[var(--sh-sm)] mb12">
             <div className="row between mb8">
-              <span className="t-h3">Top místa</span>
+              <span className="t-h3">Nejlepší místa</span>
               <span className="badge green">Doporučeno</span>
             </div>
             <div className="row g8 wrap">

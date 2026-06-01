@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { isMemberAvailableForRange, memberAvailabilitySummary } from '../lib/availability';
 import { categoryMeta } from './category';
@@ -23,6 +24,17 @@ const EXPENSE_CATEGORIES = [
   { value: 'ACTIVITY', label: 'Aktivita' },
   { value: 'OTHER', label: 'Ostatní' },
 ];
+
+const EXPENSE_CURRENCIES = [
+  { value: 'CZK', label: 'CZK' },
+  { value: 'EUR', label: 'EUR' },
+] as const;
+
+type ExpenseCurrency = (typeof EXPENSE_CURRENCIES)[number]['value'];
+
+function normalizeExpenseCurrency(value?: string | null): ExpenseCurrency {
+  return value === 'EUR' ? 'EUR' : 'CZK';
+}
 
 /* ── shared sheet header (Cancel · Title · Save) ── */
 function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
@@ -70,7 +82,11 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
   const [paidById, setPaidById] = useState(expense?.paidById ?? members[0]?.userId ?? state.actorUserId);
   const [category, setCategory] = useState(expense?.category ?? 'OTHER');
   const [sel, setSel] = useState<Record<string, boolean>>(Object.fromEntries(members.map((m) => [m.userId, expense ? expenseSplitUserIds.has(m.userId) : true])));
-  const currency = state.selectedTrip?.currency ?? 'EUR';
+  const initialCurrency = normalizeExpenseCurrency(expense?.currency ?? state.selectedTrip?.currency);
+  const [currency, setCurrency] = useState<ExpenseCurrency>(initialCurrency);
+  const [originalCurrency, setOriginalCurrency] = useState<ExpenseCurrency>(
+    normalizeExpenseCurrency(expense?.originalCurrency ?? (initialCurrency === 'CZK' ? 'EUR' : 'CZK')),
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -83,54 +99,75 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: '94%' }}>
         <SheetHead title={edit ? 'Upravit výdaj' : 'Nový výdaj'} onClose={onClose} />
-        <form id="expense-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
+        <ValidatedForm id="expense-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <input type="hidden" name="paidById" value={paidById} />
           <input type="hidden" name="splitScope" value={splitScope} />
-	          <Label htmlFor="expenseTitle">Název</Label>
-	          <Input id="expenseTitle" name="expenseTitle" defaultValue={expense?.title ?? ''} placeholder="Večeře, pronájem auta..." autoFocus />
-	          <input type="hidden" name="category" value={category} />
+          <input type="hidden" name="currency" value={currency} />
+          <input type="hidden" name="category" value={category} />
+          <input type="hidden" name="originalCurrency" value={originalCurrency} />
 
-	          <div className="row g12 mt16">
-            <div className="flex1" style={{ flex: 2 }}>
-              <Label htmlFor="expenseAmount">Částka v měně tripu</Label>
-              <Input id="expenseAmount" name="amount" type="number" min="0" step="0.01" className="tnum" defaultValue={expense ? Number(expense.amount) : ''} placeholder="0.00" />
-	          </div>
-	          <div className="row g12 mt12">
-	            <div className="flex1">
-	              <Label>Kategorie</Label>
-	              <Select value={category} onValueChange={setCategory}>
-	                <SelectTrigger><SelectValue /></SelectTrigger>
-	                <SelectContent>
-	                  {EXPENSE_CATEGORIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-	                </SelectContent>
-	              </Select>
-	            </div>
-	            <div className="flex1">
-	              <Label htmlFor="expenseSpentAt">Datum</Label>
-	              <Input id="expenseSpentAt" name="spentAtDate" type="date" defaultValue={expense?.spentAt?.slice(0, 10) ?? ''} />
-	            </div>
-	          </div>
-	          <Label className="mt12" htmlFor="expenseReceiptUrl">Účtenka / odkaz</Label>
-	          <Input id="expenseReceiptUrl" name="receiptUrl" type="url" defaultValue={expense?.receiptUrl ?? ''} placeholder="https://..." />
+          <Label htmlFor="expenseTitle">Název</Label>
+          <Input id="expenseTitle" name="expenseTitle" defaultValue={expense?.title ?? ''} placeholder="Večeře, pronájem auta..." autoFocus required />
+
+          <div className="row g12 mt16" style={{ alignItems: 'flex-start' }}>
             <div className="flex1">
+              <Label htmlFor="expenseAmount">Částka</Label>
+              <Input id="expenseAmount" name="amount" type="number" min="0.01" step="0.01" className="tnum" defaultValue={expense ? Number(expense.amount) : ''} placeholder="0.00" required />
+            </div>
+            <div style={{ flex: '0 0 112px' }}>
               <Label htmlFor="expenseCurrency">Měna</Label>
-              <Input id="expenseCurrency" value={currency} readOnly />
+              <Select value={currency} onValueChange={(value) => setCurrency(value as ExpenseCurrency)}>
+                <SelectTrigger id="expenseCurrency"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CURRENCIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="row g12 mt12">
+
+          <div className="row g12 mt12" style={{ alignItems: 'flex-start' }}>
+            <div className="flex1">
+              <Label>Kategorie</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex1">
+              <Label htmlFor="expenseSpentAt">Datum</Label>
+              <Input id="expenseSpentAt" name="spentAtDate" type="date" defaultValue={expense?.spentAt?.slice(0, 10) ?? ''} />
+            </div>
+          </div>
+
+          <Label className="mt12" htmlFor="expenseReceiptFile">Účtenka</Label>
+          <Input id="expenseReceiptFile" name="receiptFile" type="file" accept="image/*,application/pdf" />
+          {expense?.receiptUrl && (
+            <a className="t-xs muted mt6" href={expense.receiptUrl} target="_blank" rel="noreferrer">
+              Otevřít aktuální účtenku
+            </a>
+          )}
+          <Label className="mt12" htmlFor="expenseReceiptUrl">Odkaz na účtenku</Label>
+          <Input id="expenseReceiptUrl" name="receiptUrl" type="url" defaultValue={expense?.receiptUrl ?? ''} placeholder="nebo https://..." />
+
+          <div className="row g12 mt12" style={{ alignItems: 'flex-start' }}>
             <div className="flex1">
               <Label htmlFor="expenseOriginalAmount">Původní částka</Label>
               <Input id="expenseOriginalAmount" name="originalAmount" type="number" min="0" step="0.01" className="tnum" defaultValue={expense?.originalAmount ? Number(expense.originalAmount) : ''} placeholder="volitelné" />
             </div>
-            <div className="flex1">
-              <Label htmlFor="expenseOriginalCurrency">Původní měna</Label>
-              <Input id="expenseOriginalCurrency" name="originalCurrency" defaultValue={expense?.originalCurrency ?? ''} placeholder={currency === 'CZK' ? 'EUR' : 'CZK'} />
-            </div>
-            <div className="flex1">
-              <Label htmlFor="expenseExchangeRate">Kurz</Label>
-              <Input id="expenseExchangeRate" name="exchangeRate" type="number" min="0" step="0.0001" className="tnum" defaultValue={expense?.exchangeRate ? Number(expense.exchangeRate) : ''} placeholder="volitelné" />
+            <div style={{ flex: '0 0 112px' }}>
+              <Label htmlFor="expenseOriginalCurrency">Měna</Label>
+              <Select value={originalCurrency} onValueChange={(value) => setOriginalCurrency(value as ExpenseCurrency)}>
+                <SelectTrigger id="expenseOriginalCurrency"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CURRENCIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+          <Label className="mt12" htmlFor="expenseExchangeRate">Kurz</Label>
+          <Input id="expenseExchangeRate" name="exchangeRate" type="number" min="0" step="0.0001" className="tnum" defaultValue={expense?.exchangeRate ? Number(expense.exchangeRate) : ''} placeholder="volitelné" />
 
           <Label className="mt16">Kdo zaplatil</Label>
           <div className="chips">
@@ -172,7 +209,7 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
             ))}
           </div>
           {edit && expense?.id && <DeleteInline label="Smazat výdaj" onConfirm={() => { void actions.deleteExpense(expense.id); onClose(); }} />}
-        </form>
+        </ValidatedForm>
         <div className="p16" style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <button className="btn primary block lg" type="submit" form="expense-form">
             {edit ? 'Uložit změny' : 'Přidat výdaj'}
@@ -191,21 +228,21 @@ const PLACE_CATS = [
   { key: 'FOOD', label: 'Jídlo' },
   { key: 'ACTIVITY', label: 'Aktivita' },
   { key: 'DAY_TRIP', label: 'Výlet' },
-  { key: 'STAY_AREA', label: 'Stay oblast' },
+  { key: 'STAY_AREA', label: 'Oblast ubytování' },
   { key: 'TRANSPORT', label: 'Doprava' },
 ] as const;
 
 const PLACE_STATUS = [
   { key: 'PROPOSED', label: 'Návrh' },
-  { key: 'SHORTLISTED', label: 'Shortlist' },
+  { key: 'SHORTLISTED', label: 'Užší výběr' },
   { key: 'APPROVED', label: 'Schválené' },
   { key: 'REJECTED', label: 'Zamítnuté' },
 ] as const;
 
 const WEATHER_OPTIONS = [
-  { key: 'MIXED', label: 'Mixed' },
-  { key: 'INDOOR', label: 'Indoor' },
-  { key: 'OUTDOOR', label: 'Outdoor' },
+  { key: 'MIXED', label: 'Mix' },
+  { key: 'INDOOR', label: 'Uvnitř' },
+  { key: 'OUTDOOR', label: 'Venku' },
 ] as const;
 
 export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlannerController; edit?: boolean; onClose: () => void }) {
@@ -235,9 +272,9 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: '94%' }}>
         <SheetHead title={edit ? 'Upravit místo' : 'Přidat místo'} onClose={onClose} />
-        <form id="place-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
+        <ValidatedForm id="place-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <Label htmlFor="placeName">Název</Label>
-          <Input id="placeName" name="placeName" defaultValue={place?.name ?? ''} placeholder="např. Sagrada Família" autoFocus />
+          <Input id="placeName" name="placeName" defaultValue={place?.name ?? ''} placeholder="např. Sagrada Família" autoFocus required />
 
           <Label className="mt16">Kategorie</Label>
           <ChipGroup
@@ -259,7 +296,7 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
 
           <Label className="mt16">Lokace</Label>
           <LocationCombobox
-            defaultLabel={place?.name ?? state.selectedTrip?.destination ?? ''}
+            defaultLabel={place?.locationLabel ?? place?.name ?? state.selectedTrip?.destination ?? ''}
             defaultLatitude={place?.latitude}
             defaultLongitude={place?.longitude}
             onSearch={actions.searchLocations}
@@ -303,8 +340,11 @@ export function AddPlaceSheet({ planner, edit, onClose }: { planner: TripPlanner
           <Label className="mt16" htmlFor="notes">Poznámky</Label>
           <Textarea id="notes" rows={3} name="notes" defaultValue={place?.description ?? ''} placeholder="Tipy, info o rezervaci…" />
 
+          <Label className="mt16" htmlFor="placeImageUrl">Fotka</Label>
+          <Input id="placeImageUrl" name="imageUrl" type="url" defaultValue={place?.imageUrl ?? ''} placeholder="https://..." />
+
           {edit && place?.id && <DeleteInline label="Smazat místo" onConfirm={() => { void actions.deletePlace(place.id); onClose(); }} />}
-        </form>
+        </ValidatedForm>
         <div className="p16" style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <Button className="w-full" size="lg" type="submit" form="place-form">{edit ? 'Uložit změny' : 'Přidat místo'}</Button>
         </div>
@@ -352,7 +392,7 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: 'auto' }}>
         <SheetHead title="Přidat do itineráře" onClose={onClose} />
-        <form
+        <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
           onSubmit={(event) => {
@@ -405,7 +445,7 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
             </div>
             <div className="flex1">
               <Label htmlFor="startsAtTime">Čas začátku</Label>
-              <Input id="startsAtTime" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} />
+              <Input id="startsAtTime" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} required />
             </div>
             <div className="flex1">
               <Label htmlFor="endsAtTime">Konec</Label>
@@ -458,7 +498,7 @@ export function AddItinerarySheet({ planner, initialDayId, onClose }: { planner:
           >
             Přidat do itineráře
           </button>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );
@@ -485,16 +525,16 @@ export function AddAccommodationSheet({ planner, edit, onClose }: { planner: Tri
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: '94%' }}>
         <SheetHead title={edit ? 'Upravit ubytování' : 'Přidat ubytování'} onClose={onClose} />
-        <form id="accommodation-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
+        <ValidatedForm id="accommodation-form" className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <input type="hidden" name="placeType" value="ACCOMMODATION" />
           <input type="hidden" name="weatherSuitability" value="INDOOR" />
 
           <Label htmlFor="stayName">Název</Label>
-          <Input id="stayName" name="placeName" defaultValue={place?.name ?? ''} placeholder="Název ubytování" autoFocus />
+          <Input id="stayName" name="placeName" defaultValue={place?.name ?? ''} placeholder="Název ubytování" autoFocus required />
 
           <Label className="mt16">Lokace</Label>
           <LocationCombobox
-            defaultLabel={place?.name ?? state.selectedTrip?.destination ?? ''}
+            defaultLabel={place?.locationLabel ?? place?.name ?? state.selectedTrip?.destination ?? ''}
             defaultLatitude={place?.latitude ?? state.selectedPlace?.latitude}
             defaultLongitude={place?.longitude ?? state.selectedPlace?.longitude}
             onSearch={actions.searchLocations}
@@ -514,11 +554,14 @@ export function AddAccommodationSheet({ planner, edit, onClose }: { planner: Tri
           <Label className="mt16" htmlFor="staySourceUrl">Odkaz</Label>
           <Input id="staySourceUrl" name="sourceUrl" type="url" defaultValue={place?.sourceUrl ?? ''} placeholder="https://booking.com/..." />
 
+          <Label className="mt16" htmlFor="stayImageUrl">Fotka</Label>
+          <Input id="stayImageUrl" name="imageUrl" type="url" defaultValue={place?.imageUrl ?? ''} placeholder="https://..." />
+
           <Label className="mt16" htmlFor="stayNotes">Poznámky</Label>
           <Textarea id="stayNotes" name="notes" rows={3} defaultValue={place?.description ?? ''} placeholder="Klady, zápory, podmínky rezervace..." />
 
           {edit && place?.id && <DeleteInline label="Odebrat ubytování" onConfirm={() => { void actions.deletePlace(place.id); onClose(); }} />}
-        </form>
+        </ValidatedForm>
         <div className="p16" style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
           <button className="btn primary block lg" type="submit" form="accommodation-form">{edit ? 'Uložit změny' : 'Přidat ubytování'}</button>
         </div>
@@ -546,11 +589,11 @@ export function AddNoteSheet({ planner, onClose }: { planner: TripPlannerControl
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: 'auto' }}>
         <SheetHead title="Přidat poznámku" onClose={onClose} />
-        <form className="px18" style={{ paddingBottom: 18 }} onSubmit={handleSubmit}>
+        <ValidatedForm className="px18" style={{ paddingBottom: 18 }} onSubmit={handleSubmit}>
           <Label htmlFor="tripNote">Poznámka pro skupinu</Label>
-          <Textarea id="tripNote" name="note" rows={4} placeholder="Nech poznámku pro skupinu..." autoFocus />
+          <Textarea id="tripNote" name="note" rows={4} placeholder="Nech poznámku pro skupinu..." autoFocus required />
           <Button className="mt16 w-full" size="lg" type="submit">Přidat poznámku</Button>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );
@@ -582,45 +625,43 @@ export function TripSettingsSheet({ planner, onClose }: { planner: TripPlannerCo
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: '94%' }}>
-        <SheetHead title="Nastavení tripu" onClose={onClose} />
-        <form className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
+        <SheetHead title="Nastavení výletu" onClose={onClose} />
+        <ValidatedForm className="scroll px18" style={{ flex: 1, paddingBottom: 18 }} onSubmit={handleSubmit}>
           <div className="card pad">
-            <Label htmlFor="tripName">Název tripu</Label>
-            <Input id="tripName" name="name" defaultValue={trip?.name ?? ''} placeholder="Barcelona 2026" />
+            <Label htmlFor="tripName">Název výletu</Label>
+            <Input id="tripName" name="name" defaultValue={trip?.name ?? ''} placeholder="Barcelona 2026" required />
 
             <Label className="mt14" htmlFor="tripDestination">Destinace</Label>
             <div className="relative">
               <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" id="tripDestination" name="destination" defaultValue={trip?.destination ?? ''} placeholder="Město nebo oblast" />
+              <Input className="pl-9" id="tripDestination" name="destination" defaultValue={trip?.destination ?? ''} placeholder="Město nebo oblast" required />
             </div>
 
             <div className="row g12 mt14">
               <div className="flex1">
                 <Label htmlFor="tripStartsAt">Od</Label>
-                <Input id="tripStartsAt" name="startsAt" type="date" defaultValue={trip?.startsAt?.slice(0, 10) ?? ''} />
+                <Input id="tripStartsAt" name="startsAt" type="date" defaultValue={trip?.startsAt?.slice(0, 10) ?? ''} required />
               </div>
               <div className="flex1">
                 <Label htmlFor="tripEndsAt">Do</Label>
-                <Input id="tripEndsAt" name="endsAt" type="date" defaultValue={trip?.endsAt?.slice(0, 10) ?? ''} />
+                <Input id="tripEndsAt" name="endsAt" type="date" defaultValue={trip?.endsAt?.slice(0, 10) ?? ''} required />
               </div>
             </div>
 
             <Label className="mt14">Měna</Label>
-            <Select name="currency" defaultValue={trip?.currency ?? 'EUR'}>
+            <Select name="currency" defaultValue={normalizeExpenseCurrency(trip?.currency)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="CZK">CZK - Koruna</SelectItem>
                 <SelectItem value="EUR">EUR - Euro</SelectItem>
-                <SelectItem value="USD">USD - Dolar</SelectItem>
-                <SelectItem value="GBP">GBP - Libra</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <DeleteInline label="Smazat trip" onConfirm={() => { void actions.deleteTrip(); onClose(); }} />
+          <DeleteInline label="Smazat výlet" onConfirm={() => { void actions.deleteTrip(); onClose(); }} />
 
           <button className="btn primary block lg mt20" type="submit">Uložit nastavení</button>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );
@@ -638,7 +679,7 @@ export function CreatePollDialog({ planner, onClose }: { planner: TripPlannerCon
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent style={{ height: 'auto' }}>
         <SheetHead title="Nová anketa" onClose={onClose} />
-        <form
+        <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
           onSubmit={(e) => {
@@ -649,14 +690,14 @@ export function CreatePollDialog({ planner, onClose }: { planner: TripPlannerCon
           }}
         >
           <Label htmlFor="pollQuestionSheet">Otázka</Label>
-          <Input id="pollQuestionSheet" name="question" placeholder="Co bychom měli rozhodnout?" autoFocus />
+          <Input id="pollQuestionSheet" name="question" placeholder="Co bychom měli rozhodnout?" autoFocus required />
 
           <label className="field-label mt16">Možnosti</label>
           <div className="col g8">
             {opts.map((o, i) => (
               <div key={i} className="input">
                 <Circle size={16} />
-                <input placeholder={`Možnost ${i + 1}`} value={o} onChange={(e) => setOpts(opts.map((v, j) => j === i ? e.target.value : v))} />
+                <input placeholder={`Možnost ${i + 1}`} value={o} onChange={(e) => setOpts(opts.map((v, j) => j === i ? e.target.value : v))} required={i < 2} />
                 {opts.length > 2 && <span className="pressable faint" style={{ cursor: 'pointer' }} onClick={() => setOpts(opts.filter((_, j) => j !== i))}><X size={16} /></span>}
               </div>
             ))}
@@ -676,7 +717,7 @@ export function CreatePollDialog({ planner, onClose }: { planner: TripPlannerCon
           />
 
           <button className="btn primary block lg mt20" type="submit">Vytvořit anketu</button>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );

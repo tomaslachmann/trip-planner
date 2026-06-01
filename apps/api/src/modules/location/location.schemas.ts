@@ -17,7 +17,7 @@ export const discoverLocationsSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
   radiusMeters: z.coerce.number().int().positive().max(10000).default(2500),
-  category: z.enum(['SIGHTS', 'FOOD', 'ACTIVITY', 'TRANSPORT']).default('SIGHTS'),
+  category: z.enum(['SIGHTS', 'FOOD', 'ACTIVITY', 'TRANSPORT', 'OUTDOOR']).default('SIGHTS'),
   limit: z.coerce.number().int().positive().max(50).default(20),
 });
 

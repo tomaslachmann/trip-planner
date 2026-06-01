@@ -1,6 +1,7 @@
 'use client';
 
 import { DndContext, closestCenter } from '@dnd-kit/core';
+import { AccommodationDetailPanel } from '@/features/trips/components/accommodation-detail-panel';
 import { MapScreen } from '@/features/trips/components/map-screen';
 import { PlaceDetailPanel } from '@/features/trips/components/place-detail-panel';
 import { useTripPlannerContext, useTripViewport } from '@/features/trips/context/trip-planner-context';
@@ -12,7 +13,7 @@ function DesktopMapPage({ planner }: { planner: TripPlannerController }) {
       <div className="desk-body">
         <MapScreen planner={planner} desktop />
         <aside className="desk-panel">
-          <PlaceDetailPanel planner={planner} compact />
+          {planner.state.selectedAccommodation ? <AccommodationDetailPanel planner={planner} /> : <PlaceDetailPanel planner={planner} compact />}
         </aside>
       </div>
     </DndContext>

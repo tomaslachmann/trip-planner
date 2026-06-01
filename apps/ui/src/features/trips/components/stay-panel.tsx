@@ -1,12 +1,20 @@
-import { BedDouble, Check, ExternalLink, Link2, MessageCircle, Minus, Plus, Search, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { BedDouble, Check, ExternalLink, Link2, MapPin, MessageCircle, Minus, Plus, Search, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import { accommodationStatusMeta, getAccommodationSummary, type AccommodationStatus, type AccommodationVoteValue } from '../lib/accommodation-scoring';
+import { bookingDetailUrl } from '../lib/booking-links';
 import { accommodationRecommendationScore, distanceMeters, topPlaces } from '../lib/decision';
-import type { Accommodation, Place, Trip } from '../types';
+import { externalMapUrl } from '../lib/map-links';
+import type { Accommodation, LocationResult, Place, Trip } from '../types';
+import { AccommodationPhoto, AccommodationRatingBadge, accommodationPriceLabel, accommodationTypeLabel } from './accommodation-display';
+import { LocationCombobox } from './location-combobox';
+import { PlaceImage } from './place-image';
 import { ScoreBadge } from './place-score-badge';
 import { StatusActionButton } from './status-action-button';
 
@@ -31,7 +39,7 @@ function tripNights(trip?: Trip, place?: Place) {
 
 function sourceLabel(place: Place) {
   try {
-    const url = new URL(place.sourceUrl ?? place.accommodationDeepLinkUrl ?? '');
+    const url = new URL(bookingDetailUrl(place) ?? place.accommodationProvider ?? '');
     return url.hostname.replace(/^www\./, '');
   } catch {
     return place.accommodationProvider ?? 'odkaz';
@@ -45,9 +53,12 @@ export function StayPanel({
   allPlaces = savedPlaces,
   actorUserId,
   selectedId,
+  hasSearched = false,
   searching,
   layout = 'panel',
   onSearch,
+  onSearchLocations,
+  onManualAdd,
   onSelect,
   onSave,
   onSelectSaved,
@@ -60,15 +71,19 @@ export function StayPanel({
   allPlaces?: Place[];
   actorUserId?: string;
   selectedId?: string;
+  hasSearched?: boolean;
   searching: boolean;
   layout?: 'panel' | 'desktop';
   onSearch: (data: FormData) => void;
+  onSearchLocations?: (query: string) => Promise<LocationResult[]>;
+  onManualAdd?: () => void;
   onSelect: (id: string) => void;
   onSave: (stay: Accommodation) => void;
   onSelectSaved?: (id: string) => void;
   onVotePlace?: (placeId: string, value: AccommodationVoteValue) => void;
   onStatusChange?: (placeId: string, status: AccommodationStatus) => void;
 }) {
+  const [mode, setMode] = useState<'select' | 'search'>(savedPlaces.length > 0 ? 'select' : 'search');
   const tripMembers = trip?.members ?? [];
   const members = Math.max(1, tripMembers.length || 1);
   const summaries = new Map(savedPlaces.map((place) => [place.id, getAccommodationSummary(place, tripMembers, actorUserId)]));
@@ -80,6 +95,7 @@ export function StayPanel({
   const shortlistCount = savedPlaces.filter((place) => summaries.get(place.id)?.status === 'SHORTLISTED').length;
   const rejectedCount = savedPlaces.filter((place) => summaries.get(place.id)?.status === 'REJECTED').length;
   const savedByExternalId = new Map(savedPlaces.map((place) => [place.accommodationExternalId, place]));
+  const searchByExternalId = new Map(stays.map((stay) => [stay.externalId, stay]));
 
   return (
     <div className="scroll px18" style={{ flex: 1, paddingTop: 10, paddingBottom: 18 }}>
@@ -93,11 +109,28 @@ export function StayPanel({
 
       <div className="grid3 mb16">
         <Card className="p-[12px]" style={{ background: 'var(--subtle)' }}><span className="faint t-xs">Vybráno</span><div className="t-h2 tnum mt4">{selectedCount}</div></Card>
-        <Card className="p-[12px]" style={{ background: 'var(--subtle)' }}><span className="faint t-xs">Shortlist</span><div className="t-h2 tnum mt4">{shortlistCount}</div></Card>
+        <Card className="p-[12px]" style={{ background: 'var(--subtle)' }}><span className="faint t-xs">Užší výběr</span><div className="t-h2 tnum mt4">{shortlistCount}</div></Card>
         <Card className="p-[12px]" style={{ background: 'var(--subtle)' }}><span className="faint t-xs">Proti</span><div className="t-h2 tnum mt4">{rejectedCount}</div></Card>
       </div>
 
-      {savedPlaces.length > 0 && (
+      <div className="row g8 mb16" style={{ alignItems: 'stretch' }}>
+        <SegmentedControl
+          className="flex1"
+          value={mode}
+          onValueChange={setMode}
+          options={[
+            { value: 'select', label: 'Výběr' },
+            { value: 'search', label: 'Hledání' },
+          ]}
+        />
+        {onManualAdd && (
+          <Button type="button" onClick={onManualAdd}>
+            <Plus />Přidat
+          </Button>
+        )}
+      </div>
+
+      {mode === 'select' && savedPlaces.length > 0 && (
         <div className={layout === 'desktop' ? 'grid3 mb16' : 'col g12 mb16'}>
           {rankedSavedPlaces.map(({ place, score }, index) => {
             const summary = summaries.get(place.id) ?? getAccommodationSummary(place, tripMembers, actorUserId);
@@ -109,11 +142,13 @@ export function StayPanel({
             const averageDistance = referencePlaces.length
               ? Math.round(referencePlaces.reduce((sum, item) => sum + distanceMeters(place, item), 0) / referencePlaces.length)
               : null;
+            const searchStay = place.accommodationExternalId ? searchByExternalId.get(place.accommodationExternalId) : undefined;
+            const displayPlace = searchStay?.photoUrl && !place.imageUrl ? { ...place, imageUrl: searchStay.photoUrl } : place;
+            const mapUrl = externalMapUrl(place);
+            const bookingUrl = (searchStay ? bookingDetailUrl(searchStay, trip) : undefined) ?? bookingDetailUrl(place, trip);
             return (
               <Card className="shadow-[var(--sh-sm)] overflow-hidden" key={place.id}>
-                <div className="receipt center" style={{ height: layout === 'desktop' ? 108 : 120, borderRadius: 0, borderLeft: 0, borderRight: 0, borderTop: 0 }}>
-                  <span className="row g6 t-xs mono muted"><BedDouble />foto ubytování</span>
-                </div>
+                <PlaceImage place={displayPlace} height={layout === 'desktop' ? 108 : 120} style={{ borderRadius: 0, borderLeft: 0, borderRight: 0, borderTop: 0 }} />
                 <div className="p16">
                   <div className="row between g10">
                     <div className="col flex1" style={{ minWidth: 0 }}>
@@ -126,6 +161,20 @@ export function StayPanel({
                       <span className={`badge ${meta.cls}`}>{meta.label}</span>
                     </div>
                   </div>
+                  {(mapUrl || bookingUrl) && (
+                    <div className="row g6 mt10 wrap">
+                      {mapUrl && (
+                        <Button asChild variant="outline" size="sm" title="Otevřít v mapě">
+                          <a href={mapUrl} target="_blank" rel="noreferrer"><MapPin />Mapa</a>
+                        </Button>
+                      )}
+                      {bookingUrl && (
+                        <Button asChild variant="outline" size="sm" title="Otevřít ubytování">
+                          <a href={bookingUrl} target="_blank" rel="noreferrer"><ExternalLink />Booking</a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
                   <div className="grid3 mt12">
                     <Card className="center p-[8px]" style={{ background: 'var(--subtle)' }}><div className="t-h3 tnum">{money(total, currency)}</div><div className="faint t-xs">celkem</div></Card>
@@ -135,7 +184,12 @@ export function StayPanel({
 
                   <div className="row g14 mt12" style={{ alignItems: 'flex-start' }}>
                     <div className="col flex1 g6">
-                      <span className="row g6 t-xs"><Check size={13} color="var(--green)" />{place.accommodationReviewScore ?? place.accommodationRating ?? '-'} hodnocení</span>
+                      <AccommodationRatingBadge
+                        className="w-fit"
+                        reviewScore={place.accommodationReviewScore}
+                        rating={place.accommodationRating}
+                        reviewCount={place.accommodationReviewCount}
+                      />
                       <span className="row g6 t-xs"><Check size={13} color="var(--green)" />{place.accommodationReviewCount ?? 0} recenzí</span>
                       <span className="row g6 t-xs"><Check size={13} color="var(--green)" />{averageDistance === null ? 'není top cíl' : `${(averageDistance / 1000).toFixed(1)} km od top míst`}</span>
                     </div>
@@ -147,7 +201,7 @@ export function StayPanel({
                   <hr className="sep mt14" />
                   <div className="row g8 mt12 wrap">
                     <span className="badge solid"><Star size={12} />{stats.selected} vybráno</span>
-                    <span className="badge"><ThumbsUp size={12} />{stats.shortlist} shortlist</span>
+                    <span className="badge"><ThumbsUp size={12} />{stats.shortlist} v užším výběru</span>
                     <span className="badge red"><ThumbsDown size={12} />{stats.against} proti</span>
                   </div>
                   {missingNames.length > 0 && (
@@ -166,7 +220,7 @@ export function StayPanel({
                       <span className={`badge ${accommodationStatusMeta.BOOKED.cls}`}><Check size={12} />{accommodationStatusMeta.BOOKED.label}</span>
                     ) : (
                       <div className="row g8 wrap">
-                        <StatusActionButton active={stats.myVote === 'UP' || status === 'SHORTLISTED'} tone="amber" size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'UP')}><ThumbsUp />Shortlist</StatusActionButton>
+                        <StatusActionButton active={stats.myVote === 'UP' || status === 'SHORTLISTED'} tone="amber" size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'UP')}><ThumbsUp />Užší výběr</StatusActionButton>
                         <StatusActionButton active={stats.myVote === 'DOWN' || status === 'REJECTED'} tone="red" variant={stats.myVote === 'DOWN' || status === 'REJECTED' ? 'outline' : 'ghost'} size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'DOWN')}><ThumbsDown />Proti</StatusActionButton>
                         <StatusActionButton active={status === 'SELECTED'} tone="green" size="sm" type="button" onClick={() => {
                           if (statusFlow.nextStatus === 'SELECTED') onVotePlace?.(place.id, 'MUST_HAVE');
@@ -184,69 +238,113 @@ export function StayPanel({
         </div>
       )}
 
-      <Card className="p-[14px] shadow-[var(--sh-sm)] mb16">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSearch(new FormData(event.currentTarget));
-        }}
-      >
-        <div className="row between mb12">
-          <span className="t-h3">Hledání ubytování</span>
-          <span className="badge cat-stay"><BedDouble />Booking</span>
-        </div>
-        <Label htmlFor="stayDestination">Destinace</Label>
-        <div className="relative mb-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" id="stayDestination" name="stayDestination" defaultValue={trip?.destination ?? ''} placeholder="Barcelona" />
-        </div>
-        <div className="grid2" style={{ gap: 8 }}>
-          <Input name="checkin" defaultValue={trip?.startsAt?.slice(0, 10) ?? ''} type="date" aria-label="Příjezd" />
-          <Input name="checkout" defaultValue={trip?.endsAt?.slice(0, 10) ?? ''} type="date" aria-label="Odjezd" />
-        </div>
-        <div className="row g8 mt10">
-          <Input name="adults" defaultValue={trip?.members?.length ?? 2} min={1} type="number" aria-label="Hosté" />
-          <Button type="submit" disabled={searching}>{searching ? 'Hledám' : 'Hledat'}</Button>
-        </div>
-      </form>
-      </Card>
-
-      <div className="row between mb8">
-        <span className="t-h2">{stays.length || 'Žádné'} výsledky</span>
-        <span className="muted t-xs">Uložením vznikne kandidát</span>
-      </div>
-
-      {savedPlaces.length === 0 && stays.length === 0 && (
+      {mode === 'select' && savedPlaces.length === 0 && (
         <Card>
-          <EmptyState icon={<BedDouble />} title="Vyhledej ubytování." text="Porovnej piny na mapě a ulož kandidáty." />
+          <EmptyState icon={<BedDouble />} title="Zatím není vybrané ubytování." text="Vyhledej ubytování, nebo přidej kandidáta ručně." />
         </Card>
       )}
 
-      {stays.map((stay, index) => (
-        <div key={stay.externalId}>
-          {index > 0 && <hr className="sep" />}
-          <div className="row" style={{ padding: '12px 0', gap: 12 }}>
-            <div className="receipt pressable" onClick={() => onSelect(stay.externalId)} style={{ width: 54, height: 54, borderRadius: 12, border: '1px solid var(--border)', flex: '0 0 auto' }} />
-            <div className="col flex1 pressable" style={{ minWidth: 0 }} onClick={() => onSelect(stay.externalId)}>
-              <span className="t-h3" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stay.name}</span>
-              <span className="muted t-xs mt4 row g6">{stay.type ?? stay.provider}<span className="dotsep" /><span className="row g4" style={{ color: 'var(--fg)', fontWeight: 600 }}><Star />{stay.reviewScore ?? stay.rating ?? '-'}</span><span className="faint">({stay.reviewCount ?? 0})</span></span>
-              <div className="row g4 mt6"><span className="t-h3 tnum">{stay.priceDisplay ?? `${stay.priceTotal ?? '-'} ${stay.currency ?? ''}`}</span></div>
-            </div>
-            <Button size="sm" variant={savedByExternalId.has(stay.externalId) || selectedId === stay.externalId ? 'secondary' : 'outline'} type="button" onClick={() => {
-              const saved = savedByExternalId.get(stay.externalId);
-              if (saved) onSelectSaved?.(saved.id);
-              else onSave(stay);
-            }}>
-              {savedByExternalId.has(stay.externalId) ? <Check /> : <Plus />}{savedByExternalId.has(stay.externalId) ? 'Uloženo' : 'Uložit'}
-            </Button>
-            {stay.deepLinkUrl && (
-              <Button asChild size="icon" variant="ghost" title="Otevřít poskytovatele">
-                <a href={stay.deepLinkUrl} target="_blank" rel="noreferrer"><ExternalLink /></a>
-              </Button>
-            )}
+      {mode === 'search' && (
+        <>
+          <Card className="p-[14px] shadow-[var(--sh-sm)] mb16">
+            <ValidatedForm
+              onSubmit={(event) => {
+                event.preventDefault();
+                onSearch(new FormData(event.currentTarget));
+              }}
+            >
+              <div className="row between mb12">
+                <span className="t-h3">Hledání ubytování</span>
+                <span className="badge cat-stay"><BedDouble />Booking</span>
+              </div>
+              <Label>Destinace</Label>
+              <div className="mb-3">
+                {onSearchLocations ? (
+                  <LocationCombobox defaultLabel={trip?.destination ?? ''} onSearch={onSearchLocations} />
+                ) : (
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input className="pl-9" name="stayDestination" defaultValue={trip?.destination ?? ''} placeholder="Barcelona" required />
+                  </div>
+                )}
+              </div>
+              <div className="grid2" style={{ gap: 8 }}>
+                <Input name="checkin" defaultValue={trip?.startsAt?.slice(0, 10) ?? ''} type="date" aria-label="Příjezd" required />
+                <Input name="checkout" defaultValue={trip?.endsAt?.slice(0, 10) ?? ''} type="date" aria-label="Odjezd" required />
+              </div>
+              <div className="grid2 mt8" style={{ gap: 8 }}>
+                <Input name="minPrice" min={0} step={10} type="number" aria-label="Cena od" placeholder={`Cena od (${trip?.currency ?? 'EUR'})`} />
+                <Input name="maxPrice" min={0} step={10} type="number" aria-label="Cena do" placeholder={`Cena do (${trip?.currency ?? 'EUR'})`} />
+              </div>
+              <div className="row g8 mt10">
+                <Input name="adults" defaultValue={trip?.members?.length ?? 2} min={1} type="number" aria-label="Hosté" required />
+                <Button type="submit" disabled={searching}>{searching ? 'Hledám' : 'Hledat'}</Button>
+              </div>
+            </ValidatedForm>
+          </Card>
+
+          <div className="row between mb8">
+            <span className="t-h2">{stays.length || 'Žádné'} výsledky</span>
+            <span className="muted t-xs">Uložením vznikne kandidát</span>
           </div>
-        </div>
+
+          {stays.length === 0 && (
+            <Card>
+              <EmptyState
+                icon={<Search />}
+                title={hasSearched ? 'Nic jsem nenašel.' : 'Vyhledej ubytování.'}
+                text={hasSearched ? 'Zkus upravit destinaci, termín nebo cenový rozsah.' : 'Porovnej výsledky a ulož kandidáty do výběru.'}
+              />
+            </Card>
+          )}
+
+      {stays.map((stay, index) => (
+        (() => {
+          const saved = savedByExternalId.get(stay.externalId);
+          const displayStay = { ...stay, photoUrl: stay.photoUrl ?? saved?.imageUrl ?? undefined };
+          const mapUrl = externalMapUrl(stay);
+          const bookingUrl = bookingDetailUrl(stay, trip);
+          return (
+            <div key={stay.externalId}>
+              {index > 0 && <hr className="sep" />}
+              <div className="row" style={{ padding: '12px 0', gap: 12 }}>
+                <AccommodationPhoto className="pressable" stay={displayStay} onClick={() => onSelect(stay.externalId)} />
+                <div className="col flex1 pressable" style={{ minWidth: 0 }} onClick={() => onSelect(stay.externalId)}>
+                  <span className="t-h3" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stay.name}</span>
+                  <span className="muted t-xs mt4 row g6 wrap">
+                    {accommodationTypeLabel(stay)}
+                    <span className="dotsep" />
+                    <AccommodationRatingBadge compact reviewScore={stay.reviewScore} rating={stay.rating} reviewCount={stay.reviewCount} />
+                  </span>
+                  <div className="row g4 mt6"><span className="t-h3 tnum">{accommodationPriceLabel(stay)}</span></div>
+                  {(mapUrl || bookingUrl) && (
+                    <div className="row g6 mt8 wrap">
+                      {mapUrl && (
+                        <Button asChild size="sm" variant="ghost" title="Otevřít v mapě">
+                          <a href={mapUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}><MapPin />Mapa</a>
+                        </Button>
+                      )}
+                      {bookingUrl && (
+                        <Button asChild size="sm" variant="ghost" title="Otevřít ubytování">
+                          <a href={bookingUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}><ExternalLink />Booking</a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Button size="sm" variant={savedByExternalId.has(stay.externalId) || selectedId === stay.externalId ? 'secondary' : 'outline'} type="button" onClick={() => {
+                  if (saved) onSelectSaved?.(saved.id);
+                  else onSave(stay);
+                }}>
+                  {savedByExternalId.has(stay.externalId) ? <Check /> : <Plus />}{savedByExternalId.has(stay.externalId) ? 'Uloženo' : 'Uložit'}
+                </Button>
+              </div>
+            </div>
+          );
+        })()
       ))}
+        </>
+      )}
     </div>
   );
 }

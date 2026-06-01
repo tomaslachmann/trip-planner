@@ -109,6 +109,7 @@ export function LocationCombobox({
       <input name="latitude" type="hidden" value={latitude} />
       <input name="longitude" type="hidden" value={longitude} />
       <input name="locationLabel" type="hidden" value={query} />
+      <input name="locationExternalId" type="hidden" value={selected?.externalId ?? ''} />
     </div>
   );
 }

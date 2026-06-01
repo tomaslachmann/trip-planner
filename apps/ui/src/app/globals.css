@@ -128,6 +128,13 @@ body{
 .badge.amber{ background:#fffbeb; color:#b45309; border-color:#fde68a; }
 .badge.red{ background:#fff1f2; color:#be123c; border-color:#fecdd3; }
 .badge.dot::before{ content:''; width:6px; height:6px; border-radius:999px; background:currentColor; }
+.softbox{ border:1px solid var(--border); background:var(--muted); border-radius:var(--r); padding:10px 12px; }
+.avail{ display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:5px 9px; border-radius:999px;
+  border:1px solid var(--border); background:var(--muted); color:var(--fg); font-size:12.5px; font-weight:500; line-height:1.35; }
+.avail svg{ width:13px; height:13px; flex:0 0 auto; color:var(--muted-fg); }
+.avail .x{ width:20px; height:20px; border:0; border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
+  background:transparent; color:var(--muted-fg); cursor:pointer; padding:0; }
+.avail .x:hover{ background:var(--bg); color:var(--fg); }
 
 /* category badge colors */
 .cat-see{ color:var(--c-see); background:var(--c-see-bg); border-color:transparent; }
@@ -147,6 +154,22 @@ body{
 .input input::placeholder{ color:var(--faint-fg); }
 .field-label{ font-size:13px; font-weight:500; color:var(--fg); margin-bottom:7px; display:block; }
 textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit; }
+.validated-form input[aria-invalid="true"], .validated-form textarea[aria-invalid="true"], .validated-form select[aria-invalid="true"]{
+  border-color:var(--destructive);
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--destructive) 55%, transparent);
+}
+.validated-form .input:has(input[aria-invalid="true"]){
+  border-color:var(--destructive);
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--destructive) 55%, transparent);
+}
+.form-errors{ display:flex; flex-direction:column; gap:4px; margin-top:12px; padding:10px 12px;
+  border:1px solid #fecdd3; border-radius:var(--r); background:#fff1f2; color:#be123c; font-size:12.5px; line-height:1.4; }
+.badge-select{ flex:0 1 auto; display:inline-flex; align-items:center; gap:5px; width:auto; max-width:100%; min-width:0;
+  min-height:0; height:28px; padding:2px 9px; border-radius:999px; border:1px solid transparent;
+  background:var(--muted); color:var(--muted-fg); font-size:11.5px; font-weight:500; line-height:1.5;
+  box-shadow:none; white-space:nowrap; cursor:pointer; }
+.badge-select svg{ width:12px; height:12px; color:currentColor; flex:0 0 auto; }
+.badge-select > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
 
 /* ── chips / filter row ──────────────────────────────────────────────── */
 .chips{ display:flex; gap:8px; overflow-x:auto; padding:2px; }
@@ -235,11 +258,16 @@ textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit
   line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pin.sel .pin-label{ border-color:var(--primary); background:#fff; }
 .leaflet-trip-pin{ display:flex; flex-direction:column; align-items:center; }
-.leaflet-trip-pin .mk{ width:36px; height:36px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:block; border:2px solid #fff; box-shadow:0 4px 10px -2px rgba(9,9,11,.4); }
+.leaflet-trip-pin .mk{ width:36px; height:36px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 4px 10px -2px rgba(9,9,11,.4); }
+.leaflet-trip-pin .mk svg{ width:17px; height:17px; color:#fff; transform:rotate(45deg); fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .leaflet-trip-pin.sel .mk{ width:42px; height:42px; box-shadow:0 8px 18px -4px rgba(9,9,11,.5); }
+.leaflet-trip-pin.sel .mk svg{ width:20px; height:20px; }
 .leaflet-trip-pin.sel .pin-label{ border-color:var(--primary); background:#fff; }
 .leaflet-trip-pin.discovery .mk{ opacity:.82; border-style:dashed; }
 .leaflet-trip-pin.discovery .pin-label{ background:rgba(250,250,250,.9); color:#52525b; }
+.leaflet-trip-pin.ai .mk{ border-style:dashed; box-shadow:0 0 0 5px rgba(24,24,27,.08), 0 4px 10px -2px rgba(9,9,11,.4); }
+.leaflet-trip-pin.ai .pin-label{ background:#18181b; border-color:#18181b; color:#fff; }
+.leaflet-trip-pin.ai.sel .pin-label{ background:#000; border-color:#000; }
 .leaflet-live-pin{ display:flex; flex-direction:column; align-items:center; }
 .leaflet-live-pin .live-dot{ width:24px; height:24px; border-radius:999px; display:block; background:#0ea5e9; border:3px solid #fff; box-shadow:0 0 0 7px rgba(14,165,233,.18), 0 6px 14px -4px rgba(9,9,11,.45); }
 .leaflet-live-pin .pin-label{ background:#fff; border-color:#bae6fd; color:#075985; }
@@ -257,8 +285,8 @@ textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit
 .staypin.sel .stay-marker{ width:40px; height:40px; box-shadow:0 8px 18px -4px rgba(9,9,11,.5); }
 .staypin.seen .pill{ background:#f4f4f5; color:var(--muted-fg); box-shadow:var(--sh-sm); }
 .leaflet-stay-pin{ display:flex; flex-direction:column; align-items:center; }
-.leaflet-stay-pin .stay-marker{ width:36px; height:36px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:block; background:var(--c-stay); border:2px solid #fff; box-shadow:0 4px 10px -2px rgba(9,9,11,.35); position:relative; }
-.leaflet-stay-pin .stay-marker:after{ content:""; position:absolute; left:50%; top:50%; width:14px; height:10px; border-radius:2px; border:2px solid #fff; border-top-width:4px; transform:translate(-50%,-42%) rotate(45deg); }
+.leaflet-stay-pin .stay-marker{ width:36px; height:36px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; background:var(--c-stay); border:2px solid #fff; box-shadow:0 4px 10px -2px rgba(9,9,11,.35); position:relative; }
+.leaflet-stay-pin .stay-marker svg{ width:17px; height:17px; color:#fff; transform:rotate(45deg); fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .leaflet-stay-pin .pill{ display:flex; align-items:center; gap:5px; height:30px; padding:0 11px; border-radius:999px; margin-top:7px; background:rgba(244,244,245,.94); border:1px solid var(--border-2); box-shadow:var(--sh-sm); font-size:13px; font-weight:600; color:var(--fg); white-space:nowrap; transition:.14s; }
 .leaflet-stay-pin.sel .pill{ background:#fff; border-color:var(--primary); transform:scale(1.04); }
 .leaflet-stay-pin.sel .stay-marker{ width:40px; height:40px; box-shadow:0 8px 18px -4px rgba(9,9,11,.5); }
@@ -275,7 +303,8 @@ textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit
 
 /* floating controls over map */
 .float-top{ position:absolute; top:14px; left:14px; right:14px; z-index:10; }
-.desktop-map-host .float-top{ width:380px; max-width:calc(100% - 28px); right:auto; }
+.desktop-map-host .float-top{ width:620px; max-width:calc(100% - 28px); right:auto; }
+.desktop-map-host .map-filter-chips{ flex-wrap:wrap; overflow:visible; }
 .searchbar{ height:48px; background:var(--bg); border-radius:14px; box-shadow:var(--sh-md); display:flex;
   align-items:center; gap:10px; padding:0 14px; border:1px solid var(--border); }
 .searchbar svg{ width:19px; height:19px; color:var(--faint-fg); }
@@ -321,7 +350,7 @@ textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit
 .votes{ display:flex; gap:8px; }
 .votebtn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0; border-radius:var(--r);
   border:1px solid var(--border); background:var(--bg); cursor:pointer; transition:.12s; font-size:11px; font-weight:500; color:var(--muted-fg); }
-.votebtn svg{ width:18px; height:18px; }
+.votebtn svg{ width:10px; height:10px; }
 .votebtn .vn{ font-size:15px; font-weight:600; color:var(--fg); }
 .votebtn.on{ background:var(--primary); border-color:var(--primary); color:#fff; }
 .votebtn.on .vn{ color:#fff; }
@@ -363,7 +392,7 @@ textarea.input{ height:auto; padding:12px 13px; resize:none; font-family:inherit
 .desk-nav{ display:flex; flex-direction:column; gap:2px; }
 .desk-lnk{ display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:10px; color:var(--muted-fg);
   font-size:14.5px; font-weight:500; cursor:pointer; border:1px solid transparent; transition:.1s; text-decoration:none; }
-.desk-lnk svg{ width:19px; height:19px; }
+.desk-lnk svg{ width:15px; height:15px; }
 .desk-lnk.on{ background:var(--bg); color:var(--fg); box-shadow:var(--sh-sm); border-color:var(--border); }
 .desk-lnk:hover:not(.on){ background:var(--muted); color:var(--fg); }
 .desk-side .spacer{ flex:1; }
@@ -403,6 +432,7 @@ body{ display:block; background:var(--bg); min-height:100%; }
 .drop-on{ outline:2px solid var(--primary); outline-offset:2px; background:var(--muted); }
 .desktop-map-host{ position:relative; height:100%; min-height:0; flex:1; overflow:hidden; }
 .desktop-map-host .map{ inset:0; }
+.desktop-map-side-panel{ position:absolute; left:16px; bottom:16px; z-index:12; width:340px; max-width:calc(100% - 32px); max-height:42%; overflow:auto; }
 .route-line{ position:absolute; inset:0; z-index:1; pointer-events:none; }
 .route-line polyline{ fill:none; stroke:var(--primary); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:7 7; opacity:.7; }
 
@@ -416,4 +446,8 @@ body{ display:block; background:var(--bg); min-height:100%; }
   .trip-picker-shell{ padding:16px; }
   .trip-picker-top{ align-items:flex-start; flex-direction:column; }
   .trip-picker-grid{ grid-template-columns:1fr; }
+}
+
+button {
+  cursor: pointer;
 }

@@ -119,7 +119,47 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update current user settings */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** Format: email */
+                        email?: string;
+                        /** @enum {string} */
+                        travelBudgetPreference?: "BUDGET" | "NORMAL" | "PREMIUM";
+                        foodNotes?: string | null;
+                        accessibilityNotes?: string | null;
+                        /** @enum {string} */
+                        defaultCurrency?: "CZK" | "EUR" | "USD" | "GBP";
+                        paymentAccount?: {
+                            recipientName?: string | null;
+                            iban?: string | null;
+                            domesticAccount?: string | null;
+                            bankCode?: string | null;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/auth/sign-out": {
@@ -766,10 +806,13 @@ export interface paths {
                         description?: string;
                         latitude: number;
                         longitude: number;
+                        locationLabel?: string;
                         durationMin?: number;
                         estimatedCost?: number;
                         /** Format: uri */
                         sourceUrl?: string;
+                        /** Format: uri */
+                        imageUrl?: string;
                         /**
                          * @default MIXED
                          * @enum {string}
@@ -856,10 +899,13 @@ export interface paths {
                         description?: string | null;
                         latitude?: number;
                         longitude?: number;
+                        locationLabel?: string | null;
                         durationMin?: number | null;
                         estimatedCost?: number | null;
                         /** Format: uri */
                         sourceUrl?: string | null;
+                        /** Format: uri */
+                        imageUrl?: string | null;
                         /** @enum {string} */
                         weatherSuitability?: "INDOOR" | "OUTDOOR" | "MIXED";
                         /** @enum {string|null} */
@@ -2133,6 +2179,8 @@ export interface paths {
                                 externalId: string;
                                 name: string;
                                 type?: string;
+                                /** Format: uri */
+                                photoUrl?: string;
                                 latitude: number;
                                 longitude: number;
                                 priceTotal?: number;
@@ -2192,6 +2240,8 @@ export interface paths {
                         sourceUrl?: string;
                         /** Format: uri */
                         deepLinkUrl?: string;
+                        /** Format: uri */
+                        photoUrl?: string;
                         /** @default booking */
                         provider?: string;
                     };
@@ -2218,6 +2268,8 @@ export interface paths {
                             estimatedCost: number | null;
                             /** Format: uri */
                             sourceUrl: string | null;
+                            /** Format: uri */
+                            imageUrl: string | null;
                             accommodationProvider: string;
                             accommodationExternalId: string;
                             accommodationRating: number | null;
@@ -2778,8 +2830,50 @@ export interface paths {
                     latitude: number;
                     longitude: number;
                     radiusMeters?: number;
-                    category?: "SIGHTS" | "FOOD" | "ACTIVITY" | "TRANSPORT";
+                    category?: "SIGHTS" | "FOOD" | "ACTIVITY" | "TRANSPORT" | "OUTDOOR";
                     limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JSON response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/wikipedia-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch place detail from Wikipedia summary API */
+        get: {
+            parameters: {
+                query: {
+                    name: string;
+                    latitude?: number;
+                    longitude?: number;
+                    language?: string;
+                    radiusMeters?: number;
                 };
                 header?: never;
                 path?: never;
@@ -3014,6 +3108,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/trip/{tripId}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate AI place and activity suggestions as a verified draft */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            provider: "openai-agents";
+                            generatedAt: string;
+                            model: string;
+                            summary: string;
+                            candidates: {
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "PLACE" | "FOOD" | "ACTIVITY" | "DAY_TRIP" | "TRANSPORT" | "CUSTOM";
+                                reason: string;
+                                estimatedDurationMin: number | null;
+                                estimatedCost: number | null;
+                                /** @enum {string} */
+                                weatherSuitability: "INDOOR" | "OUTDOOR" | "MIXED";
+                                confidence: number;
+                                searchQuery: string;
+                                verification: {
+                                    /** @enum {string} */
+                                    status: "VERIFIED" | "PARTIAL" | "UNVERIFIED";
+                                    provider: string | null;
+                                    externalId: string | null;
+                                    latitude: number | null;
+                                    longitude: number | null;
+                                    title: string | null;
+                                    description: string | null;
+                                    imageUrl: string | null;
+                                    sourceUrl: string | null;
+                                    wikipediaUrl: string | null;
+                                };
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/trip/{tripId}/plan-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate an AI itinerary draft without mutating trip data */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            provider: "openai-agents";
+                            generatedAt: string;
+                            model: string;
+                            summary: string;
+                            days: {
+                                date: string;
+                                title: string;
+                                theme: string;
+                                items: {
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "EXISTING_PLACE" | "NEW_CANDIDATE" | "NOTE";
+                                    title: string;
+                                    startsAt: string | null;
+                                    durationMin: number | null;
+                                    placeId: string | null;
+                                    candidateId: string | null;
+                                    reason: string;
+                                }[];
+                            }[];
+                            candidates: {
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "PLACE" | "FOOD" | "ACTIVITY" | "DAY_TRIP" | "TRANSPORT" | "CUSTOM";
+                                reason: string;
+                                estimatedDurationMin: number | null;
+                                estimatedCost: number | null;
+                                /** @enum {string} */
+                                weatherSuitability: "INDOOR" | "OUTDOOR" | "MIXED";
+                                confidence: number;
+                                searchQuery: string;
+                                verification: {
+                                    /** @enum {string} */
+                                    status: "VERIFIED" | "PARTIAL" | "UNVERIFIED";
+                                    provider: string | null;
+                                    externalId: string | null;
+                                    latitude: number | null;
+                                    longitude: number | null;
+                                    title: string | null;
+                                    description: string | null;
+                                    imageUrl: string | null;
+                                    sourceUrl: string | null;
+                                    wikipediaUrl: string | null;
+                                };
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/activity/trip/{tripId}": {
         parameters: {
             query?: never;
@@ -3041,6 +3291,95 @@ export interface paths {
                     content: {
                         "application/json": unknown;
                     };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload expense receipt */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        tripId: string;
+                        fileName: string;
+                        contentType?: string;
+                        dataUrl: string;
+                        actorUserId?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uri */
+                            url: string;
+                            fileName: string;
+                            contentType: string;
+                            size: number;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/receipts/{tripId}/{fileName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get expense receipt file */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tripId: string;
+                    fileName: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };

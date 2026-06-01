@@ -62,10 +62,11 @@ function DesktopPlanPage({ planner }: { planner: TripPlannerController }) {
             weather={state.data.weather}
             routeCapabilities={state.data.routeCapabilities}
             onOpenPlace={actions.setSelectedPlaceId}
-            actorTripMemberId={state.actorMember?.id}
-            onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
             onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
+            onSearchLocations={actions.searchLocations}
+            onCreatePlace={actions.addPlace}
             onOptimize={() => void actions.optimizeRoute()}
+            places={state.data.places}
           />
         </aside>
       </div>

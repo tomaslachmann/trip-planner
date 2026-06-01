@@ -18,7 +18,7 @@ services:
   api:
     build:
       context: ./apps/api
-    command: sh -c "npm run prisma:generate && npm run dev"
+    command: sh -c "npx prisma migrate deploy && npm run prisma:generate && npm run dev"
     environment:
       DATABASE_URL: postgresql://trip_planner:trip_planner@postgres:5432/trip_planner?schema=public
       PORT: 3001
@@ -37,6 +37,8 @@ services:
       TRANSIT_OTP_BASE_URL: ${TRANSIT_OTP_BASE_URL:-}
       NOMINATIM_BASE_URL: ${NOMINATIM_BASE_URL:-https://nominatim.openstreetmap.org}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT:-trip-planner-local/0.1}
+      WIKIMEDIA_USER_AGENT: ${WIKIMEDIA_USER_AGENT:-trip-planner-local/0.1 (http://localhost:3001)}
+      WIKIMEDIA_RATE_LIMIT_PER_MINUTE: ${WIKIMEDIA_RATE_LIMIT_PER_MINUTE:-200}
       OVERPASS_BASE_URL: ${OVERPASS_BASE_URL:-https://overpass-api.de/api/interpreter}
       OPEN_METEO_BASE_URL: ${OPEN_METEO_BASE_URL:-https://api.open-meteo.com/v1/forecast}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

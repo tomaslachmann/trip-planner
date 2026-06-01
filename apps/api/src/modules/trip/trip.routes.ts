@@ -87,7 +87,7 @@ export async function tripRoutes(app: FastifyInstance) {
     return prisma.trip.findUniqueOrThrow({
       where: { id },
       include: {
-        members: { include: { user: true, availabilityWindows: true } },
+        members: { include: { user: { include: { accounts: true } }, availabilityWindows: true } },
         places: { include: tripPlaceInclude },
         expenses: { include: { splits: true } },
         itineraryDays: { include: { basePlace: true, placeVotes: true, stops: { include: { place: true, participants: true } } } },

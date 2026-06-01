@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import { AccessScreen } from '@/features/trips/components/access-screen';
 import { TripPickerScreen } from '@/features/trips/components/trip-picker-screen';
 import { TripPlannerProvider } from '@/features/trips/context/trip-planner-context';
@@ -26,6 +27,7 @@ const routeBySegment: Record<string, TabKey> = {
   checklist: 'checklist',
   polls: 'polls',
   more: 'more',
+  settings: 'settings',
 };
 
 function viewFromPath(pathname: string): TabKey {
@@ -36,7 +38,7 @@ function viewFromPath(pathname: string): TabKey {
 function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
   return (
     <div className="app-empty-stage">
-      <form
+      <ValidatedForm
         className="empty-trip-form"
         style={{ width: 420, maxWidth: 'calc(100vw - 32px)' }}
         onSubmit={(event) => {
@@ -45,15 +47,15 @@ function EmptyTrip({ onCreate }: { onCreate: (data: FormData) => void }) {
         }}
       >
         <Card className="p-[16px] shadow-[var(--sh-sm)]">
-          <div className="t-title mb8">Vytvořit trip</div>
+          <div className="t-title mb8">Vytvořit výlet</div>
           <p className="muted t-sm mb16">Zatím není co zobrazit.</p>
-          <Label htmlFor="name">Název tripu</Label>
-          <Input className="mb10" id="name" name="name" placeholder="Barcelona 2026" />
+          <Label htmlFor="name">Název výletu</Label>
+          <Input className="mb10" id="name" name="name" placeholder="Barcelona 2026" required />
           <Label htmlFor="destination">Destinace</Label>
-          <Input className="mb10" id="destination" name="destination" placeholder="Barcelona" />
+          <Input className="mb10" id="destination" name="destination" placeholder="Barcelona" required />
           <Button className="w-full" type="submit"><Plus />Vytvořit</Button>
         </Card>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }
@@ -78,7 +80,7 @@ export function TripLayoutClient({ tripId, children }: { tripId: string; childre
     return (
       <div className="app-empty-stage">
         <Card className="center p-[16px] shadow-[var(--sh-sm)]">
-          <div className="t-h2">Načítám trip...</div>
+          <div className="t-h2">Načítám výlet...</div>
           <div className="muted t-sm mt8">Načítám data.</div>
         </Card>
       </div>

@@ -47,7 +47,7 @@ export function AddMenu({
       <SheetContent style={{ height: 'auto' }}>
         <div className="grabber" />
         <div className="sheet-head">
-          <SheetTitle className="t-h3">Přidat do tripu</SheetTitle>
+          <SheetTitle className="t-h3">Přidat do výletu</SheetTitle>
           <Button size="icon" variant="ghost" type="button" onClick={onClose}><X /></Button>
         </div>
         <div className="px18" style={{ paddingBottom: 22 }}>

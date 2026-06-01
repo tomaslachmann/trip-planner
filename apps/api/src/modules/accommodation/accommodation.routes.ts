@@ -6,6 +6,20 @@ import { recordActivity } from '../activity/activity.service.js';
 import { saveAccommodationSchema, savedAccommodationResponseSchema, searchAccommodationsResponseSchema, searchAccommodationsSchema } from './accommodation.schemas.js';
 import { searchAccommodations } from './accommodation.service.js';
 
+function usableAccommodationLink(...values: Array<string | undefined>) {
+  for (const value of values) {
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      if (/(^|\.)booking\.com$/i.test(url.hostname) && (!url.pathname.includes('/hotel/') || !url.pathname.endsWith('.html'))) continue;
+      return url.toString();
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
+}
+
 export async function accommodationRoutes(app: FastifyInstance) {
   const routes = app.withTypeProvider<ZodTypeProvider>();
 
@@ -37,6 +51,7 @@ export async function accommodationRoutes(app: FastifyInstance) {
     const body = saveAccommodationSchema.parse(request.body);
     const actorUserId = getActorUserId(request, body);
     await requireTripMember(body.tripId, actorUserId);
+    const accommodationLink = usableAccommodationLink(body.deepLinkUrl, body.sourceUrl);
     const place = await prisma.place.upsert({
       where: {
         tripId_accommodationProvider_accommodationExternalId: {
@@ -53,7 +68,8 @@ export async function accommodationRoutes(app: FastifyInstance) {
         latitude: body.latitude,
         longitude: body.longitude,
         estimatedCost: body.priceTotal,
-        sourceUrl: body.deepLinkUrl ?? body.sourceUrl,
+        sourceUrl: accommodationLink ?? body.sourceUrl,
+        imageUrl: body.photoUrl,
         weatherSuitability: 'INDOOR',
         accommodationProvider: body.provider,
         accommodationExternalId: body.externalId,
@@ -61,7 +77,7 @@ export async function accommodationRoutes(app: FastifyInstance) {
         accommodationReviewScore: body.reviewScore,
         accommodationReviewCount: body.reviewCount,
         accommodationCurrency: body.currency,
-        accommodationDeepLinkUrl: body.deepLinkUrl,
+        accommodationDeepLinkUrl: accommodationLink,
         accommodationStatus: 'SAVED',
       },
       update: {
@@ -69,12 +85,13 @@ export async function accommodationRoutes(app: FastifyInstance) {
         latitude: body.latitude,
         longitude: body.longitude,
         estimatedCost: body.priceTotal,
-        sourceUrl: body.deepLinkUrl ?? body.sourceUrl,
+        sourceUrl: accommodationLink ?? body.sourceUrl,
+        imageUrl: body.photoUrl,
         accommodationRating: body.rating,
         accommodationReviewScore: body.reviewScore,
         accommodationReviewCount: body.reviewCount,
         accommodationCurrency: body.currency,
-        accommodationDeepLinkUrl: body.deepLinkUrl,
+        accommodationDeepLinkUrl: accommodationLink,
       },
     });
     await recordActivity({

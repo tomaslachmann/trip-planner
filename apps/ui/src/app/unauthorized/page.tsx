@@ -11,9 +11,9 @@ export default function UnauthorizedPage() {
           <LockKeyhole size={18} />
         </div>
         <h1 className="t-title">Nemáš přístup</h1>
-        <p className="muted t-sm mt8 mb16">Přihlas se správným účtem nebo požádej o pozvánku do tripu.</p>
+        <p className="muted t-sm mt8 mb16">Přihlas se správným účtem nebo požádej o pozvánku do výletu.</p>
         <Button asChild>
-          <Link href="/trips">Zpět na tripy</Link>
+          <Link href="/trips">Zpět na výlety</Link>
         </Button>
       </Card>
     </div>

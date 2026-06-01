@@ -93,6 +93,10 @@ model User {
   id        String           @id @default(cuid())
   email     String           @unique
   name      String
+  travelBudgetPreference BudgetPreference @default(NORMAL)
+  foodNotes String?
+  accessibilityNotes String?
+  defaultCurrency String @default("EUR")
   createdAt DateTime         @default(now())
   trips     TripMember[]
   places    Place[]
@@ -185,9 +189,11 @@ model Place {
   description              String?
   latitude                 Float
   longitude                Float
+  locationLabel            String?
   durationMin              Int?
   estimatedCost            Decimal?
   sourceUrl                String?
+  imageUrl                 String?
   weatherSuitability       WeatherSuitability     @default(MIXED)
   accommodationProvider    String?
   accommodationExternalId  String?

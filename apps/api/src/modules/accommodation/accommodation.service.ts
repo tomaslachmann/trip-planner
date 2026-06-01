@@ -14,6 +14,8 @@ export type AccommodationSearchInput = {
   latitude?: number;
   longitude?: number;
   radiusKm: number;
+  minPrice?: number;
+  maxPrice?: number;
   limit: number;
   bookingRequest?: Record<string, unknown>;
 };
@@ -23,6 +25,7 @@ export type AccommodationSearchResult = {
   externalId: string;
   name: string;
   type?: string;
+  photoUrl?: string;
   latitude: number;
   longitude: number;
   priceTotal?: number;
@@ -59,6 +62,23 @@ function pickString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+function matchesPriceRange(item: AccommodationSearchResult, input: AccommodationSearchInput) {
+  if (item.priceTotal === undefined) return true;
+  if (input.minPrice !== undefined && item.priceTotal < input.minPrice) return false;
+  if (input.maxPrice !== undefined && item.priceTotal > input.maxPrice) return false;
+  return true;
+}
+
+function pickUrl(...values: unknown[]): string | undefined {
+  const value = pickString(...values);
+  if (!value) return undefined;
+  try {
+    return new URL(value).toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function pickId(...values: unknown[]): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value;
@@ -75,6 +95,105 @@ function asRecordArray(value: unknown): UnknownRecord[] | undefined {
   return Array.isArray(value) ? value.filter((item): item is UnknownRecord => Boolean(asRecord(item))) : undefined;
 }
 
+function stripHtml(value?: string): string | undefined {
+  if (!value) return undefined;
+  return value
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function pickPriceDisplay(...values: unknown[]): string | undefined {
+  return pickString(...values.map((value) => typeof value === 'number' ? Math.round(value).toLocaleString('cs-CZ') : value));
+}
+
+function slugifyBookingHotelName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function addBookingSearchParams(url: URL, input: AccommodationSearchInput) {
+  const dates = searchDates(input);
+  url.searchParams.set('checkin', dates.checkin);
+  url.searchParams.set('checkout', dates.checkout);
+  url.searchParams.set('group_adults', String(input.adults));
+  url.searchParams.set('no_rooms', String(input.rooms));
+  url.searchParams.set('group_children', '0');
+  url.searchParams.set('selected_currency', input.currency);
+  url.searchParams.set('lang', 'cs');
+}
+
+function buildBookingSearchUrl(input: AccommodationSearchInput) {
+  const url = new URL('https://www.booking.com/searchresults.html');
+  url.searchParams.set('ss', input.destination ?? '');
+  addBookingSearchParams(url, input);
+  return url.toString();
+}
+
+function isBookingDetailUrl(value?: string) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    const bookingHost = /(^|\.)booking\.com$/i.test(url.hostname);
+    if (!bookingHost) return true;
+    return url.pathname.includes('/hotel/') && url.pathname.endsWith('.html');
+  } catch {
+    return false;
+  }
+}
+
+function withBookingSearchParams(value: string, input: AccommodationSearchInput) {
+  try {
+    const url = new URL(value);
+    if (/(^|\.)booking\.com$/i.test(url.hostname)) addBookingSearchParams(url, input);
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function buildBookingHotelUrl(item: UnknownRecord, property: UnknownRecord | undefined, input: AccommodationSearchInput, name: string, externalId: string) {
+  const explicit = pickUrl(item.deeplink, item.deepLinkUrl, item.deep_link_url, item.hotel_url, property?.deepLinkUrl, property?.deep_link_url, item.url, property?.url);
+  if (isBookingDetailUrl(explicit)) return withBookingSearchParams(explicit!, input);
+
+  const country = pickString(item.countrycode, item.countryCode, property?.countrycode, property?.countryCode)?.toLowerCase();
+  const slug = slugifyBookingHotelName(name);
+  if (!country || !slug) return undefined;
+
+  const url = new URL(`https://www.booking.com/hotel/${country}/${slug}.html`);
+  addBookingSearchParams(url, input);
+  url.searchParams.set('hotel_id', externalId);
+  const ufi = pickId(item.ufi, property?.ufi);
+  if (ufi) url.searchParams.set('dest_id', ufi);
+  url.searchParams.set('dest_type', 'hotel');
+  return url.toString();
+}
+
+function normalizeBookingType(item: UnknownRecord, property?: UnknownRecord) {
+  const explicit = pickString(
+    property?.propertyType,
+    property?.property_type,
+    item.accommodation_type_name,
+    item.accommodationTypeName,
+    item.ht_name,
+  );
+  if (explicit && explicit !== 'property_card') return explicit;
+
+  const unitLabel = stripHtml(pickString(item.unit_configuration_label));
+  const unitType = unitLabel?.split(':')[0]?.split(' – ')[0]?.trim();
+  if (unitType) return unitType;
+
+  const rawType = pickString(property?.type, item.type);
+  if (rawType && rawType !== 'property_card') return rawType.replace(/_/g, ' ');
+  return undefined;
+}
+
 function normalizeBookingResult(item: Record<string, unknown>, index: number): AccommodationSearchResult | undefined {
   const location = item.location as Record<string, unknown> | undefined;
   const coordinates = location?.coordinates as Record<string, unknown> | undefined;
@@ -86,12 +205,15 @@ function normalizeBookingResult(item: Record<string, unknown>, index: number): A
   const latitude = pickNumber(item.latitude, location?.latitude, coordinates?.latitude, coordinates?.lat);
   const longitude = pickNumber(item.longitude, location?.longitude, coordinates?.longitude, coordinates?.lng, coordinates?.lon);
   if (latitude === undefined || longitude === undefined) return undefined;
+  const sourceUrl = pickUrl(item.url);
+  const deepLinkUrl = pickUrl(item.deep_link_url);
 
   return {
     provider: 'booking',
     externalId: String(item.id ?? item.accommodation ?? `booking-${index}`),
     name: pickString(item.name, item.title) ?? `Booking stay ${index + 1}`,
     type: pickString(item.type as string | undefined, item.accommodation_type as string | undefined),
+    photoUrl: pickString(item.main_photo_url, item.photo_url),
     latitude,
     longitude,
     priceTotal: pickNumber(totalPrice?.amount, price?.total, price?.book, price?.base),
@@ -100,8 +222,8 @@ function normalizeBookingResult(item: Record<string, unknown>, index: number): A
     rating: pickNumber(item.rating, item.stars),
     reviewScore: pickNumber(reviewScore?.score, item.review_score),
     reviewCount: pickNumber(reviewScore?.review_count, item.review_count),
-    sourceUrl: pickString(item.url as string | undefined),
-    deepLinkUrl: pickString(item.deep_link_url as string | undefined),
+    sourceUrl: isBookingDetailUrl(sourceUrl) ? sourceUrl : undefined,
+    deepLinkUrl: isBookingDetailUrl(deepLinkUrl) ? deepLinkUrl : undefined,
     raw: item,
   };
 }
@@ -109,8 +231,9 @@ function normalizeBookingResult(item: Record<string, unknown>, index: number): A
 function normalizeRapidApiHotel(item: UnknownRecord, index: number, input: AccommodationSearchInput): AccommodationSearchResult | undefined {
   const property = asRecord(item.property);
   const location = asRecord(item.location);
-  const priceBreakdown = asRecord(item.priceBreakdown ?? item.price_breakdown);
-  const grossPrice = asRecord(priceBreakdown?.grossPrice ?? priceBreakdown?.gross_price);
+  const priceBreakdown = asRecord(item.priceBreakdown ?? item.price_breakdown ?? item.composite_price_breakdown);
+  const grossPrice = asRecord(priceBreakdown?.grossPrice ?? priceBreakdown?.gross_price ?? priceBreakdown?.gross_amount);
+  const allInclusivePrice = asRecord(priceBreakdown?.allInclusiveAmount ?? priceBreakdown?.all_inclusive_amount);
   const strikethroughPrice = asRecord(priceBreakdown?.strikethroughPrice ?? priceBreakdown?.strikethrough_price);
 
   const latitude = pickNumber(item.latitude, item.lat, property?.latitude, property?.lat, location?.latitude, location?.lat);
@@ -118,26 +241,29 @@ function normalizeRapidApiHotel(item: UnknownRecord, index: number, input: Accom
   if (latitude === undefined || longitude === undefined) return undefined;
 
   const externalId = pickId(item.hotel_id, item.hotelId, item.id, property?.id, property?.hotel_id) ?? `rapidapi-${index}`;
-  const sourceUrl = pickString(item.url, property?.url, item.deeplink, item.deepLinkUrl);
-  const fallbackUrl = `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(input.destination ?? '')}`;
-  const priceTotal = pickNumber(grossPrice?.value, grossPrice?.amount, priceBreakdown?.grossPrice, priceBreakdown?.gross_price, item.price);
-  const currency = pickString(grossPrice?.currency, priceBreakdown?.currency, item.currency) ?? input.currency;
+  const name = pickString(property?.name, item.name, item.hotel_name_trans, item.hotel_name, item.title) ?? `Booking stay ${index + 1}`;
+  const searchUrl = buildBookingSearchUrl(input);
+  const detailUrl = buildBookingHotelUrl(item, property, input, name, externalId);
+  const priceTotal = pickNumber(grossPrice?.value, grossPrice?.amount, allInclusivePrice?.value, priceBreakdown?.grossPrice, priceBreakdown?.gross_price, item.min_total_price, item.price);
+  const currency = pickString(grossPrice?.currency, allInclusivePrice?.currency, priceBreakdown?.currency, item.currency, item.currencycode) ?? input.currency;
+  const priceDisplay = pickPriceDisplay(grossPrice?.amount_rounded, grossPrice?.amount_unrounded, allInclusivePrice?.amount_rounded, allInclusivePrice?.amount_unrounded);
 
   return {
     provider: 'booking',
     externalId,
-    name: pickString(property?.name, item.name, item.hotel_name, item.title) ?? `Booking stay ${index + 1}`,
-    type: pickString(property?.propertyType, property?.type, item.type),
+    name,
+    type: normalizeBookingType(item, property),
+    photoUrl: pickString(property?.photoUrl, property?.photo_url, item.photoUrl, item.photo_url, item.main_photo_url),
     latitude,
     longitude,
     priceTotal,
-    priceDisplay: priceTotal === undefined ? undefined : `${priceTotal} ${currency}`,
+    priceDisplay: priceDisplay ?? (priceTotal === undefined ? undefined : `${Math.round(priceTotal).toLocaleString('cs-CZ')} ${currency}`),
     currency,
     rating: pickNumber(property?.propertyClass, property?.class, item.class, item.stars),
     reviewScore: pickNumber(property?.reviewScore, property?.review_score, item.reviewScore, item.review_score),
-    reviewCount: pickNumber(property?.reviewCount, property?.review_count, item.reviewCount, item.review_count),
-    sourceUrl: sourceUrl ?? fallbackUrl,
-    deepLinkUrl: sourceUrl ?? fallbackUrl,
+    reviewCount: pickNumber(property?.reviewCount, property?.review_count, item.reviewCount, item.review_count, item.review_nr),
+    sourceUrl: detailUrl ?? searchUrl,
+    deepLinkUrl: detailUrl,
     raw: { ...item, strikethroughPrice },
   };
 }
@@ -238,9 +364,10 @@ async function searchRapidApiAccommodations(input: AccommodationSearchInput): Pr
     : await searchRapidApiByDestination(input, commonQuery);
 
   return extractRapidApiHotels(searchPayload)
-    .slice(0, input.limit)
     .map((item, index) => normalizeRapidApiHotel(item, index, input))
-    .filter((item): item is AccommodationSearchResult => Boolean(item));
+    .filter((item): item is AccommodationSearchResult => Boolean(item))
+    .filter((item) => matchesPriceRange(item, input))
+    .slice(0, input.limit);
 }
 
 async function searchRapidApiByDestination(input: AccommodationSearchInput, commonQuery: Record<string, string | number | undefined>) {
@@ -305,5 +432,7 @@ export async function searchAccommodations(input: AccommodationSearchInput): Pro
   const payload = await response.json() as { data?: Array<Record<string, unknown>> };
   return (payload.data ?? [])
     .map((item, index) => normalizeBookingResult(item, index))
-    .filter((item): item is AccommodationSearchResult => Boolean(item));
+    .filter((item): item is AccommodationSearchResult => Boolean(item))
+    .filter((item) => matchesPriceRange(item, input))
+    .slice(0, input.limit);
 }

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LatLngExpression, LayerGroup, Map as LeafletMap } from 'leaflet';
 import { categoryKey } from '../lib/format';
-import type { Accommodation, DiscoveryPlace, LiveLocation, Place, RoutePlan } from '../types';
+import type { Accommodation, AiSuggestionCandidate, DiscoveryPlace, LiveLocation, Place, RoutePlan } from '../types';
+import { accommodationPriceLabel } from './accommodation-display';
 
 type LeafletModule = typeof import('leaflet');
 type Point = { latitude: number; longitude: number };
@@ -56,9 +57,45 @@ function validPoint<T extends Point>(point: T): point is T {
   return Number.isFinite(point.latitude) && Number.isFinite(point.longitude);
 }
 
-function allPoints(places: Place[], accommodations: Accommodation[], showStays?: boolean) {
-  const points: Point[] = showStays ? accommodations : places;
+function candidatePoint(candidate: AiSuggestionCandidate): Point | null {
+  const latitude = candidate.verification.latitude;
+  const longitude = candidate.verification.longitude;
+  if (latitude === null || longitude === null) return null;
+  return { latitude, longitude };
+}
+
+function candidateTypeKey(type?: string) {
+  if (type === 'FOOD') return 'food';
+  if (type === 'ACTIVITY') return 'act';
+  if (type === 'DAY_TRIP') return 'day';
+  if (type === 'TRANSPORT') return 'trans';
+  return 'see';
+}
+
+function allPoints(places: Place[], accommodations: Accommodation[], aiCandidates: AiSuggestionCandidate[], showStays?: boolean) {
+  const candidatePoints = aiCandidates.map(candidatePoint).filter((point): point is Point => Boolean(point));
+  const points: Point[] = showStays ? accommodations : [...places, ...candidatePoints];
   return points.filter(validPoint);
+}
+
+function visibleRouteLegs(route: RoutePlan, visiblePlaceIds: Set<string>) {
+  return (route.legs ?? []).filter((leg) => {
+    if (!leg.fromPlaceId || !leg.toPlaceId) return false;
+    return visiblePlaceIds.has(leg.fromPlaceId) && visiblePlaceIds.has(leg.toPlaceId);
+  });
+}
+
+const markerGlyphs: Record<string, string> = {
+  see: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21h16"/><path d="M5 10h14"/><path d="M12 3l8 5H4l8-5Z"/><path d="M7 10v8"/><path d="M12 10v8"/><path d="M17 10v8"/></svg>',
+  food: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8"/><path d="M10 3v8"/><path d="M7 7h3"/><path d="M8.5 11v10"/><path d="M17 3v18"/><path d="M14 3c0 5 1 8 3 8"/></svg>',
+  act: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 5v14"/><path d="M5 12h14"/><path d="m7 7 10 10"/><path d="m17 7-10 10"/></svg>',
+  day: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 19 7-12 4 7 2-3 5 8H3Z"/><path d="M10 7 8 19"/><path d="M14 14 12 19"/></svg>',
+  stay: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V5"/><path d="M4 17v2"/><path d="M20 17v2"/><path d="M4 13h16v4H4Z"/><path d="M8 11h12v2"/><path d="M8 11V8h5a3 3 0 0 1 3 3"/></svg>',
+  trans: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19v2"/><path d="M18 19v2"/><rect x="5" y="3" width="14" height="16" rx="3"/><path d="M5 10h14"/><path d="M8 15h.01"/><path d="M16 15h.01"/></svg>',
+};
+
+function markerGlyph(cls: string) {
+  return markerGlyphs[cls] ?? markerGlyphs.see;
 }
 
 function fitMap(map: LeafletMap, leaflet: LeafletModule, points: Point[]) {
@@ -76,7 +113,7 @@ function placeIcon(leaflet: LeafletModule, place: Place, selected: boolean) {
     className: '',
     html: `
       <div class="leaflet-trip-pin ${selected ? 'sel' : ''}">
-        <span class="mk mk-${cls}"></span>
+        <span class="mk mk-${cls}">${markerGlyph(cls)}</span>
         <span class="pin-label">${escapeHtml(place.name)}</span>
       </div>
     `,
@@ -86,12 +123,12 @@ function placeIcon(leaflet: LeafletModule, place: Place, selected: boolean) {
 }
 
 function stayIcon(leaflet: LeafletModule, stay: Accommodation, selected: boolean) {
-  const price = stay.priceDisplay ?? `${stay.priceTotal ?? '-'} ${stay.currency ?? ''}`;
+  const price = accommodationPriceLabel(stay);
   return leaflet.divIcon({
     className: '',
     html: `
       <div class="leaflet-stay-pin ${selected ? 'sel' : ''}">
-        <span class="stay-marker"></span>
+        <span class="stay-marker">${markerGlyph('stay')}</span>
         <span class="pill">${escapeHtml(price.trim())}</span>
       </div>
     `,
@@ -101,13 +138,36 @@ function stayIcon(leaflet: LeafletModule, stay: Accommodation, selected: boolean
 }
 
 function discoveryIcon(leaflet: LeafletModule, discovery: DiscoveryPlace) {
-  const cls = discovery.category === 'FOOD' ? 'food' : discovery.category === 'ACTIVITY' ? 'act' : discovery.category === 'TRANSPORT' ? 'trans' : 'see';
+  const cls = discovery.category === 'FOOD'
+    ? 'food'
+    : discovery.category === 'ACTIVITY'
+      ? 'act'
+      : discovery.category === 'TRANSPORT'
+        ? 'trans'
+        : discovery.category === 'OUTDOOR'
+          ? 'day'
+          : 'see';
   return leaflet.divIcon({
     className: '',
     html: `
       <div class="leaflet-trip-pin discovery">
-        <span class="mk mk-${cls}"></span>
+        <span class="mk mk-${cls}">${markerGlyph(cls)}</span>
         <span class="pin-label">${escapeHtml(discovery.name)}</span>
+      </div>
+    `,
+    iconSize: [150, 58],
+    iconAnchor: [75, 50],
+  });
+}
+
+function aiCandidateIcon(leaflet: LeafletModule, candidate: AiSuggestionCandidate, selected: boolean) {
+  const cls = candidateTypeKey(candidate.type);
+  return leaflet.divIcon({
+    className: '',
+    html: `
+      <div class="leaflet-trip-pin ai ${selected ? 'sel' : ''}">
+        <span class="mk mk-${cls}">${markerGlyph(cls)}</span>
+        <span class="pin-label">AI · ${escapeHtml(candidate.name)}</span>
       </div>
     `,
     iconSize: [150, 58],
@@ -133,29 +193,37 @@ export function MapCanvas({
   places,
   accommodations,
   discoveries = [],
+  aiCandidates = [],
   liveLocations = [],
   routes,
   selectedPlaceId,
   selectedAccommodationId,
+  selectedAiCandidateId,
   onPlaceSelect,
   onAccommodationSelect,
   onDiscoverySelect,
+  onAiCandidateSelect,
   onViewportChange,
   showStays,
+  fitKey,
   children,
 }: {
   places: Place[];
   accommodations: Accommodation[];
   discoveries?: DiscoveryPlace[];
+  aiCandidates?: AiSuggestionCandidate[];
   liveLocations?: LiveLocation[];
   routes: RoutePlan[];
   selectedPlaceId?: string;
   selectedAccommodationId?: string;
+  selectedAiCandidateId?: string;
   onPlaceSelect: (placeId: string) => void;
   onAccommodationSelect: (accommodationId: string) => void;
   onDiscoverySelect?: (discovery: DiscoveryPlace) => void;
+  onAiCandidateSelect?: (candidate: AiSuggestionCandidate) => void;
   onViewportChange?: (center: { latitude: number; longitude: number; zoom: number }) => void;
   showStays?: boolean;
+  fitKey?: string;
   children?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -163,6 +231,7 @@ export function MapCanvas({
   const leafletRef = useRef<LeafletModule | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
   const fittedInitialDataRef = useRef(false);
+  const lastFitKeyRef = useRef<string | undefined>(undefined);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -198,7 +267,7 @@ export function MapCanvas({
         onViewportChange?.({ latitude: center.lat, longitude: center.lng, zoom: map.getZoom() });
       };
 
-      const initialPoints = allPoints(places, accommodations, showStays);
+      const initialPoints = allPoints(places, accommodations, aiCandidates, showStays);
       fitMap(map, leaflet, initialPoints);
       emitViewportChange();
       map.on('moveend zoomend', emitViewportChange);
@@ -214,6 +283,7 @@ export function MapCanvas({
       leafletRef.current = null;
       layerRef.current = null;
       fittedInitialDataRef.current = false;
+      lastFitKeyRef.current = undefined;
       setReady(false);
     };
   }, []);
@@ -226,8 +296,10 @@ export function MapCanvas({
 
     layer.clearLayers();
 
-    for (const route of routes) {
-      for (const leg of route.legs ?? []) {
+    const visiblePlaceIds = new Set(places.map((place) => place.id));
+    const activeRoute = showStays ? undefined : routes[0];
+    if (activeRoute) {
+      for (const leg of visibleRouteLegs(activeRoute, visiblePlaceIds)) {
         if (!leg.encodedPolyline) continue;
         const line = decodePolyline(leg.encodedPolyline);
         if (line.length < 2) continue;
@@ -235,7 +307,7 @@ export function MapCanvas({
           color: '#18181b',
           weight: 4,
           opacity: 0.72,
-          dashArray: route.locked ? undefined : '7 7',
+          dashArray: activeRoute.locked ? undefined : '7 7',
         }).addTo(layer);
       }
     }
@@ -257,17 +329,33 @@ export function MapCanvas({
           .on('click', () => onDiscoverySelect?.(discovery))
           .addTo(layer);
       });
+      aiCandidates.forEach((candidate) => {
+        const point = candidatePoint(candidate);
+        if (!point) return;
+        leaflet.marker([point.latitude, point.longitude], { icon: aiCandidateIcon(leaflet, candidate, selectedAiCandidateId === candidate.id) })
+          .on('click', () => onAiCandidateSelect?.(candidate))
+          .addTo(layer);
+      });
       liveLocations.filter(validPoint).forEach((location) => {
         leaflet.marker([location.latitude, location.longitude], { icon: liveLocationIcon(leaflet, location) }).addTo(layer);
       });
     }
 
-    const points = allPoints(places, accommodations, showStays);
+    const points = allPoints(places, accommodations, aiCandidates, showStays);
     if (!fittedInitialDataRef.current && points.length > 0) {
       fitMap(map, leaflet, points);
       fittedInitialDataRef.current = true;
     }
-  }, [accommodations, discoveries, liveLocations, onAccommodationSelect, onDiscoverySelect, onPlaceSelect, places, ready, routes, selectedAccommodationId, selectedPlaceId, showStays]);
+  }, [accommodations, aiCandidates, discoveries, liveLocations, onAccommodationSelect, onAiCandidateSelect, onDiscoverySelect, onPlaceSelect, places, ready, routes, selectedAccommodationId, selectedAiCandidateId, selectedPlaceId, showStays]);
+
+  useEffect(() => {
+    const leaflet = leafletRef.current;
+    const map = mapRef.current;
+    if (!ready || !leaflet || !map || !fitKey || lastFitKeyRef.current === fitKey) return;
+    fitMap(map, leaflet, allPoints(places, accommodations, aiCandidates, showStays));
+    fittedInitialDataRef.current = true;
+    lastFitKeyRef.current = fitKey;
+  }, [accommodations, aiCandidates, fitKey, places, ready, showStays]);
 
   function zoomBy(delta: number) {
     const map = mapRef.current;
@@ -279,7 +367,7 @@ export function MapCanvas({
     const map = mapRef.current;
     const leaflet = leafletRef.current;
     if (!map || !leaflet) return;
-    fitMap(map, leaflet, allPoints(places, accommodations, showStays));
+    fitMap(map, leaflet, allPoints(places, accommodations, aiCandidates, showStays));
   }
 
   useEffect(() => {
@@ -297,7 +385,7 @@ export function MapCanvas({
     }
     window.addEventListener('trip-map-locate', handleLocate);
     return () => window.removeEventListener('trip-map-locate', handleLocate);
-  }, [ready, places, accommodations, showStays]);
+  }, [ready, places, accommodations, aiCandidates, showStays]);
 
   return (
     <div className="map real-map">

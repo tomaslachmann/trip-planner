@@ -25,7 +25,7 @@ type LocationResult = {
   raw: unknown;
 };
 
-type DiscoveryCategory = 'SIGHTS' | 'FOOD' | 'ACTIVITY' | 'TRANSPORT';
+type DiscoveryCategory = 'SIGHTS' | 'FOOD' | 'ACTIVITY' | 'TRANSPORT' | 'OUTDOOR';
 
 type OverpassElement = {
   type: 'node' | 'way' | 'relation';
@@ -85,6 +85,11 @@ export type WikipediaSummaryResult = {
 };
 
 const cache = new Map<string, { expiresAt: number; value: unknown }>();
+const overpassTimeoutMs = 45000;
+const wikipediaTimeoutMs = 20000;
+let wikimediaWindowStartedAt = 0;
+let wikimediaRequestCount = 0;
+let wikimediaQueue: Promise<void> = Promise.resolve();
 
 function readCache<T>(key: string): T | undefined {
   const entry = cache.get(key);
@@ -94,6 +99,33 @@ function readCache<T>(key: string): T | undefined {
 
 function writeCache(key: string, value: unknown) {
   cache.set(key, { value, expiresAt: Date.now() + 10 * 60 * 1000 });
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForWikimediaSlot() {
+  const limit = env.WIKIMEDIA_RATE_LIMIT_PER_MINUTE;
+  const windowMs = 60_000;
+  const now = Date.now();
+  if (!wikimediaWindowStartedAt || now - wikimediaWindowStartedAt >= windowMs) {
+    wikimediaWindowStartedAt = now;
+    wikimediaRequestCount = 0;
+  }
+  if (wikimediaRequestCount >= limit) {
+    await delay(Math.max(0, windowMs - (now - wikimediaWindowStartedAt)));
+    wikimediaWindowStartedAt = Date.now();
+    wikimediaRequestCount = 0;
+  }
+  wikimediaRequestCount += 1;
+}
+
+async function withWikimediaRateLimit<T>(operation: () => Promise<T>) {
+  const slot = wikimediaQueue.then(waitForWikimediaSlot, waitForWikimediaSlot);
+  wikimediaQueue = slot.then(() => undefined, () => undefined);
+  await slot;
+  return operation();
 }
 
 function normalize(place: NominatimPlace): LocationResult | undefined {
@@ -173,6 +205,9 @@ function overpassFilter(category: DiscoveryCategory) {
   if (category === 'ACTIVITY') {
     return '["leisure"~"^(park|sports_centre|swimming_pool|playground|stadium)$"]';
   }
+  if (category === 'OUTDOOR') {
+    return '["natural"~"^(peak|saddle|cliff|ridge|valley|cave_entrance|waterfall)$"]';
+  }
   if (category === 'TRANSPORT') {
     return '["amenity"~"^(bus_station|ferry_terminal|taxi)$"]';
   }
@@ -180,7 +215,7 @@ function overpassFilter(category: DiscoveryCategory) {
 }
 
 function overpassType(tags: Record<string, string> = {}) {
-  return tags.tourism ?? tags.amenity ?? tags.leisure ?? tags.public_transport ?? tags.railway;
+  return tags.tourism ?? tags.amenity ?? tags.leisure ?? tags.natural ?? tags.public_transport ?? tags.railway;
 }
 
 function wikipediaTitle(tags: Record<string, string> = {}) {
@@ -231,7 +266,7 @@ async function overpassQuery(query: string) {
       'User-Agent': env.NOMINATIM_USER_AGENT,
     },
     body: new URLSearchParams({ data: query }).toString(),
-  });
+  }, overpassTimeoutMs);
   if (!response.ok) {
     const text = await response.text();
     throw httpError(response.status, `Map discovery failed: ${text.slice(0, 500)}`);
@@ -246,12 +281,21 @@ export async function discoverLocations(input: { latitude: number; longitude: nu
   const radiusMeters = input.category === 'ACTIVITY' ? Math.min(input.radiusMeters, 1800) : input.radiusMeters;
   const limit = input.category === 'ACTIVITY' ? Math.min(input.limit, 18) : input.limit;
   const around = `(around:${radiusMeters},${input.latitude},${input.longitude})`;
-  const relationQuery = input.category === 'ACTIVITY' ? '' : `relation${around}${filter};`;
+  const relationQuery = input.category === 'ACTIVITY' || input.category === 'OUTDOOR' ? '' : `relation${around}${filter};`;
+  const outdoorExtras = input.category === 'OUTDOOR'
+    ? `
+      node${around}["tourism"~"^(viewpoint|alpine_hut|wilderness_hut|picnic_site|camp_site)$"];
+      way${around}["tourism"~"^(viewpoint|alpine_hut|wilderness_hut|picnic_site|camp_site)$"];
+      node${around}["leisure"~"^(nature_reserve|park)$"];
+      way${around}["leisure"~"^(nature_reserve|park)$"];
+    `
+    : '';
   const query = `
-    [out:json][timeout:18];
+    [out:json][timeout:35];
     (
       node${around}${filter};
       way${around}${filter};
+      ${outdoorExtras}
       ${relationQuery}
     );
     out center tags ${limit};
@@ -308,12 +352,12 @@ async function wikipediaGet(origin: string, path: string, query: Record<string, 
   const cached = readCache<unknown>(cacheKey);
   if (cached) return cached;
 
-  const response = await fetchWithTimeout(url, {
+  const response = await withWikimediaRateLimit(() => fetchWithTimeout(url, {
     headers: {
       'Accept': 'application/json',
-      'User-Agent': env.NOMINATIM_USER_AGENT,
+      'User-Agent': env.WIKIMEDIA_USER_AGENT,
     },
-  });
+  }, wikipediaTimeoutMs));
   if (response.status === 404) return undefined;
   if (!response.ok) {
     const text = await response.text();

@@ -22,10 +22,10 @@ const navigationItems: Array<{ label: string; hint: string; icon: ElementType; t
   { label: 'Místa', hint: 'Seznam míst a návrhů', icon: Landmark, tab: 'places' },
   { label: 'Itinerář', hint: 'Denní plán', icon: Route, tab: 'itinerary' },
   { label: 'Ubytování', hint: 'Nabídky a vybrané pobyty', icon: BedDouble, tab: 'stay' },
-  { label: 'Výdaje', hint: 'Náklady tripu', icon: Wallet, tab: 'costs' },
+  { label: 'Výdaje', hint: 'Náklady výletu', icon: Wallet, tab: 'costs' },
   { label: 'Vyrovnání', hint: 'Platby mezi lidmi', icon: ArrowLeftRight, tab: 'settle' },
   { label: 'Členové', hint: 'Účastníci a role', icon: Users, tab: 'members' },
-  { label: 'Checklist', hint: 'Úkoly před cestou', icon: ListChecks, tab: 'checklist' },
+  { label: 'Seznam úkolů', hint: 'Úkoly před cestou', icon: ListChecks, tab: 'checklist' },
   { label: 'Hlasování', hint: 'Ankety skupiny', icon: Vote, tab: 'polls' },
   { label: 'Přehled', hint: 'Poznámky, aktivita a nastavení', icon: LayoutGrid, tab: 'more' },
 ];
@@ -71,7 +71,7 @@ export function CommandPalette({ planner, showTrigger = false }: { planner: Trip
     { label: 'Přidat výdaj', hint: 'Rozdělit náklad', icon: Wallet, run: () => openModal('addExpense') },
     { label: 'Přidat poznámku', hint: 'Poznámka do přehledu', icon: StickyNote, run: () => openModal('addNote') },
     { label: 'Nová anketa', hint: 'Hlasování skupiny', icon: Vote, run: () => openModal('createPoll') },
-    { label: 'Nastavení tripu', hint: 'Termín, destinace a pravidla', icon: Settings, run: () => openModal('tripSettings') },
+    { label: 'Nastavení výletu', hint: 'Termín, destinace a pravidla', icon: Settings, run: () => openModal('tripSettings') },
   ], [openModal]);
 
   return (
@@ -115,10 +115,10 @@ export function CommandPalette({ planner, showTrigger = false }: { planner: Trip
                 })}
               </CommandGroup>
               <CommandGroup heading="Plánování">
-                <CommandItem value="Checklist úkoly dokončení před cestou" onSelect={() => runAndClose(() => goTo('checklist'))}>
+                <CommandItem value="Seznam úkolů dokončení před cestou" onSelect={() => runAndClose(() => goTo('checklist'))}>
                   <CheckSquare className="size-4" />
                   <span className="flex1">Zkontrolovat přípravu</span>
-                  <span className="text-xs text-muted-foreground">Checklist</span>
+                  <span className="text-xs text-muted-foreground">Seznam úkolů</span>
                 </CommandItem>
               </CommandGroup>
             </CommandList>

@@ -88,11 +88,12 @@ export function PlanScreen({ planner }: { planner: TripPlannerController }) {
               weather={state.data.weather}
               onOpenPlace={actions.setSelectedPlaceId}
               onEditStop={(day, stop) => setEditingStop({ day, stop })}
-              actorTripMemberId={state.actorMember?.id}
-              onAttendance={(stopId, status) => void actions.updateStopAttendance(stopId, status)}
               onUpdateDay={(dayId, input) => void actions.updateItineraryDay(dayId, input)}
+              onSearchLocations={actions.searchLocations}
+              onCreatePlace={actions.addPlace}
               onOptimize={() => void actions.optimizeRoute()}
               routeCapabilities={state.data.routeCapabilities}
+              places={state.data.places}
             />
           )}
           {planView === 'stay' && (
@@ -103,8 +104,10 @@ export function PlanScreen({ planner }: { planner: TripPlannerController }) {
               allPlaces={state.data.places}
               actorUserId={state.actorUserId}
               selectedId={state.selectedAccommodationId}
+              hasSearched={state.accommodationSearchDone}
               searching={state.searchingStay}
               onSearch={(data) => void actions.searchStays(data)}
+              onSearchLocations={actions.searchLocations}
               onSelect={actions.setSelectedAccommodationId}
               onSelectSaved={actions.setSelectedPlaceId}
               onSave={(stay) => void actions.saveAccommodation(stay)}

@@ -18,13 +18,22 @@ export function StatusActionButton({
   active,
   tone,
   className,
-  variant = 'outline',
+  variant,
+  size,
   ...props
 }: ButtonProps & { active: boolean; tone: StatusTone }) {
+  const compact = size === 'sm';
+  const actionVariant = variant ?? (compact ? (active ? 'outline' : 'ghost') : 'outline');
+
   return (
     <Button
-      variant={variant}
-      className={cn(statusActionClass(tone, active), className)}
+      variant={actionVariant}
+      size={size}
+      className={cn(
+        compact && 'h-[30px] rounded-[8px] px-[9px] text-[12px] gap-1 [&_svg]:size-[13px]',
+        statusActionClass(tone, active),
+        className,
+      )}
       data-active={active ? 'true' : undefined}
       {...props}
     />

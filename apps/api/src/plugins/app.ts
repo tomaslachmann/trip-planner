@@ -19,6 +19,7 @@ import { pollRoutes } from '../modules/poll/poll.routes.js';
 import { activityRoutes } from '../modules/activity/activity.routes.js';
 import { weatherRoutes } from '../modules/weather/weather.routes.js';
 import { aiRoutes } from '../modules/ai/ai.routes.js';
+import { uploadRoutes } from '../modules/upload/upload.routes.js';
 import { registerOpenApi } from './openapi.js';
 
 export async function registerApp(app: FastifyInstance) {
@@ -56,6 +57,7 @@ export async function registerApp(app: FastifyInstance) {
   await app.register(weatherRoutes, { prefix: '/weather' });
   await app.register(aiRoutes, { prefix: '/ai' });
   await app.register(activityRoutes, { prefix: '/activity' });
+  await app.register(uploadRoutes, { prefix: '/uploads' });
   await app.register(expenseRoutes, { prefix: '/expenses' });
   await app.register(settlementRoutes, { prefix: '/settlements' });
   await app.register(paymentRoutes, { prefix: '/payments' });

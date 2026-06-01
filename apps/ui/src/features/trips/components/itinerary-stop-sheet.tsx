@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { ValidatedForm } from '@/components/ui/validated-form';
 import { ConfirmDestructiveAction } from './confirm-destructive-action';
 import { isMemberAvailableForRange, memberAvailabilitySummary } from '../lib/availability';
 import type { ItineraryDay, ItineraryStop } from '../types';
@@ -90,7 +91,7 @@ export function ItineraryStopSheet({
           <SheetTitle className="t-h3">Upravit zastávku</SheetTitle>
           <span aria-hidden="true" style={{ width: 64 }} />
         </div>
-        <form
+        <ValidatedForm
           className="px18"
           style={{ paddingBottom: 18 }}
           onSubmit={(event) => {
@@ -111,7 +112,7 @@ export function ItineraryStopSheet({
           <div className="row g12">
             <div className="flex1">
               <Label htmlFor="stopStartsAt">Čas začátku</Label>
-              <Input id="stopStartsAt" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} />
+              <Input id="stopStartsAt" name="startsAtTime" type="time" value={startsAtTime} onChange={(event) => setStartsAtTime(event.target.value)} required />
             </div>
             <div className="flex1">
               <Label htmlFor="stopEndsAt">Konec</Label>
@@ -169,7 +170,7 @@ export function ItineraryStopSheet({
             <ConfirmDestructiveAction className="flex1" label="Smazat" onConfirm={() => { onDelete(editing.stop.id); onClose(); }} />
             <Button className="flex1" type="submit" disabled={!hasParticipants}>Uložit</Button>
           </div>
-        </form>
+        </ValidatedForm>
       </SheetContent>
     </Sheet>
   );

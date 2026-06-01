@@ -15,6 +15,8 @@ export const searchAccommodationsSchema = refineDateRange(actorUserIdSchema.exte
   latitude: latitudeSchema.optional(),
   longitude: longitudeSchema.optional(),
   radiusKm: z.number().positive().max(100).default(15),
+  minPrice: z.number().nonnegative().optional(),
+  maxPrice: z.number().positive().optional(),
   limit: z.number().int().positive().max(50).default(20),
   bookingRequest: z.record(z.string(), z.unknown()).optional(),
 }));
@@ -32,6 +34,7 @@ export const saveAccommodationSchema = actorUserIdSchema.extend({
   reviewCount: z.number().int().nonnegative().optional(),
   sourceUrl: z.string().url().optional(),
   deepLinkUrl: z.string().url().optional(),
+  photoUrl: z.string().url().optional(),
   provider: z.string().min(1).default('booking'),
 });
 
@@ -40,6 +43,7 @@ export const accommodationSearchResultSchema = z.object({
   externalId: z.string(),
   name: z.string(),
   type: z.string().optional(),
+  photoUrl: z.string().url().optional(),
   latitude: latitudeSchema,
   longitude: longitudeSchema,
   priceTotal: z.number().optional(),
@@ -70,6 +74,7 @@ export const savedAccommodationResponseSchema = z.object({
   durationMin: z.number().int().nullable(),
   estimatedCost: z.number().nullable(),
   sourceUrl: z.string().url().nullable(),
+  imageUrl: z.string().url().nullable(),
   accommodationProvider: z.string(),
   accommodationExternalId: z.string(),
   accommodationRating: z.number().nullable(),

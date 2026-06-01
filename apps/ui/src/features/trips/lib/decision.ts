@@ -4,7 +4,7 @@ export type PlaceStatus = 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED';
 
 export const placeStatusMeta: Record<PlaceStatus, { label: string; cls: string }> = {
   PROPOSED: { label: 'Návrh', cls: 'muted' },
-  SHORTLISTED: { label: 'Shortlist', cls: 'amber' },
+  SHORTLISTED: { label: 'Užší výběr', cls: 'amber' },
   APPROVED: { label: 'Schváleno', cls: 'green' },
   REJECTED: { label: 'Zamítnuto', cls: 'red' },
 };
@@ -49,7 +49,7 @@ export function placeScore(place: Place) {
   let mood = 'Smíšené';
   let cls = 'amber';
   if (score >= 78 && votes.no === 0) {
-    mood = 'Top';
+    mood = 'Nejlepší';
     cls = 'green';
   } else if (score >= 62) {
     mood = 'Oblíbené';
@@ -123,7 +123,7 @@ export function buildDecisionItems(input: {
     ...(accommodations.length > 0 && approvedAccommodations.length === 0 ? [{ tone: 'amber' as const, title: 'Vybrat ubytování', detail: `${accommodations.length} kandidátů čeká na rozhodnutí`, target: 'stay' as const }] : []),
     ...(missingItineraryDays.length > 0 ? [{ tone: 'amber' as const, title: 'Doplnit itinerář', detail: `${missingItineraryDays.length} dnů nemá žádné zastávky`, target: 'itinerary' as const }] : []),
     ...(openSettlements.length > 0 ? [{ tone: 'red' as const, title: 'Vyrovnat platby', detail: `${openSettlements.length} převodů ještě není potvrzeno`, target: 'settle' as const }] : []),
-    ...(pendingPlaces.length > 0 ? [{ tone: 'muted' as const, title: 'Rozhodnout místa', detail: `${pendingPlaces.length} míst čeká na první hlas nebo status`, target: 'places' as const }] : []),
-    ...(rainyDays.length > 0 ? [{ tone: 'amber' as const, title: 'Zkontrolovat rain plan', detail: `${rainyDays.length} předpovědí má vyšší riziko deště`, target: 'itinerary' as const }] : []),
+    ...(pendingPlaces.length > 0 ? [{ tone: 'muted' as const, title: 'Rozhodnout místa', detail: `${pendingPlaces.length} míst čeká na první hlas nebo stav`, target: 'places' as const }] : []),
+    ...(rainyDays.length > 0 ? [{ tone: 'amber' as const, title: 'Zkontrolovat plán do deště', detail: `${rainyDays.length} předpovědí má vyšší riziko deště`, target: 'itinerary' as const }] : []),
   ];
 }

@@ -112,6 +112,96 @@
             }
           }
         }
+      },
+      "patch": {
+        "summary": "Update current user settings",
+        "tags": [
+          "auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "travelBudgetPreference": {
+                    "type": "string",
+                    "enum": [
+                      "BUDGET",
+                      "NORMAL",
+                      "PREMIUM"
+                    ]
+                  },
+                  "foodNotes": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "accessibilityNotes": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "defaultCurrency": {
+                    "type": "string",
+                    "enum": [
+                      "CZK",
+                      "EUR",
+                      "USD",
+                      "GBP"
+                    ]
+                  },
+                  "paymentAccount": {
+                    "type": "object",
+                    "properties": {
+                      "recipientName": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "iban": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "domesticAccount": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "bankCode": {
+                        "nullable": true,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/auth/sign-out": {
@@ -1679,6 +1769,9 @@
                     "minimum": -180,
                     "maximum": 180
                   },
+                  "locationLabel": {
+                    "type": "string"
+                  },
                   "durationMin": {
                     "type": "integer",
                     "minimum": 0,
@@ -1690,6 +1783,10 @@
                     "minimum": 0
                   },
                   "sourceUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "imageUrl": {
                     "type": "string",
                     "format": "uri"
                   },
@@ -1786,6 +1883,10 @@
                     "minimum": -180,
                     "maximum": 180
                   },
+                  "locationLabel": {
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "durationMin": {
                     "nullable": true,
                     "type": "integer",
@@ -1799,6 +1900,11 @@
                     "minimum": 0
                   },
                   "sourceUrl": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "imageUrl": {
                     "nullable": true,
                     "type": "string",
                     "format": "uri"
@@ -4115,6 +4221,10 @@
                           "type": {
                             "type": "string"
                           },
+                          "photoUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          },
                           "latitude": {
                             "type": "number",
                             "minimum": -90,
@@ -4239,6 +4349,10 @@
                     "type": "string",
                     "format": "uri"
                   },
+                  "photoUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
                   "provider": {
                     "default": "booking",
                     "type": "string",
@@ -4316,6 +4430,11 @@
                       "type": "string",
                       "format": "uri"
                     },
+                    "imageUrl": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "uri"
+                    },
                     "accommodationProvider": {
                       "type": "string"
                     },
@@ -4375,6 +4494,7 @@
                     "durationMin",
                     "estimatedCost",
                     "sourceUrl",
+                    "imageUrl",
                     "accommodationProvider",
                     "accommodationExternalId",
                     "accommodationRating",
@@ -5187,7 +5307,8 @@
                 "SIGHTS",
                 "FOOD",
                 "ACTIVITY",
-                "TRANSPORT"
+                "TRANSPORT",
+                "OUTDOOR"
               ]
             },
             "in": "query",
@@ -5204,6 +5325,84 @@
             },
             "in": "query",
             "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "JSON response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/locations/wikipedia-summary": {
+      "get": {
+        "summary": "Fetch place detail from Wikipedia summary API",
+        "tags": [
+          "locations"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 2
+            },
+            "in": "query",
+            "name": "name",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "in": "query",
+            "name": "latitude",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "in": "query",
+            "name": "longitude",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": "cs",
+              "type": "string",
+              "pattern": "^[a-z-]{2,12}$"
+            },
+            "in": "query",
+            "name": "language",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": 1200,
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 10000
+            },
+            "in": "query",
+            "name": "radiusMeters",
             "required": false
           }
         ],
@@ -5639,6 +5838,455 @@
         }
       }
     },
+    "/ai/trip/{tripId}/suggestions": {
+      "post": {
+        "summary": "Generate AI place and activity suggestions as a verified draft",
+        "tags": [
+          "ai"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "openai-agents"
+                      ]
+                    },
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "PLACE",
+                              "FOOD",
+                              "ACTIVITY",
+                              "DAY_TRIP",
+                              "TRANSPORT",
+                              "CUSTOM"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "estimatedDurationMin": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "estimatedCost": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "weatherSuitability": {
+                            "type": "string",
+                            "enum": [
+                              "INDOOR",
+                              "OUTDOOR",
+                              "MIXED"
+                            ]
+                          },
+                          "confidence": {
+                            "type": "number"
+                          },
+                          "searchQuery": {
+                            "type": "string"
+                          },
+                          "verification": {
+                            "type": "object",
+                            "properties": {
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "VERIFIED",
+                                  "PARTIAL",
+                                  "UNVERIFIED"
+                                ]
+                              },
+                              "provider": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "externalId": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "latitude": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "longitude": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "title": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "description": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "imageUrl": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "sourceUrl": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "wikipediaUrl": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "status",
+                              "provider",
+                              "externalId",
+                              "latitude",
+                              "longitude",
+                              "title",
+                              "description",
+                              "imageUrl",
+                              "sourceUrl",
+                              "wikipediaUrl"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "reason",
+                          "estimatedDurationMin",
+                          "estimatedCost",
+                          "weatherSuitability",
+                          "confidence",
+                          "searchQuery",
+                          "verification"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "generatedAt",
+                    "model",
+                    "summary",
+                    "candidates"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/trip/{tripId}/plan-draft": {
+      "post": {
+        "summary": "Generate an AI itinerary draft without mutating trip data",
+        "tags": [
+          "ai"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "openai-agents"
+                      ]
+                    },
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "theme": {
+                            "type": "string"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXISTING_PLACE",
+                                    "NEW_CANDIDATE",
+                                    "NOTE"
+                                  ]
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "startsAt": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "durationMin": {
+                                  "nullable": true,
+                                  "type": "number"
+                                },
+                                "placeId": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "candidateId": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "title",
+                                "startsAt",
+                                "durationMin",
+                                "placeId",
+                                "candidateId",
+                                "reason"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "date",
+                          "title",
+                          "theme",
+                          "items"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "PLACE",
+                              "FOOD",
+                              "ACTIVITY",
+                              "DAY_TRIP",
+                              "TRANSPORT",
+                              "CUSTOM"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "estimatedDurationMin": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "estimatedCost": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "weatherSuitability": {
+                            "type": "string",
+                            "enum": [
+                              "INDOOR",
+                              "OUTDOOR",
+                              "MIXED"
+                            ]
+                          },
+                          "confidence": {
+                            "type": "number"
+                          },
+                          "searchQuery": {
+                            "type": "string"
+                          },
+                          "verification": {
+                            "type": "object",
+                            "properties": {
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "VERIFIED",
+                                  "PARTIAL",
+                                  "UNVERIFIED"
+                                ]
+                              },
+                              "provider": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "externalId": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "latitude": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "longitude": {
+                                "nullable": true,
+                                "type": "number"
+                              },
+                              "title": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "description": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "imageUrl": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "sourceUrl": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "wikipediaUrl": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "status",
+                              "provider",
+                              "externalId",
+                              "latitude",
+                              "longitude",
+                              "title",
+                              "description",
+                              "imageUrl",
+                              "sourceUrl",
+                              "wikipediaUrl"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "type",
+                          "reason",
+                          "estimatedDurationMin",
+                          "estimatedCost",
+                          "weatherSuitability",
+                          "confidence",
+                          "searchQuery",
+                          "verification"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "generatedAt",
+                    "model",
+                    "summary",
+                    "days",
+                    "candidates"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/activity/trip/{tripId}": {
       "get": {
         "summary": "List trip activity events",
@@ -5671,6 +6319,125 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/uploads/receipts": {
+      "post": {
+        "summary": "Upload expense receipt",
+        "tags": [
+          "uploads"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tripId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 180
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "dataUrl": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 12582912
+                  },
+                  "actorUserId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tripId",
+                  "fileName",
+                  "dataUrl"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "fileName": {
+                      "type": "string"
+                    },
+                    "contentType": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "url",
+                    "fileName",
+                    "contentType",
+                    "size"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/uploads/receipts/{tripId}/{fileName}": {
+      "get": {
+        "summary": "Get expense receipt file",
+        "tags": [
+          "uploads"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "fileName",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
           }
         }
       }
