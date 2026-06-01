@@ -25,6 +25,7 @@ function DraggablePlace({
   selected,
   onApprove,
   onShortlist,
+  onAdd,
   onMore,
 }: {
   place: Place;
@@ -32,6 +33,7 @@ function DraggablePlace({
   selected?: boolean;
   onApprove?: () => void;
   onShortlist?: () => void;
+  onAdd?: () => void;
   onMore: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `place:${place.id}` });
@@ -48,6 +50,7 @@ function DraggablePlace({
         selected={selected}
         dragging={isDragging}
         onSelect={onSelect}
+        onAdd={onAdd}
         onApprove={onApprove}
         onShortlist={onShortlist}
         onMore={onMore}
@@ -65,6 +68,7 @@ export function PlacesPanel({
   onSelect,
   onVotePlace,
   onStatusChange,
+  onAddPlaceToItinerary,
   onEditPlace,
 }: {
   places: Place[];
@@ -75,6 +79,7 @@ export function PlacesPanel({
   onSelect: (placeId: string) => void;
   onVotePlace: (placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') => void;
   onStatusChange?: (placeId: string, status: 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED') => void;
+  onAddPlaceToItinerary?: (placeId: string) => void;
   onEditPlace: (placeId: string) => void;
 }) {
   const [filter, setFilter] = useState<StatusFilter>('all');
@@ -136,25 +141,27 @@ export function PlacesPanel({
             <EmptyState icon={<MapPin />} title={places.length === 0 ? 'Zatím tu nejsou žádná místa.' : 'Žádná místa neodpovídají filtru.'} text={places.length === 0 ? 'Použij spodní tlačítko plus a přidej první místo.' : 'Zkus jiné hledání nebo filtr.'} />
           </Card>
         )}
-        {visiblePlaces.map((place, index) => (
-          <div key={place.id}>
-            {index > 0 && <hr className="sep" />}
-            <DraggablePlace
-              place={place}
-              selected={selectedPlaceId === place.id}
-              onSelect={() => onSelect(place.id)}
-              onApprove={canChangeStatus(place) ? () => {
-                onStatusChange?.(place.id, 'APPROVED');
-                onVotePlace(place.id, 'MUST_HAVE');
-              } : undefined}
-              onShortlist={canChangeStatus(place) ? () => {
-                onStatusChange?.(place.id, 'SHORTLISTED');
-                onVotePlace(place.id, 'UP');
-              } : undefined}
-              onMore={() => onEditPlace(place.id)}
-            />
-          </div>
-        ))}
+        <div className="col g12">
+          {visiblePlaces.map((place) => (
+            <div key={place.id}>
+              <DraggablePlace
+                place={place}
+                selected={selectedPlaceId === place.id}
+                onSelect={() => onSelect(place.id)}
+                onAdd={onAddPlaceToItinerary ? () => onAddPlaceToItinerary(place.id) : undefined}
+                onApprove={canChangeStatus(place) ? () => {
+                  onStatusChange?.(place.id, 'APPROVED');
+                  onVotePlace(place.id, 'MUST_HAVE');
+                } : undefined}
+                onShortlist={canChangeStatus(place) ? () => {
+                  onStatusChange?.(place.id, 'SHORTLISTED');
+                  onVotePlace(place.id, 'UP');
+                } : undefined}
+                onMore={() => onEditPlace(place.id)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

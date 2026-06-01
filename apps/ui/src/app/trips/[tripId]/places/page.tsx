@@ -1,7 +1,7 @@
 'use client';
 
 import { DndContext, closestCenter } from '@dnd-kit/core';
-import { ArrowUpDown, Edit3, MapPin, Plus, Search } from 'lucide-react';
+import { ArrowUpDown, MapPin, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -97,7 +97,7 @@ function DesktopPlacesPage({ planner }: { planner: TripPlannerController }) {
           ) : (
             <div className="grid2">
               {filtered.map((place) => (
-                <Card key={place.id} className="shadow-[var(--sh-sm)]" style={{ padding: '4px 16px' }}>
+                <div key={place.id}>
                   <PlaceRow
                     place={place}
                     selected={state.selectedPlaceId === place.id}
@@ -105,21 +105,12 @@ function DesktopPlacesPage({ planner }: { planner: TripPlannerController }) {
                     onAdd={() => void actions.addPlaceToItinerary(place.id)}
                     onApprove={canChangeStatus(place.createdById) ? () => void actions.updatePlaceStatus(place.id, 'APPROVED') : undefined}
                     onShortlist={canChangeStatus(place.createdById) ? () => void actions.updatePlaceStatus(place.id, 'SHORTLISTED') : undefined}
+                    onMore={() => {
+                      actions.setSelectedPlaceId(place.id);
+                      openModal('addPlace', true);
+                    }}
                   />
-                  <div className="row g8" style={{ padding: '0 0 12px 52px' }}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      type="button"
-                      onClick={() => {
-                        actions.setSelectedPlaceId(place.id);
-                        openModal('addPlace', true);
-                      }}
-                    >
-                      <Edit3 size={14} />Upravit
-                    </Button>
-                  </div>
-                </Card>
+                </div>
               ))}
             </div>
           )}
@@ -145,6 +136,7 @@ function MobilePlacesPage({ planner }: { planner: TripPlannerController }) {
           onSelect={actions.setSelectedPlaceId}
           onVotePlace={(placeId, value) => void actions.voteForPlace(placeId, value)}
           onStatusChange={(placeId, status) => void actions.updatePlaceStatus(placeId, status)}
+          onAddPlaceToItinerary={(placeId) => void actions.addPlaceToItinerary(placeId)}
           onEditPlace={(placeId) => {
             actions.setSelectedPlaceId(placeId);
             openModal('addPlace', true);
