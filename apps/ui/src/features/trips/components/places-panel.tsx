@@ -6,10 +6,12 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { cn } from '@/lib/utils';
 import type { Place, TripMember } from '../types';
 import { PlaceRow } from './place-row';
 import { normalizePlaceStatus, placeRecommendationScore, topPlaces } from '../lib/decision';
 import { PlaceScoreBadge } from './place-score-badge';
+import { statusActionClass, type StatusTone } from './status-action-button';
 
 type StatusFilter = 'all' | 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED';
 
@@ -20,6 +22,12 @@ const statusFilters: Array<{ key: StatusFilter; label: string }> = [
   { key: 'APPROVED', label: 'Schválené' },
   { key: 'REJECTED', label: 'Zamítnuté' },
 ];
+
+const statusFilterTone: Partial<Record<StatusFilter, StatusTone>> = {
+  SHORTLISTED: 'amber',
+  APPROVED: 'green',
+  REJECTED: 'red',
+};
 
 function DraggablePlace({
   place,
@@ -114,11 +122,19 @@ export function PlacesPanel({
           </Button>
         </div>
         <div className="chips mt12">
-          {statusFilters.map((item) => (
-            <button key={item.key} className={`chip${filter === item.key ? ' on' : ''}`} type="button" onClick={() => setFilter(item.key)}>
-              {item.label}
-            </button>
-          ))}
+          {statusFilters.map((item) => {
+            const tone = statusFilterTone[item.key];
+            return (
+              <button
+                key={item.key}
+                className={cn('chip', filter === item.key && 'on', filter === item.key && tone && statusActionClass(tone, true))}
+                type="button"
+                onClick={() => setFilter(item.key)}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

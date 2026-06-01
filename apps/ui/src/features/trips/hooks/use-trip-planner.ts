@@ -73,6 +73,32 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
   const actorMember = useMemo(() => selectedTrip?.members?.find((member) => member.userId === actorUserId), [actorUserId, selectedTrip]);
   const api = useMemo(() => createTripPlannerClient(accessToken), [accessToken]);
 
+  function patchPlace(placeId: string, patch: Partial<Place>) {
+    setData((current) => ({
+      ...current,
+      places: current.places.map((place) => place.id === placeId ? { ...place, ...patch } : place),
+    }));
+  }
+
+  function patchPlaceVote(placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') {
+    if (!actorUserId) return;
+    setData((current) => ({
+      ...current,
+      places: current.places.map((place) => {
+        if (place.id !== placeId) return place;
+        const votes = place.votes ?? [];
+        const existing = votes.findIndex((vote) => vote.userId === actorUserId);
+        const nextVote = { userId: actorUserId, value };
+        return {
+          ...place,
+          votes: existing >= 0
+            ? votes.map((vote, index) => index === existing ? { ...vote, value } : vote)
+            : [...votes, nextVote],
+        };
+      }),
+    }));
+  }
+
   function tripHref(tab: TabKey, tripId = selectedTripId) {
     if (!tripId) return '/trips';
     return `/trips/${encodeURIComponent(tripId)}/${encodeURIComponent(tab)}`;
@@ -491,16 +517,23 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
 
   async function voteForPlace(placeId: string, value: 'UP' | 'DOWN' | 'MAYBE' | 'MUST_HAVE') {
     if (!selectedTrip || !actorUserId) return setMessage('Nejdřív vyber trip a uživatele.');
+    const previousData = data;
+    patchPlaceVote(placeId, value);
     const { error } = await api.POST('/places/{id}/votes', {
       params: { path: { id: placeId } },
       body: { value },
     });
-    if (error) return setMessage('Hlas se nepodařilo uložit.');
+    if (error) {
+      setData(previousData);
+      return setMessage('Hlas se nepodařilo uložit.');
+    }
     await loadTripDetail(undefined, undefined, undefined, { force: true });
   }
 
   async function updateAccommodationStatus(placeId: string, status: 'SAVED' | 'SHORTLISTED' | 'SELECTED' | 'BOOKED' | 'REJECTED') {
     if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    const previousData = data;
+    patchPlace(placeId, { accommodationStatus: status });
     try {
       await apiFetch<Place>(`/places/${encodeURIComponent(placeId)}`, {
         method: 'PATCH',
@@ -508,12 +541,15 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
+      setData(previousData);
       setMessage('Stav ubytování se nepodařilo uložit.');
     }
   }
 
   async function updatePlaceStatus(placeId: string, status: 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED') {
     if (!selectedTrip || !actorUserId || !accessToken) return setMessage('Nejdřív vyber trip a uživatele.');
+    const previousData = data;
+    patchPlace(placeId, { status });
     try {
       await apiFetch<Place>(`/places/${encodeURIComponent(placeId)}`, {
         method: 'PATCH',
@@ -521,6 +557,7 @@ export function useTripPlanner({ routeTripId, routeView, redirectAfterSignIn = t
       }, accessToken);
       await loadTripDetail(undefined, undefined, undefined, { force: true });
     } catch {
+      setData(previousData);
       setMessage('Stav místa se nepodařilo uložit.');
     }
   }

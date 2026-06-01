@@ -8,6 +8,7 @@ import { accommodationStatusMeta, getAccommodationSummary, type AccommodationSta
 import { accommodationRecommendationScore, distanceMeters, topPlaces } from '../lib/decision';
 import type { Accommodation, Place, Trip } from '../types';
 import { ScoreBadge } from './place-score-badge';
+import { StatusActionButton } from './status-action-button';
 
 function currencyFor(trip?: Trip, place?: Place, stay?: Accommodation) {
   return stay?.currency ?? place?.accommodationCurrency ?? trip?.currency ?? 'EUR';
@@ -165,14 +166,14 @@ export function StayPanel({
                       <span className={`badge ${accommodationStatusMeta.BOOKED.cls}`}><Check size={12} />{accommodationStatusMeta.BOOKED.label}</span>
                     ) : (
                       <div className="row g8 wrap">
-                        <Button variant={stats.myVote === 'UP' ? 'secondary' : 'outline'} size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'UP')}><ThumbsUp />Shortlist</Button>
-                        <Button variant={stats.myVote === 'DOWN' ? 'secondary' : 'ghost'} size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'DOWN')}><ThumbsDown />Proti</Button>
-                        <Button size="sm" type="button" onClick={() => {
+                        <StatusActionButton active={stats.myVote === 'UP' || status === 'SHORTLISTED'} tone="amber" size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'UP')}><ThumbsUp />Shortlist</StatusActionButton>
+                        <StatusActionButton active={stats.myVote === 'DOWN' || status === 'REJECTED'} tone="red" variant={stats.myVote === 'DOWN' || status === 'REJECTED' ? 'outline' : 'ghost'} size="sm" type="button" onClick={() => onVotePlace?.(place.id, 'DOWN')}><ThumbsDown />Proti</StatusActionButton>
+                        <StatusActionButton active={status === 'SELECTED'} tone="green" size="sm" type="button" onClick={() => {
                           if (statusFlow.nextStatus === 'SELECTED') onVotePlace?.(place.id, 'MUST_HAVE');
                           else onStatusChange?.(place.id, statusFlow.nextStatus);
                         }}>
                           <Check />{statusFlow.actionLabel}
-                        </Button>
+                        </StatusActionButton>
                       </div>
                     )}
                   </div>

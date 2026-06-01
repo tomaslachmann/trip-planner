@@ -11,6 +11,7 @@ import { AiInsightsPanel } from './ai-insights-panel';
 import { MapCanvas } from './map-canvas';
 import { PlaceCommentCard } from './place-comment-card';
 import { PlaceScoreBadge } from './place-score-badge';
+import { StatusActionButton } from './status-action-button';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { normalizePlaceStatus, placeStatusMeta } from '../lib/decision';
 import type { DiscoveryPlace, Place } from '../types';
@@ -115,6 +116,8 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const selectedAccommodationPlace = state.selectedAccommodation
     ? state.data.places.find((place) => place.type === 'ACCOMMODATION' && place.accommodationExternalId === state.selectedAccommodation?.externalId)
     : undefined;
+  const selectedAccommodationVote = selectedAccommodationPlace?.votes?.find((vote) => vote.userId === state.actorUserId)?.value;
+  const selectedAccommodationStatus = String(selectedAccommodationPlace?.accommodationStatus ?? '').toUpperCase();
   const selectedWeather = placeWeatherLabel(planner);
   const selectedStatus = normalizePlaceStatus(state.selectedPlace?.status);
   const selectedStatusMeta = placeStatusMeta[selectedStatus];
@@ -214,15 +217,15 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                     </div>
                   </div>
                   <div className="row g8 mt14">
-                    <Button className="flex1" type="button" variant={selectedAccommodationPlace ? 'secondary' : 'default'} onClick={() => {
+                    <StatusActionButton className="flex1" active={selectedAccommodationVote === 'UP' || selectedAccommodationStatus === 'SHORTLISTED'} tone="amber" type="button" variant={selectedAccommodationPlace ? 'outline' : 'default'} onClick={() => {
                       if (selectedAccommodationPlace) {
                         void actions.voteForPlace(selectedAccommodationPlace.id, 'UP');
                         return;
                       }
                       void actions.saveAccommodation(state.selectedAccommodation!);
-                    }}>{selectedAccommodationPlace ? 'Hlasovat' : 'Uložit ubytování'}</Button>
+                    }}>{selectedAccommodationPlace ? 'Shortlist' : 'Uložit ubytování'}</StatusActionButton>
                     {selectedAccommodationPlace && (
-                      <Button variant="outline" type="button" onClick={() => void actions.updateAccommodationStatus(selectedAccommodationPlace.id, 'SELECTED')}>Vybrat</Button>
+                      <StatusActionButton active={selectedAccommodationStatus === 'SELECTED' || selectedAccommodationStatus === 'BOOKED'} tone="green" type="button" onClick={() => void actions.updateAccommodationStatus(selectedAccommodationPlace.id, 'SELECTED')}>Vybrat</StatusActionButton>
                     )}
                   </div>
                 </>
@@ -450,9 +453,9 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 )}
                 {canChangeSelectedStatus && (
                   <div className="row g8 mt12 wrap">
-                    <Button size="sm" variant={selectedStatus === 'SHORTLISTED' ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'SHORTLISTED')}>Shortlist</Button>
-                    <Button size="sm" variant={selectedStatus === 'APPROVED' ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'APPROVED')}>Schválit</Button>
-                    <Button size="sm" variant={selectedStatus === 'REJECTED' ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'REJECTED')}>Zamítnout</Button>
+                    <StatusActionButton active={selectedStatus === 'SHORTLISTED'} tone="amber" size="sm" type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'SHORTLISTED')}>Shortlist</StatusActionButton>
+                    <StatusActionButton active={selectedStatus === 'APPROVED'} tone="green" size="sm" type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'APPROVED')}>Schválit</StatusActionButton>
+                    <StatusActionButton active={selectedStatus === 'REJECTED'} tone="red" size="sm" type="button" onClick={() => void actions.updatePlaceStatus(state.selectedPlace!.id, 'REJECTED')}>Zamítnout</StatusActionButton>
                   </div>
                 )}
                 <hr className="sep mt20" />

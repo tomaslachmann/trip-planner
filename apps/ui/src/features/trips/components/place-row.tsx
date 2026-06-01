@@ -9,6 +9,7 @@ import type { Place } from '../types';
 import { categoryMeta } from './category';
 import { normalizePlaceStatus, placeStatusMeta, placeVoteCounts } from '../lib/decision';
 import { PlaceScoreBadge } from './place-score-badge';
+import { StatusActionButton } from './status-action-button';
 
 function weatherLabel(value?: string) {
   if (value === 'INDOOR') return 'Uvnitř';
@@ -51,6 +52,7 @@ export function PlaceRow({
   const normalizedStatus = normalizePlaceStatus(place.status);
   const status = placeStatusMeta[normalizedStatus];
   const approved = normalizedStatus === 'APPROVED';
+  const shortlisted = normalizedStatus === 'SHORTLISTED';
   return (
     <Card className={cn('p-[16px] shadow-[var(--sh-sm)] transition', selected && 'outline outline-2 outline-[var(--primary)]', dragging && 'dragging')}>
       <div className="row between" style={{ alignItems: 'flex-start', gap: 10 }}>
@@ -92,9 +94,9 @@ export function PlaceRow({
                   </Button>
                 )}
                 {onShortlist && (
-                  <Button variant="ghost" size="sm" type="button" onClick={onShortlist} disabled={dragging}>
+                  <StatusActionButton active={shortlisted} tone="amber" variant={shortlisted ? 'outline' : 'ghost'} size="sm" type="button" onClick={onShortlist} disabled={dragging}>
                     <Bookmark />Shortlist
-                  </Button>
+                  </StatusActionButton>
                 )}
               </>
             )}

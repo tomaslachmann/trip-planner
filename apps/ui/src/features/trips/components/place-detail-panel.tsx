@@ -11,6 +11,7 @@ import type { Place } from '../types';
 import { CategoryBadge } from './category';
 import { PlaceCommentCard } from './place-comment-card';
 import { PlaceScoreBadge } from './place-score-badge';
+import { StatusActionButton, type StatusTone } from './status-action-button';
 
 function voteCounts(place: Place) {
   const values = place.votes ?? [];
@@ -44,10 +45,10 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
   const status = normalizePlaceStatus(place.status);
   const statusMeta = placeStatusMeta[status];
   const canChangeStatus = place.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN';
-  const statusActions: Array<{ status: PlaceStatus; label: string }> = [
-    { status: 'SHORTLISTED', label: 'Shortlist' },
-    { status: 'APPROVED', label: 'Schválit' },
-    { status: 'REJECTED', label: 'Zamítnout' },
+  const statusActions: Array<{ status: PlaceStatus; label: string; tone: StatusTone }> = [
+    { status: 'SHORTLISTED', label: 'Shortlist', tone: 'amber' },
+    { status: 'APPROVED', label: 'Schválit', tone: 'green' },
+    { status: 'REJECTED', label: 'Zamítnout', tone: 'red' },
   ];
 
   return (
@@ -92,9 +93,9 @@ export function PlaceDetailPanel({ planner, compact = false }: { planner: TripPl
         {canChangeStatus && (
           <div className="row g8 mt12 wrap">
             {statusActions.map((item) => (
-              <Button key={item.status} size="sm" variant={status === item.status ? 'secondary' : 'outline'} type="button" onClick={() => void actions.updatePlaceStatus(place.id, item.status)}>
+              <StatusActionButton key={item.status} active={status === item.status} tone={item.tone} size="sm" type="button" onClick={() => void actions.updatePlaceStatus(place.id, item.status)}>
                 {item.label}
-              </Button>
+              </StatusActionButton>
             ))}
           </div>
         )}
