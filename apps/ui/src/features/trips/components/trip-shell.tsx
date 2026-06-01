@@ -170,8 +170,8 @@ function DesktopShellInner({ planner, children }: { planner: TripPlannerControll
             )}
             {(state.selectedTrip?.members ?? []).length > 0 && (
               <div className="av-row">
-                {(state.selectedTrip?.members ?? []).slice(0, 4).map((m, i) => (
-                  <div key={m.userId} className={`av sm av-c${i % 5}`}>{m.user.name[0]}</div>
+                {(state.selectedTrip?.members ?? []).slice(0, 4).map((m) => (
+                  <Avatar key={m.userId} name={m.user.name} size="sm" />
                 ))}
               </div>
             )}

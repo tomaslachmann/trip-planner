@@ -14,6 +14,7 @@ import type { TripPlannerController } from '../hooks/use-trip-planner';
 import { isMemberAvailableForRange, memberAvailabilitySummary } from '../lib/availability';
 import { categoryMeta } from './category';
 import { LocationCombobox } from './location-combobox';
+import { Avatar } from './avatar';
 
 const EXPENSE_CATEGORIES = [
   { value: 'FOOD', label: 'Jídlo' },
@@ -133,9 +134,9 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
 
           <Label className="mt16">Kdo zaplatil</Label>
           <div className="chips">
-            {members.map((m, i) => (
+            {members.map((m) => (
               <ChipButton key={m.userId} selected={paidById === m.userId} onClick={() => setPaidById(m.userId)}>
-                <div className={`av sm av-c${i % 5}`}>{m.user.name[0]}</div>
+                <Avatar name={m.user.name} size="sm" />
                 {m.user.name}
               </ChipButton>
             ))}
@@ -162,7 +163,7 @@ export function AddExpenseSheet({ planner, edit, onClose }: { planner: TripPlann
                   >
                     <Checkbox checked={splitScope === 'all' || !!sel[m.userId]} disabled={splitScope === 'all'} />
                     {splitScope === 'selected' && sel[m.userId] && <input type="hidden" name="splitUserIds" value={m.userId} />}
-                    <div className={`av sm av-c${i % 5}`}>{m.user.name[0]}</div>
+                    <Avatar name={m.user.name} size="sm" />
                     <span className="t-sm medi">{m.user.name}</span>
                   </div>
                   <span className="mono t-sm tnum muted">{splitScope === 'all' || sel[m.userId] ? `${currency} -` : '-'}</span>
