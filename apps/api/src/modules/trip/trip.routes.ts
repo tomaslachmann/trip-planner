@@ -76,6 +76,8 @@ export async function tripRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const actorUserId = getActorUserId(request);
     await requireTripMember(id, actorUserId);
+    const trip = await prisma.trip.findUniqueOrThrow({ where: { id }, select: { startsAt: true, endsAt: true } });
+    await syncItineraryDaysForTrip(id, trip.startsAt, trip.endsAt);
     return prisma.trip.findUniqueOrThrow({
       where: { id },
       include: {
