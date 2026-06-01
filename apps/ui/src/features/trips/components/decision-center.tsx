@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { accommodationRecommendationScore, buildDecisionItems, topPlaces } from '../lib/decision';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
 import type { TabKey } from '../types';
+import { PlaceScoreBadge, ScoreBadge } from './place-score-badge';
 
 const itemIcon: Record<string, ElementType> = {
   stay: BedDouble,
@@ -84,9 +85,9 @@ export function DecisionCenter({ planner, compact = false }: { planner: TripPlan
             {top.length > 0 && (
               <div className="col g6">
                 <span className="faint t-xs">Top místa</span>
-                {top.map(({ place, score }) => (
+                {top.map(({ place }) => (
                   <Button className="justify-start" key={place.id} size="sm" variant="outline" type="button" onClick={() => { actions.setSelectedPlaceId(place.id); actions.setActiveTab('places'); }}>
-                    <MapPin />{place.name}<span className="ml-auto badge muted">{score}</span>
+                    <MapPin />{place.name}<PlaceScoreBadge place={place} className="ml-auto" />
                   </Button>
                 ))}
               </div>
@@ -95,7 +96,7 @@ export function DecisionCenter({ planner, compact = false }: { planner: TripPlan
               <div className="col g6">
                 <span className="faint t-xs">Nejlepší ubytování</span>
                 <Button className="justify-start" size="sm" variant="outline" type="button" onClick={() => { actions.setSelectedPlaceId(bestStay.place.id); actions.setActiveTab('stay'); }}>
-                  <BedDouble />{bestStay.place.name}<span className="ml-auto badge green">{bestStay.score}</span>
+                  <BedDouble />{bestStay.place.name}<ScoreBadge score={bestStay.score} className="ml-auto" title="Skóre ubytování" />
                 </Button>
               </div>
             )}

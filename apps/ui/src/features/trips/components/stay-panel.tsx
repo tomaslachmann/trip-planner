@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { accommodationStatusMeta, getAccommodationSummary, type AccommodationStatus, type AccommodationVoteValue } from '../lib/accommodation-scoring';
 import { accommodationRecommendationScore, distanceMeters, topPlaces } from '../lib/decision';
 import type { Accommodation, Place, Trip } from '../types';
+import { ScoreBadge } from './place-score-badge';
 
 function currencyFor(trip?: Trip, place?: Place, stay?: Accommodation) {
   return stay?.currency ?? place?.accommodationCurrency ?? trip?.currency ?? 'EUR';
@@ -120,7 +121,7 @@ export function StayPanel({
                     </div>
                     <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
                       {index === 0 && <span className="badge green">Doporučeno</span>}
-                      <span className="badge solid">Score {score}</span>
+                      <ScoreBadge score={score} title="Skóre ubytování" />
                       <span className={`badge ${meta.cls}`}>{meta.label}</span>
                     </div>
                   </div>

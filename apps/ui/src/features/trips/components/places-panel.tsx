@@ -1,4 +1,5 @@
 import { ArrowUpDown, MapPin, Search } from 'lucide-react';
+import type { ButtonHTMLAttributes } from 'react';
 import { useMemo, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -8,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import type { Place, TripMember } from '../types';
 import { PlaceRow } from './place-row';
 import { normalizePlaceStatus, placeRecommendationScore, topPlaces } from '../lib/decision';
+import { PlaceScoreBadge } from './place-score-badge';
 
 type StatusFilter = 'all' | 'PROPOSED' | 'SHORTLISTED' | 'APPROVED' | 'REJECTED';
 
@@ -37,13 +39,12 @@ function DraggablePlace({
   onMore: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `place:${place.id}` });
+  const dragHandleProps = { ...attributes, ...(listeners ?? {}) } as ButtonHTMLAttributes<HTMLButtonElement>;
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={isDragging ? 'dragging' : undefined}
-      {...listeners}
-      {...attributes}
     >
       <PlaceRow
         place={place}
@@ -54,6 +55,7 @@ function DraggablePlace({
         onApprove={onApprove}
         onShortlist={onShortlist}
         onMore={onMore}
+        dragHandleProps={dragHandleProps}
       />
     </div>
   );
@@ -128,9 +130,16 @@ export function PlacesPanel({
               <span className="badge green">Doporučeno</span>
             </div>
             <div className="row g8 wrap">
-              {recommended.map(({ place, score }) => (
-                <button className="badge muted" type="button" key={place.id} onClick={() => onSelect(place.id)}>
-                  {place.name} · {score}
+              {recommended.map(({ place }) => (
+                <button
+                  className="row g6 pressable"
+                  type="button"
+                  key={place.id}
+                  onClick={() => onSelect(place.id)}
+                  style={{ border: 0, background: 'transparent', padding: 0, color: 'inherit' }}
+                >
+                  <span className="badge muted">{place.name}</span>
+                  <PlaceScoreBadge place={place} />
                 </button>
               ))}
             </div>

@@ -10,8 +10,9 @@ import { CategoryBadge } from './category';
 import { AiInsightsPanel } from './ai-insights-panel';
 import { MapCanvas } from './map-canvas';
 import { PlaceCommentCard } from './place-comment-card';
+import { PlaceScoreBadge } from './place-score-badge';
 import type { TripPlannerController } from '../hooks/use-trip-planner';
-import { normalizePlaceStatus, placeRecommendationScore, placeStatusMeta } from '../lib/decision';
+import { normalizePlaceStatus, placeStatusMeta } from '../lib/decision';
 import type { DiscoveryPlace, Place } from '../types';
 
 const filters = [
@@ -117,7 +118,6 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
   const selectedWeather = placeWeatherLabel(planner);
   const selectedStatus = normalizePlaceStatus(state.selectedPlace?.status);
   const selectedStatusMeta = placeStatusMeta[selectedStatus];
-  const selectedScore = state.selectedPlace ? placeRecommendationScore(state.selectedPlace, state.selectedTrip?.members ?? []) : null;
   const canChangeSelectedStatus = state.selectedPlace
     ? state.selectedPlace.createdById === state.actorUserId || state.actorMember?.role === 'OWNER' || state.actorMember?.role === 'ADMIN'
     : false;
@@ -246,7 +246,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                     <CategoryBadge type={state.selectedPlace.type} />
                     <div className="row g6 wrap" style={{ justifyContent: 'flex-end' }}>
                       <span className={`badge ${selectedStatusMeta.cls}`}>{selectedStatusMeta.label}</span>
-                      {selectedScore !== null && <span className="badge solid">Score {selectedScore}</span>}
+                      <PlaceScoreBadge place={state.selectedPlace} />
                       <span className="badge muted">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
                     </div>
                   </div>
@@ -413,7 +413,7 @@ export function MapScreen({ planner, desktop = false }: { planner: TripPlannerCo
                 <div className="row g8">
                   <CategoryBadge type={state.selectedPlace.type} />
                   <span className={`badge ${selectedStatusMeta.cls}`}>{selectedStatusMeta.label}</span>
-                  {selectedScore !== null && <span className="badge solid">Score {selectedScore}</span>}
+                  <PlaceScoreBadge place={state.selectedPlace} />
                   <span className="badge muted">{state.selectedPlace.votes?.length ?? 0} hlasů</span>
                 </div>
                 <Button size="icon" variant="ghost" type="button" onClick={() => setDetailOpen(false)}><X /></Button>

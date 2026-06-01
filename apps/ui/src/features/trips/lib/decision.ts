@@ -24,11 +24,50 @@ export function voteScore(place: Place) {
   }, 0);
 }
 
+export function placeVoteCounts(place: Place) {
+  const votes = place.votes ?? [];
+  const must = votes.filter((vote) => vote.value === 'MUST_HAVE').length;
+  const up = votes.filter((vote) => vote.value === 'UP').length;
+  const maybe = votes.filter((vote) => vote.value === 'MAYBE').length;
+  const no = votes.filter((vote) => vote.value === 'DOWN').length;
+
+  return {
+    must,
+    up,
+    maybe,
+    no,
+    support: must + up,
+    total: must + up + maybe + no,
+  };
+}
+
+export function placeScore(place: Place) {
+  const votes = placeVoteCounts(place);
+  if (!votes.total) return { score: 0, mood: 'Bez hlasů', cls: 'muted', voters: 0 };
+
+  const score = Math.round((votes.must * 100 + votes.up * 72 + votes.maybe * 40) / votes.total);
+  let mood = 'Smíšené';
+  let cls = 'amber';
+  if (score >= 78 && votes.no === 0) {
+    mood = 'Top';
+    cls = 'green';
+  } else if (score >= 62) {
+    mood = 'Oblíbené';
+    cls = 'green';
+  } else if (votes.no >= 2 && votes.must >= 2) {
+    mood = 'Sporné';
+    cls = 'red';
+  }
+
+  return { score, mood, cls, voters: votes.total };
+}
+
 export function placeRecommendationScore(place: Place, members: TripMember[] = []) {
+  const base = placeScore(place).score;
   const status = normalizePlaceStatus(place.status);
-  const statusScore = status === 'APPROVED' ? 30 : status === 'SHORTLISTED' ? 14 : status === 'REJECTED' ? -40 : 0;
-  const voteCoverage = members.length ? ((place.votes?.length ?? 0) / members.length) * 10 : 0;
-  return Math.round(Math.max(0, Math.min(100, 45 + statusScore + voteScore(place) * 6 + voteCoverage)));
+  const statusScore = status === 'APPROVED' ? 8 : status === 'SHORTLISTED' ? 4 : status === 'REJECTED' ? -24 : 0;
+  const voteCoverage = members.length ? Math.min(6, ((place.votes?.length ?? 0) / members.length) * 6) : 0;
+  return Math.round(Math.max(0, Math.min(100, base + statusScore + voteCoverage)));
 }
 
 export function topPlaces(places: Place[], members: TripMember[] = [], limit = 5) {

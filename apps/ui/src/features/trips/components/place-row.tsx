@@ -1,4 +1,5 @@
-import { Bookmark, CalendarPlus, Check, Clock, MessageCircle, Pencil, ThumbsUp, TrendingUp } from 'lucide-react';
+import { Bookmark, CalendarPlus, Check, Clock, GripVertical, MessageCircle, Pencil, ThumbsUp } from 'lucide-react';
+import type { ButtonHTMLAttributes } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,43 +7,13 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { Place } from '../types';
 import { categoryMeta } from './category';
-import { normalizePlaceStatus, placeStatusMeta } from '../lib/decision';
+import { normalizePlaceStatus, placeStatusMeta, placeVoteCounts } from '../lib/decision';
+import { PlaceScoreBadge } from './place-score-badge';
 
 function weatherLabel(value?: string) {
   if (value === 'INDOOR') return 'Uvnitř';
   if (value === 'OUTDOOR') return 'Venku';
   return 'Mix';
-}
-
-function voteCounts(place: Place) {
-  const votes = place.votes ?? [];
-  return {
-    must: votes.filter((vote) => vote.value === 'MUST_HAVE').length,
-    up: votes.filter((vote) => vote.value === 'UP').length,
-    maybe: votes.filter((vote) => vote.value === 'MAYBE').length,
-    no: votes.filter((vote) => vote.value === 'DOWN').length,
-  };
-}
-
-function placeScore(place: Place) {
-  const votes = voteCounts(place);
-  const total = votes.must + votes.up + votes.maybe + votes.no;
-  if (!total) return { score: 0, mood: 'Bez hlasů', cls: 'muted', voters: 0 };
-
-  const score = Math.round((votes.must * 100 + votes.up * 72 + votes.maybe * 40) / total);
-  let mood = 'Smíšené';
-  let cls = 'amber';
-  if (score >= 78 && votes.no === 0) {
-    mood = 'Top';
-    cls = 'green';
-  } else if (score >= 62) {
-    mood = 'Oblíbené';
-    cls = 'green';
-  } else if (votes.no >= 2 && votes.must >= 2) {
-    mood = 'Sporné';
-    cls = 'red';
-  }
-  return { score, mood, cls, voters: total };
 }
 
 function priceLabel(value: Place['estimatedCost']) {
@@ -61,6 +32,7 @@ export function PlaceRow({
   onApprove,
   onShortlist,
   onMore,
+  dragHandleProps,
 }: {
   place: Place;
   selected?: boolean;
@@ -70,14 +42,14 @@ export function PlaceRow({
   onApprove?: () => void;
   onShortlist?: () => void;
   onMore?: () => void;
+  dragHandleProps?: ButtonHTMLAttributes<HTMLButtonElement>;
 }) {
   const meta = categoryMeta(place.type);
   const Icon = meta.icon;
-  const votes = voteCounts(place);
+  const votes = placeVoteCounts(place);
   const comments = place.comments?.length ?? 0;
   const normalizedStatus = normalizePlaceStatus(place.status);
   const status = placeStatusMeta[normalizedStatus];
-  const score = placeScore(place);
   const approved = normalizedStatus === 'APPROVED';
   return (
     <Card className={cn('p-[16px] shadow-[var(--sh-sm)] transition', selected && 'outline outline-2 outline-[var(--primary)]', dragging && 'dragging')}>
@@ -103,12 +75,10 @@ export function PlaceRow({
           <span className="row g4"><Clock size={13} />{place.durationMin ?? 90}m</span>
           <span className="medi" style={{ color: 'var(--fg)' }}>{priceLabel(place.estimatedCost)}</span>
         </div>
-        <Badge variant="outline" className={cn('badge', score.cls)} style={{ flex: '0 0 auto' }} title={`${score.voters} hlasů`}>
-          <TrendingUp size={12} />{score.score} · {score.mood}
-        </Badge>
+        <PlaceScoreBadge place={place} style={{ flex: '0 0 auto' }} />
       </div>
 
-      {(onApprove || onShortlist || onAdd || onMore || approved) && (
+      {(onApprove || onShortlist || onAdd || onMore || approved || dragHandleProps) && (
         <>
           <Separator className="mt14" />
           <div className="row g6 mt14 wrap">
@@ -134,6 +104,18 @@ export function PlaceRow({
               </Button>
             )}
             <span className="flex1" />
+            {dragHandleProps && (
+              <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                aria-label="Přetáhnout místo"
+                className="h-[34px] w-[34px] rounded-sm cursor-grab active:cursor-grabbing"
+                {...dragHandleProps}
+              >
+                <GripVertical size={15} />
+              </Button>
+            )}
             {onMore && (
               <Button variant="ghost" size="icon" type="button" onClick={onMore} disabled={dragging} aria-label="Upravit místo" className="h-[34px] w-[34px] rounded-sm">
                 <Pencil size={15} />
